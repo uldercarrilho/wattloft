@@ -10,7 +10,9 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import httpx
+import psycopg
 import pytest
+from psycopg.errors import UndefinedTable
 from testcontainers.community.postgres import PostgresContainer
 
 OPERATOR_PASSWORD = "correct-horse"
@@ -26,6 +28,7 @@ class WattloftProcess:
     def __init__(self, database_url: str) -> None:
         self.database_url = database_url
         self.port = 0
+        self.ingest_port = 0
         self.url = ""
         self._proc: subprocess.Popen[bytes] | None = None
         self._log_file = None
@@ -33,6 +36,7 @@ class WattloftProcess:
 
     def start(self) -> None:
         self.port = _free_port()
+        self.ingest_port = _free_port()
         self.url = f"http://127.0.0.1:{self.port}"
         env = os.environ.copy()
         env.update(
@@ -41,6 +45,8 @@ class WattloftProcess:
                 "OPERATOR_PASSWORD": OPERATOR_PASSWORD,
                 "PLANT_VIEW_HOST": "127.0.0.1",
                 "PLANT_VIEW_PORT": str(self.port),
+                "INGEST_HOST": "127.0.0.1",
+                "INGEST_PORT": str(self.ingest_port),
             }
         )
         log_file = tempfile.NamedTemporaryFile(
@@ -70,8 +76,15 @@ class WattloftProcess:
                 )
             try:
                 httpx.get(self.url, timeout=0.3)
-                return
             except httpx.TransportError:
+                time.sleep(0.05)
+                continue
+            try:
+                with socket.create_connection(
+                    ("127.0.0.1", self.ingest_port), timeout=0.3
+                ):
+                    return
+            except OSError:
                 time.sleep(0.05)
         raise RuntimeError(
             f"Wattloft process did not listen in time:\n{self.log_text()}"
@@ -109,6 +122,15 @@ class WattloftProcess:
         self.wait_until_listening()
 
 
+def _reset_history(database_url: str) -> None:
+    with psycopg.connect(database_url) as connection:
+        try:
+            connection.execute("TRUNCATE TABLE samples RESTART IDENTITY")
+            connection.commit()
+        except UndefinedTable:
+            connection.rollback()
+
+
 @pytest.fixture(scope="session")
 def postgres_url() -> Iterator[str]:
     with PostgresContainer("postgres:16-alpine") as postgres:
@@ -117,6 +139,7 @@ def postgres_url() -> Iterator[str]:
 
 @pytest.fixture
 def wattloft(postgres_url: str) -> Iterator[WattloftProcess]:
+    _reset_history(postgres_url)
     process = WattloftProcess(postgres_url)
     process.start()
     process.wait_until_listening()

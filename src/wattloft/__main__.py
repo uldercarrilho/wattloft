@@ -14,7 +14,18 @@ def main() -> None:
     ensure_history(database_url)
     host = os.environ.get("PLANT_VIEW_HOST", "127.0.0.1")
     port = int(os.environ.get("PLANT_VIEW_PORT", "8000"))
-    uvicorn.run(create_app(operator_password, database_url), host=host, port=port)
+    ingest_host = os.environ.get("INGEST_HOST", "0.0.0.0")
+    ingest_port = int(os.environ.get("INGEST_PORT", "10000"))
+    uvicorn.run(
+        create_app(
+            operator_password,
+            database_url,
+            ingest_host=ingest_host,
+            ingest_port=ingest_port,
+        ),
+        host=host,
+        port=port,
+    )
 
 
 if __name__ == "__main__":
