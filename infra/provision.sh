@@ -135,8 +135,8 @@ add_nsg_rules() {
   local nsg_id=$1
   local rules=$2
   local count
-  count=$(ociq network nsg rules list --nsg-id "$nsg_id" --query "length(data)" --raw-output)
-  if [[ "$count" == "0" ]]; then
+  count=$(ociq network nsg rules list --nsg-id "$nsg_id" --query "length(data)" --raw-output) || true
+  if [[ -z "$count" || "$count" == "null" || "$count" == "0" ]]; then
     ociq network nsg rules add --nsg-id "$nsg_id" --security-rules "$rules" >/dev/null
   fi
 }
