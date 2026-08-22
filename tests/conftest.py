@@ -25,8 +25,9 @@ def _free_port() -> int:
 
 
 class WattloftProcess:
-    def __init__(self, database_url: str) -> None:
+    def __init__(self, database_url: str, *, now: str | None = None) -> None:
         self.database_url = database_url
+        self.now = now
         self.port = 0
         self.ingest_port = 0
         self.url = ""
@@ -49,6 +50,8 @@ class WattloftProcess:
                 "INGEST_PORT": str(self.ingest_port),
             }
         )
+        if self.now is not None:
+            env["WATTLOFT_NOW"] = self.now
         log_file = tempfile.NamedTemporaryFile(
             prefix=f"wattloft-test-{self.port}-",
             suffix=".log",
