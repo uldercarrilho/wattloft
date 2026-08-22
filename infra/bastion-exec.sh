@@ -33,8 +33,6 @@ SESSION_ID=$(ociq bastion session create-managed-ssh \
   --target-private-ip "$PRIVATE_IP" \
   --ssh-public-key-file "$(oci_file "${SSH_KEY}.pub")" \
   --session-ttl 3600 \
-  --wait-for-state SUCCEEDED \
-  --wait-for-state FAILED \
   --query "data.id" --raw-output)
 if [[ "$SESSION_ID" != ocid1.* ]]; then
   echo "bastion session create failed: ${SESSION_ID}" >&2
@@ -46,10 +44,11 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# create-managed-ssh wait-for-state SUCCEEDED is the work request; session may
-# still be CREATING. Poll until ACTIVE.
-for _ in $(seq 1 60); do
+# Poll session lifecycle. Do not --wait-for-state on create: that waits on the
+# work request and hangs the whole 20 minutes while the session stays CREATING.
+for _ in $(seq 1 120); do
   state=$(ociq bastion session get --session-id "$SESSION_ID" --query "data.\"lifecycle-state\"" --raw-output)
+  echo "  bastion session ${state}"
   if [[ "$state" == "ACTIVE" ]]; then
     break
   fi
@@ -59,6 +58,10 @@ for _ in $(seq 1 60); do
   fi
   sleep 5
 done
+if [[ "${state:-}" != "ACTIVE" ]]; then
+  echo "bastion session never became ACTIVE (last ${state:-unknown})" >&2
+  exit 1
+fi
 
 ssh_opts=(
   -i "$SSH_KEY"
