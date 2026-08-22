@@ -20,8 +20,8 @@ PUBLIC_IP_ID=$(ociq network public-ip list --compartment-id "$COMP" --lifetime R
 OLD_ID=$(running_instance_id || true)
 if [[ -n "$OLD_ID" && "$OLD_ID" != "null" ]]; then
   echo "terminating ${OLD_ID}"
-  ociq compute instance terminate --instance-id "$OLD_ID" --preserve-boot-volume false --force \
-    --wait-for-state TERMINATED --max-wait-seconds 900 >/dev/null
+  ociq compute instance terminate --instance-id "$OLD_ID" --preserve-boot-volume false --force >/dev/null
+  wait_lifecycle TERMINATED 900 compute instance get --instance-id "$OLD_ID"
 fi
 
 CLOUD_INIT=$(mktemp)
