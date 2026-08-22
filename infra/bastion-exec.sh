@@ -59,7 +59,7 @@ for _ in $(seq 1 120); do
   sleep 5
 done
 if [[ "${state:-}" != "ACTIVE" ]]; then
-  echo "bastion session never became ACTIVE (last ${state:-unknown})" >&2
+  echo "bastion session did not become ACTIVE" >&2
   exit 1
 fi
 
