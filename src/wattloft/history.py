@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timezone
+from urllib.parse import parse_qs, unquote, urlparse
 from zoneinfo import ZoneInfo
 
-import psycopg
+import pymysql
+from pymysql.connections import Connection
 
 from wattloft.config import now_utc
 
@@ -13,13 +15,13 @@ _LOCAL = ZoneInfo("America/Sao_Paulo")
 
 _SAMPLES_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS samples (
-    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    logger_serial TEXT NOT NULL,
-    received_at TIMESTAMPTZ NOT NULL,
-    ac_power_w DOUBLE PRECISION,
-    today_energy_kwh DOUBLE PRECISION,
-    lifetime_energy_kwh DOUBLE PRECISION,
-    parse_succeeded BOOLEAN NOT NULL
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    logger_serial VARCHAR(32) NOT NULL,
+    received_at DATETIME(6) NOT NULL,
+    ac_power_w DOUBLE,
+    today_energy_kwh DOUBLE,
+    lifetime_energy_kwh DOUBLE,
+    parse_succeeded TINYINT(1) NOT NULL
 )
 """
 
@@ -52,9 +54,70 @@ class PlantSnapshot:
     curve: tuple[CurveSeries, ...]
 
 
+@dataclass(frozen=True)
+class _SampleRow:
+    logger_serial: str
+    received_at: datetime
+    ac_power_w: float | None
+    today_energy_kwh: float | None
+    lifetime_energy_kwh: float | None
+
+
+def _connect(database_url: str) -> Connection:
+    parsed = urlparse(database_url)
+    query = {key: values[-1] for key, values in parse_qs(parsed.query).items()}
+    host = parsed.hostname or "127.0.0.1"
+    port = parsed.port or 3306
+    user = unquote(parsed.username or "")
+    password = unquote(parsed.password or "")
+    database = unquote(parsed.path.lstrip("/"))
+    if "connect_timeout" in query:
+        return pymysql.connect(
+            host=host,
+            port=port,
+            user=user,
+            password=password,
+            database=database,
+            charset="utf8mb4",
+            autocommit=False,
+            connect_timeout=int(query["connect_timeout"]),
+        )
+    return pymysql.connect(
+        host=host,
+        port=port,
+        user=user,
+        password=password,
+        database=database,
+        charset="utf8mb4",
+        autocommit=False,
+    )
+
+
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _local(value: datetime) -> datetime:
+    return _as_utc(value).astimezone(_LOCAL)
+
+
+def _local_minute(value: datetime) -> datetime:
+    stamped = _local(value).replace(second=0, microsecond=0)
+    return stamped.replace(tzinfo=None)
+
+
+def _as_float(value: float | None) -> float | None:
+    if value is None:
+        return None
+    return float(value)
+
+
 def ensure_history(database_url: str) -> None:
-    with psycopg.connect(database_url) as connection:
-        connection.execute(_SAMPLES_TABLE_SQL)
+    with _connect(database_url) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(_SAMPLES_TABLE_SQL)
         connection.commit()
 
 
@@ -67,27 +130,29 @@ def record_sample(
     today_energy_kwh: float,
     lifetime_energy_kwh: float,
 ) -> None:
-    with psycopg.connect(database_url) as connection:
-        connection.execute(
-            """
-            INSERT INTO samples (
-                logger_serial,
-                received_at,
-                ac_power_w,
-                today_energy_kwh,
-                lifetime_energy_kwh,
-                parse_succeeded
+    stored_at = _as_utc(received_at).replace(tzinfo=None)
+    with _connect(database_url) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO samples (
+                    logger_serial,
+                    received_at,
+                    ac_power_w,
+                    today_energy_kwh,
+                    lifetime_energy_kwh,
+                    parse_succeeded
+                )
+                VALUES (%s, %s, %s, %s, %s, 1)
+                """,
+                (
+                    logger_serial,
+                    stored_at,
+                    ac_power_w,
+                    today_energy_kwh,
+                    lifetime_energy_kwh,
+                ),
             )
-            VALUES (%s, %s, %s, %s, %s, TRUE)
-            """,
-            (
-                logger_serial,
-                received_at,
-                ac_power_w,
-                today_energy_kwh,
-                lifetime_energy_kwh,
-            ),
-        )
         connection.commit()
 
 
@@ -115,120 +180,94 @@ def _curve_series(rows: Iterable[tuple[str, datetime, float]]) -> tuple[CurveSer
     return tuple(series)
 
 
+def _load_successful_samples(database_url: str) -> tuple[_SampleRow, ...]:
+    with _connect(database_url) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT logger_serial, received_at, ac_power_w,
+                       today_energy_kwh, lifetime_energy_kwh
+                FROM samples
+                WHERE parse_succeeded
+                ORDER BY received_at
+                """
+            )
+            rows = cursor.fetchall()
+    samples: list[_SampleRow] = []
+    for row in rows:
+        serial, received_at, ac_power_w, today_energy_kwh, lifetime_energy_kwh = row
+        samples.append(
+            _SampleRow(
+                logger_serial=str(serial),
+                received_at=_as_utc(received_at),
+                ac_power_w=_as_float(ac_power_w),
+                today_energy_kwh=_as_float(today_energy_kwh),
+                lifetime_energy_kwh=_as_float(lifetime_energy_kwh),
+            )
+        )
+    return tuple(samples)
+
+
 def plant_snapshot(
     database_url: str, selected_day: date | None = None
 ) -> PlantSnapshot | None:
     local_day = now_utc().astimezone(_LOCAL).date()
     curve_day = selected_day or local_day
-    with psycopg.connect(database_url) as connection:
-        if (
-            connection.execute(
-                "SELECT 1 FROM samples WHERE parse_succeeded LIMIT 1"
-            ).fetchone()
-            is None
-        ):
-            return None
-        today_rows = connection.execute(
-            """
-            SELECT DISTINCT ON (logger_serial) today_energy_kwh
-            FROM samples
-            WHERE parse_succeeded
-              AND today_energy_kwh IS NOT NULL
-              AND (received_at AT TIME ZONE 'America/Sao_Paulo')::date = %s
-            ORDER BY logger_serial, received_at DESC
-            """,
-            (local_day,),
-        ).fetchall()
-        lifetime_rows = connection.execute(
-            """
-            SELECT DISTINCT ON (logger_serial) lifetime_energy_kwh
-            FROM samples
-            WHERE parse_succeeded
-              AND lifetime_energy_kwh IS NOT NULL
-            ORDER BY logger_serial, received_at DESC
-            """
-        ).fetchall()
-        latest_power = connection.execute(
-            """
-            SELECT received_at
-            FROM samples
-            WHERE parse_succeeded AND ac_power_w IS NOT NULL
-            ORDER BY received_at DESC
-            LIMIT 1
-            """
-        ).fetchone()
-        if latest_power is None:
-            return None
-        current_power_at = latest_power[0]
-        power_rows = connection.execute(
-            """
-            SELECT DISTINCT ON (logger_serial) ac_power_w
-            FROM samples
-            WHERE parse_succeeded
-              AND ac_power_w IS NOT NULL
-              AND date_trunc(
-                    'minute', received_at AT TIME ZONE 'America/Sao_Paulo'
-                  ) = date_trunc(
-                    'minute', %s AT TIME ZONE 'America/Sao_Paulo'
-                  )
-            ORDER BY logger_serial, received_at DESC
-            """,
-            (current_power_at,),
-        ).fetchall()
-        bar_rows = connection.execute(
-            """
-            WITH last_per_logger AS (
-                SELECT DISTINCT ON (
-                    (received_at AT TIME ZONE 'America/Sao_Paulo')::date,
-                    logger_serial
-                )
-                    (received_at AT TIME ZONE 'America/Sao_Paulo')::date AS local_day,
-                    today_energy_kwh
-                FROM samples
-                WHERE parse_succeeded
-                  AND today_energy_kwh IS NOT NULL
-                ORDER BY 1, logger_serial, received_at DESC
-            )
-            SELECT local_day, SUM(today_energy_kwh)
-            FROM last_per_logger
-            GROUP BY local_day
-            ORDER BY local_day
-            """
-        ).fetchall()
-        curve_rows = connection.execute(
-            """
-            SELECT DISTINCT ON (
-                logger_serial,
-                date_trunc('minute', received_at AT TIME ZONE 'America/Sao_Paulo')
-            )
-                logger_serial,
-                date_trunc('minute', received_at AT TIME ZONE 'America/Sao_Paulo'),
-                ac_power_w
-            FROM samples
-            WHERE parse_succeeded
-              AND ac_power_w IS NOT NULL
-              AND (received_at AT TIME ZONE 'America/Sao_Paulo')::date = %s
-            ORDER BY logger_serial, 2, received_at DESC
-            """,
-            (curve_day,),
-        ).fetchall()
-        curve_points: list[tuple[str, datetime, float]] = []
-        for row in curve_rows:
-            serial, minute, watts = row
-            if isinstance(minute, datetime):
-                curve_points.append((str(serial), minute, float(watts)))
-    if not lifetime_rows:
+    samples = _load_successful_samples(database_url)
+    if not samples:
         return None
+
+    today_last: dict[str, float] = {}
+    lifetime_last: dict[str, float] = {}
+    latest_power_at: datetime | None = None
+    power_in_minute: dict[str, float] = {}
+    bar_last: dict[tuple[date, str], float] = {}
+    curve_last: dict[tuple[str, datetime], float] = {}
+
+    for sample in samples:
+        local_stamp = _local(sample.received_at)
+        sample_day = local_stamp.date()
+        if sample.today_energy_kwh is not None:
+            if sample_day == local_day:
+                today_last[sample.logger_serial] = sample.today_energy_kwh
+            bar_last[(sample_day, sample.logger_serial)] = sample.today_energy_kwh
+        if sample.lifetime_energy_kwh is not None:
+            lifetime_last[sample.logger_serial] = sample.lifetime_energy_kwh
+        if sample.ac_power_w is None:
+            continue
+        if latest_power_at is None or sample.received_at >= latest_power_at:
+            latest_power_at = sample.received_at
+        if sample_day == curve_day:
+            curve_last[(sample.logger_serial, _local_minute(sample.received_at))] = (
+                sample.ac_power_w
+            )
+
+    if not lifetime_last or latest_power_at is None:
+        return None
+
+    current_minute = _local_minute(latest_power_at)
+    for sample in samples:
+        if sample.ac_power_w is None:
+            continue
+        if _local_minute(sample.received_at) == current_minute:
+            power_in_minute[sample.logger_serial] = sample.ac_power_w
+
+    by_bar_day: dict[date, float] = {}
+    for (day, _), kwh in bar_last.items():
+        by_bar_day[day] = by_bar_day.get(day, 0.0) + kwh
+
+    curve_points = [
+        (serial, minute, watts) for (serial, minute), watts in curve_last.items()
+    ]
+
     return PlantSnapshot(
-        today_energy_kwh=(
-            sum(float(row[0]) for row in today_rows) if today_rows else None
-        ),
-        current_power_w=sum(float(row[0]) for row in power_rows),
-        lifetime_energy_kwh=sum(float(row[0]) for row in lifetime_rows),
-        current_power_at=current_power_at,
+        today_energy_kwh=sum(today_last.values()) if today_last else None,
+        current_power_w=sum(power_in_minute.values()),
+        lifetime_energy_kwh=sum(lifetime_last.values()),
+        current_power_at=latest_power_at,
         local_day_bars=tuple(
-            LocalDayBar(local_day=row[0], today_energy_kwh=float(row[1]))
-            for row in bar_rows
+            LocalDayBar(local_day=day, today_energy_kwh=kwh)
+            for day, kwh in sorted(by_bar_day.items())
         ),
         curve=_curve_series(curve_points),
     )

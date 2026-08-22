@@ -65,7 +65,7 @@ def test_empty_history_survives_process_restart(wattloft: WattloftProcess) -> No
 
 def test_plant_view_does_not_serve_when_history_store_is_unreachable() -> None:
     process = WattloftProcess(
-        "postgresql://wattloft:wattloft@127.0.0.1:1/wattloft?connect_timeout=2"
+        "mysql://wattloft:wattloft@127.0.0.1:1/wattloft?connect_timeout=2"
     )
     process.start()
     try:
