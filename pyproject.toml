@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "wattloft"
+version = "0.1.0"
+description = "Observes production of one household solar Plant"
+requires-python = ">=3.12"
+dependencies = [
+    "itsdangerous>=2.2",
+    "psycopg[binary]>=3.2",
+    "python-multipart>=0.0.20",
+    "starlette>=0.45",
+    "uvicorn>=0.34",
+]
+
+[project.optional-dependencies]
+dev = [
+    "httpx>=0.28",
+    "mypy>=1.14",
+    "pytest>=8",
+    "testcontainers[postgres]>=4.9",
+]
+
+[project.scripts]
+wattloft = "wattloft.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/wattloft"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src/wattloft"]
+strict = true
