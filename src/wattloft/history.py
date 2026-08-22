@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
@@ -12,6 +13,7 @@ from pymysql.connections import Connection
 from wattloft.config import now_utc
 
 _LOCAL = ZoneInfo("America/Sao_Paulo")
+_DATABASE_NAME = re.compile(r"^[A-Za-z0-9_]+$")
 
 _SAMPLES_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS samples (
@@ -23,6 +25,13 @@ CREATE TABLE IF NOT EXISTS samples (
     lifetime_energy_kwh DOUBLE,
     parse_succeeded TINYINT(1) NOT NULL
 )
+"""
+
+_DUMP_SELECT_SQL = """
+SELECT logger_serial, received_at, ac_power_w,
+       today_energy_kwh, lifetime_energy_kwh, parse_succeeded
+FROM samples
+ORDER BY received_at, logger_serial
 """
 
 
@@ -63,14 +72,24 @@ class _SampleRow:
     lifetime_energy_kwh: float | None
 
 
-def _connect(database_url: str) -> Connection:
+def _database_name(database_url: str) -> str:
+    name = unquote(urlparse(database_url).path.lstrip("/"))
+    if not _DATABASE_NAME.fullmatch(name):
+        raise ValueError(f"invalid database name: {name!r}")
+    return name
+
+
+def _connect(database_url: str, *, use_database: bool = True) -> Connection:
     parsed = urlparse(database_url)
     query = {key: values[-1] for key, values in parse_qs(parsed.query).items()}
     host = parsed.hostname or "127.0.0.1"
     port = parsed.port or 3306
     user = unquote(parsed.username or "")
     password = unquote(parsed.password or "")
-    database = unquote(parsed.path.lstrip("/"))
+    database = _database_name(database_url) if use_database else None
+    ssl: dict[str, bool] | None = None
+    if query.get("ssl", "").lower() in {"1", "true", "required"}:
+        ssl = {"check_hostname": False}
     if "connect_timeout" in query:
         return pymysql.connect(
             host=host,
@@ -80,6 +99,7 @@ def _connect(database_url: str) -> Connection:
             database=database,
             charset="utf8mb4",
             autocommit=False,
+            ssl=ssl,
             connect_timeout=int(query["connect_timeout"]),
         )
     return pymysql.connect(
@@ -90,7 +110,24 @@ def _connect(database_url: str) -> Connection:
         database=database,
         charset="utf8mb4",
         autocommit=False,
+        ssl=ssl,
     )
+
+
+def _sql_literal(value: object) -> str:
+    if value is None:
+        return "NULL"
+    if isinstance(value, datetime):
+        stamped = _as_utc(value).replace(tzinfo=None)
+        return "'" + stamped.strftime("%Y-%m-%d %H:%M:%S.%f") + "'"
+    if isinstance(value, bool):
+        return "1" if value else "0"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        return repr(value)
+    text = str(value).replace("\\", "\\\\").replace("'", "\\'")
+    return "'" + text + "'"
 
 
 def _as_utc(value: datetime) -> datetime:
@@ -115,9 +152,42 @@ def _as_float(value: float | None) -> float | None:
 
 
 def ensure_history(database_url: str) -> None:
+    name = _database_name(database_url)
+    with _connect(database_url, use_database=False) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(f"CREATE DATABASE IF NOT EXISTS `{name}`")
+        connection.commit()
     with _connect(database_url) as connection:
         with connection.cursor() as cursor:
             cursor.execute(_SAMPLES_TABLE_SQL)
+        connection.commit()
+
+
+def dump_history(database_url: str) -> str:
+    with _connect(database_url) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(_DUMP_SELECT_SQL)
+            rows = cursor.fetchall()
+    statements = [_SAMPLES_TABLE_SQL.strip() + ";"]
+    for row in rows:
+        values = ", ".join(_sql_literal(item) for item in row)
+        statements.append(
+            "INSERT INTO samples ("
+            "logger_serial, received_at, ac_power_w, "
+            "today_energy_kwh, lifetime_energy_kwh, parse_succeeded"
+            f") VALUES ({values});"
+        )
+    return "\n".join(statements) + "\n"
+
+
+def restore_history(database_url: str, dump: str) -> None:
+    ensure_history(database_url)
+    with _connect(database_url) as connection:
+        with connection.cursor() as cursor:
+            for raw in dump.split(";"):
+                statement = raw.strip()
+                if statement:
+                    cursor.execute(statement)
         connection.commit()
 
 

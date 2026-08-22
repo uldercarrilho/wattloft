@@ -1,0 +1,13 @@
+.venv/
+.cache/
+.git/
+.github/
+.agents/
+.mypy_cache/
+.pytest_cache/
+tests/
+docs/
+infra/
+scripts/
+*.md
+!README.md

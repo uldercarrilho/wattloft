@@ -1,0 +1,36 @@
+#cloud-config
+package_update: true
+packages:
+  - docker.io
+  - docker-compose-v2
+  - python3-pip
+  - python3-venv
+  - jq
+  - curl
+  - gzip
+
+users:
+  - name: ubuntu
+    groups: [sudo, docker]
+    lock_passwd: true
+
+write_files:
+  - path: /etc/wattloft/oci.env
+    owner: root:root
+    permissions: "0600"
+    content: |
+      OCI_COMPARTMENT_OCID=__OCI_COMPARTMENT_OCID__
+      WATTLOFT_DUMP_BUCKET=wattloft-history-dumps
+      WATTLOFT_COMPOSE_DIR=/opt/wattloft
+      WATTLOFT_ENV_FILE=/etc/wattloft/wattloft.env
+
+runcmd:
+  - mkdir -p /opt/wattloft /etc/wattloft
+  - chmod 700 /etc/wattloft
+  - python3 -m venv /opt/oci-cli
+  - /opt/oci-cli/bin/pip install --upgrade pip oci-cli
+  - ln -sfn /opt/oci-cli/bin/oci /usr/local/bin/oci
+  - systemctl enable --now docker
+  - usermod -aG docker ubuntu
+
+final_message: "wattloft cloud-init done"

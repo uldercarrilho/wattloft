@@ -1,0 +1,9 @@
+[Unit]
+Description=Dump Wattloft History to Object Storage
+After=wattloft-env.service docker.service
+Requires=wattloft-env.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/wattloft/oci.env
+ExecStart=/usr/local/sbin/wattloft-history-dump

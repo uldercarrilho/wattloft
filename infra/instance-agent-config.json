@@ -1,0 +1,8 @@
+{
+  "isManagementDisabled": false,
+  "isMonitoringDisabled": false,
+  "areAllPluginsDisabled": false,
+  "pluginsConfig": [
+    {"name": "Bastion", "desiredState": "ENABLED"}
+  ]
+}
