@@ -2,7 +2,7 @@
 # Do not run growpart/bootcmd swap: those raced on the Micro and failed the
 # network stage, so packages, sshd keys, and the Bastion plugin never started.
 growpart:
-  mode: false
+  mode: "off"
 
 package_update: true
 packages:
