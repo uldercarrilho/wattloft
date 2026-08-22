@@ -10,10 +10,11 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import httpx
-import psycopg
 import pytest
-from psycopg.errors import UndefinedTable
-from testcontainers.community.postgres import PostgresContainer
+from pymysql.err import ProgrammingError
+from testcontainers.community.mysql import MySqlContainer
+
+from wattloft.history import _connect
 
 OPERATOR_PASSWORD = "correct-horse"
 
@@ -126,24 +127,27 @@ class WattloftProcess:
 
 
 def _reset_history(database_url: str) -> None:
-    with psycopg.connect(database_url) as connection:
+    with _connect(database_url) as connection:
         try:
-            connection.execute("TRUNCATE TABLE samples RESTART IDENTITY")
+            with connection.cursor() as cursor:
+                cursor.execute("TRUNCATE TABLE samples")
             connection.commit()
-        except UndefinedTable:
+        except ProgrammingError as exc:
+            if exc.args[0] != 1146:
+                raise
             connection.rollback()
 
 
 @pytest.fixture(scope="session")
-def postgres_url() -> Iterator[str]:
-    with PostgresContainer("postgres:16-alpine") as postgres:
-        yield postgres.get_connection_url(driver=None)
+def mysql_url() -> Iterator[str]:
+    with MySqlContainer("mysql:8.4") as mysql:
+        yield mysql.get_connection_url()
 
 
 @pytest.fixture
-def wattloft(postgres_url: str) -> Iterator[WattloftProcess]:
-    _reset_history(postgres_url)
-    process = WattloftProcess(postgres_url)
+def wattloft(mysql_url: str) -> Iterator[WattloftProcess]:
+    _reset_history(mysql_url)
+    process = WattloftProcess(mysql_url)
     process.start()
     process.wait_until_listening()
     try:

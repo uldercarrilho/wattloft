@@ -56,10 +56,10 @@ def test_two_admitted_loggers_sum_only_those_that_answered(
 
 
 def test_logger_with_no_sample_that_local_day_contributes_nothing_to_today_energy(
-    postgres_url: str,
+    mysql_url: str,
 ) -> None:
-    _reset_history(postgres_url)
-    process = WattloftProcess(postgres_url, now="2026-08-21T15:00:00-03:00")
+    _reset_history(mysql_url)
+    process = WattloftProcess(mysql_url, now="2026-08-21T15:00:00-03:00")
     process.start()
     process.wait_until_listening()
     try:
@@ -85,10 +85,10 @@ def test_logger_with_no_sample_that_local_day_contributes_nothing_to_today_energ
 
 
 def test_local_day_bars_use_last_successful_today_energy_then_sum(
-    postgres_url: str,
+    mysql_url: str,
 ) -> None:
-    _reset_history(postgres_url)
-    process = WattloftProcess(postgres_url, now="2026-08-21T15:00:00-03:00")
+    _reset_history(mysql_url)
+    process = WattloftProcess(mysql_url, now="2026-08-21T15:00:00-03:00")
     process.start()
     process.wait_until_listening()
     try:
@@ -126,10 +126,10 @@ def test_local_day_bars_use_last_successful_today_energy_then_sum(
 
 
 def test_selected_local_day_power_curve_shows_each_logger_and_plant(
-    postgres_url: str,
+    mysql_url: str,
 ) -> None:
-    _reset_history(postgres_url)
-    process = WattloftProcess(postgres_url, now="2026-08-21T15:00:00-03:00")
+    _reset_history(mysql_url)
+    process = WattloftProcess(mysql_url, now="2026-08-21T15:00:00-03:00")
     process.start()
     process.wait_until_listening()
     try:
@@ -173,10 +173,10 @@ def test_selected_local_day_power_curve_shows_each_logger_and_plant(
 
 
 def test_today_energy_dashes_when_no_logger_sampled_this_local_day(
-    postgres_url: str,
+    mysql_url: str,
 ) -> None:
-    _reset_history(postgres_url)
-    process = WattloftProcess(postgres_url, now="2026-08-21T15:00:00-03:00")
+    _reset_history(mysql_url)
+    process = WattloftProcess(mysql_url, now="2026-08-21T15:00:00-03:00")
     process.start()
     process.wait_until_listening()
     try:
