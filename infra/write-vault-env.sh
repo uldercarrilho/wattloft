@@ -7,11 +7,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=common.sh
 source "$SCRIPT_DIR/common.sh"
 
-if [[ -f "${HOME}/.oci/wattloft.env" && -z "${DATABASE_URL:-}" ]]; then
-  set -a
-  # shellcheck disable=SC1091
-  source "${HOME}/.oci/wattloft.env"
-  set +a
+if [[ -z "${DATABASE_URL:-}" ]]; then
+  source_wattloft_env
 fi
 require_oci
 
