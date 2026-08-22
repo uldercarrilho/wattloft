@@ -1,10 +1,23 @@
 #cloud-config
+# E2.1.Micro is 1 GB RAM. Swap before apt or docker/oci-cli OOMs and sshd
+# never becomes reachable for Bastion managed SSH.
+bootcmd:
+  - |
+    if [ ! -f /swapfile ]; then
+      fallocate -l 2G /swapfile
+      chmod 600 /swapfile
+      mkswap /swapfile
+    fi
+    swapon /swapfile || true
+
+mounts:
+  - ["/swapfile", "none", "swap", "sw", "0", "0"]
+
 package_update: true
 packages:
   - docker.io
   - docker-compose-v2
   - python3-pip
-  - python3-venv
   - jq
   - curl
   - gzip
@@ -27,9 +40,7 @@ write_files:
 runcmd:
   - mkdir -p /opt/wattloft /etc/wattloft
   - chmod 700 /etc/wattloft
-  - python3 -m venv /opt/oci-cli
-  - /opt/oci-cli/bin/pip install --upgrade pip oci-cli
-  - ln -sfn /opt/oci-cli/bin/oci /usr/local/bin/oci
+  - pip3 install --break-system-packages oci-cli
   - systemctl enable --now docker
   - usermod -aG docker ubuntu
 
