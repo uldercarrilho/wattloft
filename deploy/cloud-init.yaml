@@ -1,17 +1,8 @@
 #cloud-config
-# E2.1.Micro is 1 GB RAM. Swap before apt or docker/oci-cli OOMs and sshd
-# never becomes reachable for Bastion managed SSH.
-bootcmd:
-  - |
-    if [ ! -f /swapfile ]; then
-      fallocate -l 2G /swapfile
-      chmod 600 /swapfile
-      mkswap /swapfile
-    fi
-    swapon /swapfile || true
-
-mounts:
-  - ["/swapfile", "none", "swap", "sw", "0", "0"]
+# Do not run growpart/bootcmd swap: those raced on the Micro and failed the
+# network stage, so packages, sshd keys, and the Bastion plugin never started.
+growpart:
+  mode: false
 
 package_update: true
 packages:
@@ -40,6 +31,14 @@ write_files:
 runcmd:
   - mkdir -p /opt/wattloft /etc/wattloft
   - chmod 700 /etc/wattloft
+  - |
+    if [ ! -f /swapfile ]; then
+      dd if=/dev/zero of=/swapfile bs=1M count=2048
+      chmod 600 /swapfile
+      mkswap /swapfile
+    fi
+    swapon /swapfile || true
+    grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
   - pip3 install --break-system-packages oci-cli
   - systemctl enable --now docker
   - usermod -aG docker ubuntu
