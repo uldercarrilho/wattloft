@@ -29,13 +29,17 @@ SESSION_ID=$(ociq bastion session create-managed-ssh \
   --bastion-id "$BASTION_ID" \
   --target-resource-id "$INSTANCE_ID" \
   --target-os-username ubuntu \
-  --target-resource-port 22 \
-  --target-resource-private-ip-address "$PRIVATE_IP" \
-  --ssh-public-key-file "${SSH_KEY}.pub" \
+  --target-port 22 \
+  --target-private-ip "$PRIVATE_IP" \
+  --ssh-public-key-file "$(oci_file "${SSH_KEY}.pub")" \
   --session-ttl 3600 \
   --wait-for-state SUCCEEDED \
   --wait-for-state FAILED \
   --query "data.id" --raw-output)
+if [[ "$SESSION_ID" != ocid1.* ]]; then
+  echo "bastion session create failed: ${SESSION_ID}" >&2
+  exit 1
+fi
 
 cleanup() {
   ociq bastion session delete --session-id "$SESSION_ID" --force >/dev/null 2>&1 || true
