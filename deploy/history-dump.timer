@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Wattloft History dump to Object Storage
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=30m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

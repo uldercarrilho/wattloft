@@ -1,0 +1,13 @@
+[Unit]
+Description=Write Wattloft env file from OCI Vault (instance principal)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/wattloft/oci.env
+ExecStart=/usr/local/sbin/wattloft-env
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
