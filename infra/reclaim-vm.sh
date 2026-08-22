@@ -8,12 +8,7 @@ ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # shellcheck source=common.sh
 source "$SCRIPT_DIR/common.sh"
 
-if [[ -f "${HOME}/.oci/wattloft.env" ]]; then
-  set -a
-  # shellcheck disable=SC1091
-  source "${HOME}/.oci/wattloft.env"
-  set +a
-fi
+source_wattloft_env
 require_oci
 
 ensure_ssh_key
@@ -63,9 +58,7 @@ if [[ $status -ne 0 || -z "${INSTANCE_ID:-}" ]]; then
   INSTANCE_ID=$(launch VM.Standard.E2.1.Micro "$IMAGE_MICRO")
 fi
 
-VNIC_ID=$(ociq compute instance list-vnics --instance-id "$INSTANCE_ID" --query "data[0].id" --raw-output)
-PRIVATE_IP_ID=$(ociq network private-ip list --vnic-id "$VNIC_ID" --query "data[0].id" --raw-output)
-ociq network public-ip update --public-ip-id "$PUBLIC_IP_ID" --private-ip-id "$PRIVATE_IP_ID" >/dev/null
+assign_reserved_ipv4 "$INSTANCE_ID" "$PUBLIC_IP_ID"
 
 if command -v gh >/dev/null 2>&1; then
   gh variable set OCI_INSTANCE_OCID --body "$INSTANCE_ID"

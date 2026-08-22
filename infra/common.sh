@@ -20,7 +20,6 @@ PUBLIC_RT_NAME=wattloft-public-rt
 PRIVATE_RT_NAME=wattloft-private-rt
 SL_NAME=wattloft-locked
 NSG_VM_NAME=wattloft-vm
-NSG_DB_NAME=wattloft-history
 IP_NAME=wattloft-ip
 VM_NAME=wattloft-vm
 DB_NAME=wattloft-history
@@ -87,6 +86,34 @@ wait_lifecycle() {
     elapsed=$((elapsed + 20))
   done
   return 1
+}
+
+source_wattloft_env() {
+  if [[ -f "${HOME}/.oci/wattloft.env" ]]; then
+    set -a
+    # shellcheck disable=SC1091
+    source "${HOME}/.oci/wattloft.env"
+    set +a
+  fi
+}
+
+assign_reserved_ipv4() {
+  local instance_id=$1
+  local public_ip_id=$2
+  local vnic_id=""
+  local private_ip_id assigned
+  for _ in $(seq 1 30); do
+    vnic_id=$(ociq compute instance list-vnics --instance-id "$instance_id" --query "data[0].id" --raw-output) || true
+    if [[ -n "$vnic_id" && "$vnic_id" != "null" ]]; then
+      break
+    fi
+    sleep 5
+  done
+  private_ip_id=$(ociq network private-ip list --vnic-id "$vnic_id" --query "data[0].id" --raw-output)
+  assigned=$(ociq network public-ip get --public-ip-id "$public_ip_id" --query "data.\"private-ip-id\"" --raw-output)
+  if [[ "$assigned" != "$private_ip_id" ]]; then
+    ociq network public-ip update --public-ip-id "$public_ip_id" --private-ip-id "$private_ip_id" >/dev/null
+  fi
 }
 
 ensure_ssh_key() {

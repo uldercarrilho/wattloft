@@ -9,12 +9,7 @@ ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # shellcheck source=common.sh
 source "$SCRIPT_DIR/common.sh"
 
-if [[ -f "${HOME}/.oci/wattloft.env" ]]; then
-  set -a
-  # shellcheck disable=SC1091
-  source "${HOME}/.oci/wattloft.env"
-  set +a
-fi
+source_wattloft_env
 require_oci
 
 COMP="${OCI_COMPARTMENT_OCID:?}"
@@ -322,19 +317,7 @@ fi
 echo "  $INSTANCE_ID"
 
 echo "→ Assign reserved public IPv4"
-VNIC_ID=""
-for _ in $(seq 1 30); do
-  VNIC_ID=$(ociq compute instance list-vnics --instance-id "$INSTANCE_ID" --query "data[0].id" --raw-output) || true
-  if [[ -n "$VNIC_ID" && "$VNIC_ID" != "null" ]]; then
-    break
-  fi
-  sleep 5
-done
-PRIVATE_IP_ID=$(ociq network private-ip list --vnic-id "$VNIC_ID" --query "data[0].id" --raw-output)
-ASSIGNED_TO=$(ociq network public-ip get --public-ip-id "$PUBLIC_IP_ID" --query "data.\"private-ip-id\"" --raw-output)
-if [[ "$ASSIGNED_TO" != "$PRIVATE_IP_ID" ]]; then
-  ociq network public-ip update --public-ip-id "$PUBLIC_IP_ID" --private-ip-id "$PRIVATE_IP_ID" >/dev/null
-fi
+assign_reserved_ipv4 "$INSTANCE_ID" "$PUBLIC_IP_ID"
 echo "  attached"
 
 echo "→ Bastion (no public TCP 22 on the VM)"

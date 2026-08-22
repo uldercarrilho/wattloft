@@ -8,17 +8,17 @@ ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # shellcheck source=common.sh
 source "$SCRIPT_DIR/common.sh"
 
-if [[ -f "${HOME}/.oci/wattloft.env" ]]; then
-  set -a
-  # shellcheck disable=SC1091
-  source "${HOME}/.oci/wattloft.env"
-  set +a
-fi
+source_wattloft_env
 require_oci
 
 ensure_ssh_key
 BASTION_ID="${OCI_BASTION_OCID:-${WATTLOFT_BASTION_OCID:?}}"
-INSTANCE_ID="${OCI_INSTANCE_OCID:-${WATTLOFT_INSTANCE_OCID:-$(running_instance_id)}}"
+# Prefer the RUNNING pet. After reclaim the GitHub Actions env still holds the
+# terminated instance OCID until the next workflow run.
+INSTANCE_ID=$(running_instance_id || true)
+if [[ -z "$INSTANCE_ID" || "$INSTANCE_ID" == "null" ]]; then
+  INSTANCE_ID="${OCI_INSTANCE_OCID:-${WATTLOFT_INSTANCE_OCID:?}}"
+fi
 REMOTE_CMD="${*:-sudo bash /opt/wattloft/install-host.sh}"
 
 PRIVATE_IP=$(ociq compute instance list-vnics --instance-id "$INSTANCE_ID" \

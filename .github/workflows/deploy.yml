@@ -70,10 +70,12 @@ jobs:
       OCI_INSTANCE_OCID: ${{ vars.OCI_INSTANCE_OCID }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       OPERATOR_PASSWORD: ${{ secrets.OPERATOR_PASSWORD }}
-      GHCR_PULL_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN || secrets.GITHUB_TOKEN }}
       GHCR_USERNAME: ${{ github.actor }}
       WATTLOFT_HOSTNAME: ${{ vars.WATTLOFT_HOSTNAME }}
+      WATTLOFT_RESERVED_IPV4: ${{ vars.WATTLOFT_RESERVED_IPV4 }}
       WATTLOFT_IMAGE: ghcr.io/uldercarrilho/wattloft:${{ github.sha }}
+      DESEC_TOKEN: ${{ secrets.DESEC_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -90,6 +92,11 @@ jobs:
       - name: Reclaim VM
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.reclaim }}
         run: bash infra/reclaim-vm.sh
+      - name: Point deSEC A record at reserved IPv4
+        run: |
+          if [[ -n "${DESEC_TOKEN:-}" ]]; then
+            bash infra/desec-upsert.sh
+          fi
       - name: Write secrets to Vault
         run: bash infra/write-vault-env.sh
       - name: compose pull && up through Bastion
