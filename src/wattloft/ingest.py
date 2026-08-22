@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Iterable
-from datetime import datetime, timezone
 
+from wattloft.config import now_utc
 from wattloft.history import record_sample
 from wattloft.v5 import (
     CONTROL_DATA,
@@ -32,7 +32,7 @@ def handle_frame(
             record_sample(
                 database_url,
                 logger_serial=logger_serial,
-                received_at=datetime.now(timezone.utc),
+                received_at=now_utc(),
                 ac_power_w=header.ac_power_w,
                 today_energy_kwh=header.today_energy_kwh,
                 lifetime_energy_kwh=header.lifetime_energy_kwh,

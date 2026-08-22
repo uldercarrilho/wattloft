@@ -27,6 +27,15 @@ def test_correct_operator_password_grants_plant_view(plant_view_url: str) -> Non
         assert view.status_code == 200
 
 
+def test_logout_ends_the_operator_session(plant_view_url: str) -> None:
+    with httpx.Client(base_url=plant_view_url, follow_redirects=False) as client:
+        client.post("/login", data={"password": "correct-horse"})
+        assert client.get("/").status_code == 200
+        ended = client.post("/logout")
+        assert ended.status_code == 303
+        assert client.get("/").status_code == 401
+
+
 def test_empty_history_shows_one_sentence_without_energy_power_or_chart_axes(
     plant_view_url: str,
 ) -> None:
