@@ -58,15 +58,13 @@ def test_time_grain_stepper_shows_iso_local_day_and_that_days_power_curve(
     process.wait_until_listening()
     try:
         _ingest(process, _ADMITTED_SERIAL, _live_shaped_upload_header())
-        process.now = "2026-08-21T15:01:00-03:00"
-        process.restart()
+        process.set_now("2026-08-21T15:01:00-03:00")
         _ingest(
             process,
             _SECOND_SERIAL,
             _upload_header(today_cents=240, lifetime_tenths=1000, watts=400),
         )
-        process.now = "2026-08-22T10:00:00-03:00"
-        process.restart()
+        process.set_now("2026-08-22T10:00:00-03:00")
         _ingest(
             process,
             _ADMITTED_SERIAL,
@@ -94,8 +92,7 @@ def test_day_grain_shows_today_energy_bars_for_the_stepper_month(
     process.wait_until_listening()
     try:
         _ingest(process, _ADMITTED_SERIAL, _live_shaped_upload_header())
-        process.now = "2026-08-21T16:00:00-03:00"
-        process.restart()
+        process.set_now("2026-08-21T16:00:00-03:00")
         _ingest(
             process,
             _ADMITTED_SERIAL,
@@ -106,8 +103,7 @@ def test_day_grain_shows_today_energy_bars_for_the_stepper_month(
             _SECOND_SERIAL,
             _upload_header(today_cents=240, lifetime_tenths=1000, watts=400),
         )
-        process.now = "2026-09-01T10:00:00-03:00"
-        process.restart()
+        process.set_now("2026-09-01T10:00:00-03:00")
         _ingest(
             process,
             _ADMITTED_SERIAL,
@@ -138,8 +134,7 @@ def test_time_stepper_previous_and_next_stop_at_first_and_last_local_day(
     process.wait_until_listening()
     try:
         _ingest(process, _ADMITTED_SERIAL, _live_shaped_upload_header())
-        process.now = "2026-08-22T10:00:00-03:00"
-        process.restart()
+        process.set_now("2026-08-22T10:00:00-03:00")
         _ingest(
             process,
             _ADMITTED_SERIAL,
@@ -167,8 +162,7 @@ def test_day_stepper_previous_and_next_stop_at_first_and_last_history_month(
     process.wait_until_listening()
     try:
         _ingest(process, _ADMITTED_SERIAL, _live_shaped_upload_header())
-        process.now = "2026-09-01T10:00:00-03:00"
-        process.restart()
+        process.set_now("2026-09-01T10:00:00-03:00")
         _ingest(
             process,
             _ADMITTED_SERIAL,
@@ -198,8 +192,7 @@ def test_local_day_with_no_curve_samples_shows_one_sentence_and_no_empty_axes(
     process.wait_until_listening()
     try:
         _ingest(process, _ADMITTED_SERIAL, _live_shaped_upload_header())
-        process.now = "2026-08-23T10:00:00-03:00"
-        process.restart()
+        process.set_now("2026-08-23T10:00:00-03:00")
         _ingest(
             process,
             _ADMITTED_SERIAL,
@@ -243,8 +236,7 @@ def test_last_sample_is_relative_age_of_current_power_not_a_clock(
     process.wait_until_listening()
     try:
         _ingest(process, _ADMITTED_SERIAL, _live_shaped_upload_header())
-        process.now = "2026-08-22T10:00:30-03:00"
-        process.restart()
+        process.set_now("2026-08-22T10:00:30-03:00")
         html = _plant_view_html(process)
     finally:
         process.stop()
@@ -294,8 +286,7 @@ def test_logger_with_no_sample_that_local_day_contributes_nothing_to_today_energ
     process.wait_until_listening()
     try:
         _ingest(process, _ADMITTED_SERIAL, _live_shaped_upload_header())
-        process.now = "2026-08-22T10:00:00-03:00"
-        process.restart()
+        process.set_now("2026-08-22T10:00:00-03:00")
         _ingest(
             process,
             _SECOND_SERIAL,
@@ -324,8 +315,7 @@ def test_local_day_bars_use_last_successful_today_energy_then_sum(
     process.wait_until_listening()
     try:
         _ingest(process, _ADMITTED_SERIAL, _live_shaped_upload_header())
-        process.now = "2026-08-21T16:00:00-03:00"
-        process.restart()
+        process.set_now("2026-08-21T16:00:00-03:00")
         _ingest(
             process,
             _ADMITTED_SERIAL,
@@ -336,8 +326,7 @@ def test_local_day_bars_use_last_successful_today_energy_then_sum(
             _SECOND_SERIAL,
             _upload_header(today_cents=240, lifetime_tenths=1000, watts=400),
         )
-        process.now = "2026-08-22T10:00:00-03:00"
-        process.restart()
+        process.set_now("2026-08-22T10:00:00-03:00")
         _ingest(
             process,
             _ADMITTED_SERIAL,
@@ -365,15 +354,13 @@ def test_selected_local_day_power_curve_shows_each_logger_and_plant(
     process.wait_until_listening()
     try:
         _ingest(process, _ADMITTED_SERIAL, _live_shaped_upload_header())
-        process.now = "2026-08-21T15:01:00-03:00"
-        process.restart()
+        process.set_now("2026-08-21T15:01:00-03:00")
         _ingest(
             process,
             _SECOND_SERIAL,
             _upload_header(today_cents=240, lifetime_tenths=1000, watts=400),
         )
-        process.now = "2026-08-22T10:00:00-03:00"
-        process.restart()
+        process.set_now("2026-08-22T10:00:00-03:00")
         _ingest(
             process,
             _ADMITTED_SERIAL,
@@ -416,8 +403,7 @@ def test_today_energy_dashes_when_no_logger_sampled_this_local_day(
     process.wait_until_listening()
     try:
         _ingest(process, _ADMITTED_SERIAL, _live_shaped_upload_header())
-        process.now = "2026-08-22T10:40:00-03:00"
-        process.restart()
+        process.set_now("2026-08-22T10:40:00-03:00")
         html = _plant_view_html(process)
     finally:
         process.stop()

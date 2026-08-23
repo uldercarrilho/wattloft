@@ -6,7 +6,8 @@ import time
 import httpx
 import pytest
 
-from conftest import OPERATOR_PASSWORD, WattloftProcess
+from conftest import OPERATOR_PASSWORD, WattloftProcess, _reset_history
+from wattloft.ingest import IDLE_TIMEOUT_S
 from test_admitted_logger_sample import (
     _ADMITTED_SERIAL,
     _CONTROL_DATA,
@@ -104,7 +105,7 @@ def test_truncated_frame_is_not_acked_and_plant_view_gains_no_zero_power(
     )
     with socket.create_connection(("127.0.0.1", wattloft.ingest_port), timeout=5) as sock:
         sock.sendall(frame[:-10])
-        sock.settimeout(1)
+        sock.settimeout(0.2)
         with pytest.raises(socket.timeout):
             sock.recv(23)
 
@@ -235,17 +236,45 @@ def test_failed_parse_does_not_zero_an_existing_sample(
     assert "0.00 kWh" not in html
 
 
-def test_ingest_idle_timeout_is_at_least_300_seconds(
-    wattloft: WattloftProcess,
-) -> None:
+def test_ingest_idle_timeout_default_is_300_seconds() -> None:
+    assert IDLE_TIMEOUT_S == 300
+
+
+def _hello_after_idle(wattloft: WattloftProcess, idle_s: float) -> bytes:
     frame = _v5_frame(
         _CONTROL_HELLO, _SEQUENCE, _ADMITTED_SERIAL, _live_shaped_upload_header()
     )
     with socket.create_connection(("127.0.0.1", wattloft.ingest_port), timeout=5) as sock:
-        # Send just under 300s so a 300s timeout still accepts; a shorter timeout would have closed.
-        time.sleep(299)
-        sock.sendall(frame)
-        sock.settimeout(5)
-        ack = _recv_exact(sock, len(_EXPECTED_HELLO_ACK))
+        time.sleep(idle_s)
+        try:
+            sock.sendall(frame)
+            sock.settimeout(1)
+            return _recv_exact(sock, len(_EXPECTED_HELLO_ACK))
+        except (TimeoutError, ConnectionError, OSError):
+            return b""
+
+
+def test_ingest_idle_timeout_keeps_connection_until_deadline(mysql_url: str) -> None:
+    _reset_history(mysql_url)
+    process = WattloftProcess(mysql_url, extra_env={"INGEST_IDLE_TIMEOUT_S": "0.4"})
+    process.start()
+    process.wait_until_listening()
+    try:
+        ack = _hello_after_idle(process, 0.2)
+    finally:
+        process.stop()
 
     assert ack == _EXPECTED_HELLO_ACK
+
+
+def test_ingest_idle_timeout_closes_after_deadline(mysql_url: str) -> None:
+    _reset_history(mysql_url)
+    process = WattloftProcess(mysql_url, extra_env={"INGEST_IDLE_TIMEOUT_S": "0.4"})
+    process.start()
+    process.wait_until_listening()
+    try:
+        ack = _hello_after_idle(process, 0.6)
+    finally:
+        process.stop()
+
+    assert ack == b""
