@@ -13,11 +13,6 @@ packages:
   - curl
   - gzip
 
-users:
-  - name: ubuntu
-    groups: [sudo, docker]
-    lock_passwd: true
-
 write_files:
   - path: /etc/wattloft/oci.env
     owner: root:root
