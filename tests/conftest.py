@@ -14,7 +14,7 @@ import pytest
 from pymysql.err import ProgrammingError
 from testcontainers.community.mysql import MySqlContainer
 
-from wattloft.history import _connect
+from wattloft.history._mysql import _connect
 
 OPERATOR_PASSWORD = "correct-horse"
 
