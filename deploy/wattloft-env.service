@@ -5,6 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 EnvironmentFile=/etc/wattloft/oci.env
 ExecStart=/usr/local/sbin/wattloft-env
 RemainAfterExit=yes

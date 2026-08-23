@@ -2,6 +2,7 @@
 # Pull GitHub Actions secrets from OCI Vault via instance principal and write
 # a root-only env file. Compose reads that file; Wattloft does not speak OCI.
 set -euo pipefail
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:${PATH}"
 
 ENV_FILE="${WATTLOFT_ENV_FILE:-/etc/wattloft/wattloft.env}"
 COMPARTMENT_ID="${OCI_COMPARTMENT_OCID:?OCI_COMPARTMENT_OCID is required}"

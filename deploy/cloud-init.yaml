@@ -1,9 +1,5 @@
 #cloud-config
-# Do not run growpart/bootcmd swap: those raced on the Micro and failed the
-# network stage, so packages, sshd keys, and the Bastion plugin never started.
-growpart:
-  mode: "off"
-
+# Swap is created in runcmd after packages so it cannot race growpart.
 package_update: true
 packages:
   - docker.io
@@ -34,7 +30,7 @@ runcmd:
     fi
     swapon /swapfile || true
     grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
-  - pip3 install --break-system-packages oci-cli
+  - pip3 install --break-system-packages --ignore-installed oci-cli
   - systemctl enable --now docker
   - usermod -aG docker ubuntu
 

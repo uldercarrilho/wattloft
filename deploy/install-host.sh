@@ -14,7 +14,10 @@ install -m 644 history-dump.timer /etc/systemd/system/wattloft-history-dump.time
 
 systemctl daemon-reload
 systemctl enable wattloft-env.service wattloft-history-dump.timer
-systemctl start wattloft-env.service
+if ! systemctl start wattloft-env.service; then
+  journalctl -u wattloft-env.service -n 50 --no-pager >&2
+  exit 1
+fi
 
 docker compose --env-file "$ENV_FILE" -f "${COMPOSE_DIR}/compose.yml" pull
 docker compose --env-file "$ENV_FILE" -f "${COMPOSE_DIR}/compose.yml" up -d
