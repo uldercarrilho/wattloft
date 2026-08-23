@@ -19,6 +19,15 @@ if ! systemctl start wattloft-env.service; then
   exit 1
 fi
 
+# shellcheck disable=SC1090
+set -a
+# shellcheck disable=SC1090
+source "$ENV_FILE"
+set +a
+if [[ -n "${GHCR_PULL_TOKEN:-}" ]]; then
+  printf '%s' "$GHCR_PULL_TOKEN" | docker login ghcr.io -u "${GHCR_USERNAME:-uldercarrilho}" --password-stdin
+fi
+
 docker compose --env-file "$ENV_FILE" -f "${COMPOSE_DIR}/compose.yml" pull
 docker compose --env-file "$ENV_FILE" -f "${COMPOSE_DIR}/compose.yml" up -d
 systemctl start wattloft-history-dump.timer
