@@ -1,0 +1,3 @@
+# Curve watts bridge short Sample gaps, not silence
+
+Plant view’s curve hair shows curve watts, not Power: per Logger, linearly interpolate between consecutive Samples at most 15 minutes apart so a one-minute offset or a missed snapshot does not look like a dead Logger. Longer holes break the line and dash the readout; a failed parse does not close a gap; Plant is the sum of Loggers that have curve watts then, never a held silent Logger or an interpolated Plant polyline. Snap-only readout and interpolating across hours were rejected: the first makes normal cadence look gappy, the second invents production.
