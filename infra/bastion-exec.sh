@@ -89,5 +89,6 @@ scp "${ssh_opts[@]}" \
   "$ROOT/deploy/history-dump.timer" \
   "$ROOT/deploy/install-host.sh" \
   "ubuntu@${PRIVATE_IP}:/opt/wattloft/"
+ssh "${ssh_opts[@]}" "ubuntu@${PRIVATE_IP}" "sed -i 's/\r$//' /opt/wattloft/*.sh"
 
 ssh "${ssh_opts[@]}" "ubuntu@${PRIVATE_IP}" "$REMOTE_CMD"
