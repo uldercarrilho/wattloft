@@ -38,6 +38,202 @@ def _plant_view_html(wattloft: WattloftProcess, path: str = "/") -> str:
         return client.get(path).text
 
 
+def test_after_login_with_history_the_page_offers_time_and_day(
+    wattloft: WattloftProcess,
+) -> None:
+    _ingest(wattloft, _ADMITTED_SERIAL, _live_shaped_upload_header())
+    html = _plant_view_html(wattloft)
+    assert ">Time<" in html
+    assert ">Day<" in html
+    assert ">Month<" not in html
+    assert ">Year<" not in html
+
+
+def test_time_grain_stepper_shows_iso_local_day_and_that_days_power_curve(
+    mysql_url: str,
+) -> None:
+    _reset_history(mysql_url)
+    process = WattloftProcess(mysql_url, now="2026-08-21T15:00:00-03:00")
+    process.start()
+    process.wait_until_listening()
+    try:
+        _ingest(process, _ADMITTED_SERIAL, _live_shaped_upload_header())
+        process.now = "2026-08-21T15:01:00-03:00"
+        process.restart()
+        _ingest(
+            process,
+            _SECOND_SERIAL,
+            _upload_header(today_cents=240, lifetime_tenths=1000, watts=400),
+        )
+        process.now = "2026-08-22T10:00:00-03:00"
+        process.restart()
+        _ingest(
+            process,
+            _ADMITTED_SERIAL,
+            _upload_header(today_cents=20, lifetime_tenths=56356, watts=50),
+        )
+        html = _plant_view_html(process, "/?day=2026-08-21")
+    finally:
+        process.stop()
+
+    assert ">2026-08-21<" in html
+    assert 'data-series="Plant"' in html
+    assert 'data-series="1000000001"' in html
+    assert "2026-08-21 3.50 kWh" not in html
+    assert "2026-08-22 0.20 kWh" not in html
+    assert 'aria-current="true">Time<' in html
+    assert 'href="/?day=2026-08-21&amp;unit=day"' in html
+
+
+def test_day_grain_shows_today_energy_bars_for_the_stepper_month(
+    mysql_url: str,
+) -> None:
+    _reset_history(mysql_url)
+    process = WattloftProcess(mysql_url, now="2026-08-21T15:00:00-03:00")
+    process.start()
+    process.wait_until_listening()
+    try:
+        _ingest(process, _ADMITTED_SERIAL, _live_shaped_upload_header())
+        process.now = "2026-08-21T16:00:00-03:00"
+        process.restart()
+        _ingest(
+            process,
+            _ADMITTED_SERIAL,
+            _upload_header(today_cents=150, lifetime_tenths=56354, watts=625),
+        )
+        _ingest(
+            process,
+            _SECOND_SERIAL,
+            _upload_header(today_cents=240, lifetime_tenths=1000, watts=400),
+        )
+        process.now = "2026-09-01T10:00:00-03:00"
+        process.restart()
+        _ingest(
+            process,
+            _ADMITTED_SERIAL,
+            _upload_header(today_cents=20, lifetime_tenths=56356, watts=50),
+        )
+        html = _plant_view_html(process, "/?day=2026-08-21&unit=day")
+    finally:
+        process.stop()
+
+    assert ">2026-08<" in html
+    assert 'aria-current="true">Day<' in html
+    assert "2026-08-21 3.90 kWh" in html
+    assert "2026-09-01 0.20 kWh" not in html
+    days = html.split('<ol class="days">', 1)[1].split("</ol>", 1)[0]
+    assert "2026-09-01" not in days
+    assert 'data-series="Plant"' not in html
+    assert 'href="/?day=2026-08-21&amp;unit=time"' in html
+    assert "<dt>Today energy</dt><dd>0.20 kWh</dd>" in html
+    assert "<dt>Current Power</dt><dd>50 W</dd>" in html
+
+
+def test_time_stepper_previous_and_next_stop_at_first_and_last_local_day(
+    mysql_url: str,
+) -> None:
+    _reset_history(mysql_url)
+    process = WattloftProcess(mysql_url, now="2026-08-21T15:00:00-03:00")
+    process.start()
+    process.wait_until_listening()
+    try:
+        _ingest(process, _ADMITTED_SERIAL, _live_shaped_upload_header())
+        process.now = "2026-08-22T10:00:00-03:00"
+        process.restart()
+        _ingest(
+            process,
+            _ADMITTED_SERIAL,
+            _upload_header(today_cents=20, lifetime_tenths=56356, watts=50),
+        )
+        first = _plant_view_html(process, "/?day=2026-08-21&unit=time")
+        last = _plant_view_html(process, "/?day=2026-08-22&unit=time")
+    finally:
+        process.stop()
+
+    assert 'aria-label="Previous"' not in first
+    assert 'href="/?day=2026-08-22&amp;unit=time"' in first
+    assert 'href="/?day=2026-08-20' not in first
+    assert 'aria-label="Next"' not in last
+    assert 'href="/?day=2026-08-21&amp;unit=time"' in last
+    assert 'href="/?day=2026-08-23' not in last
+
+
+def test_day_stepper_previous_and_next_stop_at_first_and_last_history_month(
+    mysql_url: str,
+) -> None:
+    _reset_history(mysql_url)
+    process = WattloftProcess(mysql_url, now="2026-08-21T15:00:00-03:00")
+    process.start()
+    process.wait_until_listening()
+    try:
+        _ingest(process, _ADMITTED_SERIAL, _live_shaped_upload_header())
+        process.now = "2026-09-01T10:00:00-03:00"
+        process.restart()
+        _ingest(
+            process,
+            _ADMITTED_SERIAL,
+            _upload_header(today_cents=20, lifetime_tenths=56356, watts=50),
+        )
+        august = _plant_view_html(process, "/?day=2026-08-21&unit=day")
+        september = _plant_view_html(process, "/?day=2026-09-01&unit=day")
+    finally:
+        process.stop()
+
+    assert ">2026-08<" in august
+    assert 'aria-label="Previous"' not in august
+    assert 'href="/?day=2026-09-01&amp;unit=day"' in august
+    assert ">2026-09<" in september
+    assert 'aria-label="Next"' not in september
+    assert 'href="/?day=2026-08-21&amp;unit=day"' in september
+    assert "2026-07" not in august
+    assert "2026-10" not in september
+
+
+def test_local_day_with_no_curve_samples_shows_one_sentence_and_no_empty_axes(
+    mysql_url: str,
+) -> None:
+    _reset_history(mysql_url)
+    process = WattloftProcess(mysql_url, now="2026-08-21T15:00:00-03:00")
+    process.start()
+    process.wait_until_listening()
+    try:
+        _ingest(process, _ADMITTED_SERIAL, _live_shaped_upload_header())
+        process.now = "2026-08-23T10:00:00-03:00"
+        process.restart()
+        _ingest(
+            process,
+            _ADMITTED_SERIAL,
+            _upload_header(today_cents=20, lifetime_tenths=56356, watts=50),
+        )
+        html = _plant_view_html(process, "/?day=2026-08-22&unit=time")
+    finally:
+        process.stop()
+
+    assert "This Local day has no curve Samples." in html
+    assert "<svg" not in html.lower()
+    assert "<canvas" not in html.lower()
+    assert "<dt>Today energy</dt>" in html
+    assert ">2026-08-22<" in html
+
+
+def test_unknown_unit_is_time_grain(
+    mysql_url: str,
+) -> None:
+    _reset_history(mysql_url)
+    process = WattloftProcess(mysql_url, now="2026-08-21T15:00:00-03:00")
+    process.start()
+    process.wait_until_listening()
+    try:
+        _ingest(process, _ADMITTED_SERIAL, _live_shaped_upload_header())
+        html = _plant_view_html(process, "/?day=2026-08-21&unit=month")
+    finally:
+        process.stop()
+
+    assert 'aria-current="true">Time<' in html
+    assert 'data-series="Plant"' in html
+    assert ">Month<" not in html
+
+
 def test_last_sample_is_relative_age_of_current_power_not_a_clock(
     mysql_url: str,
 ) -> None:
@@ -147,13 +343,13 @@ def test_local_day_bars_use_last_successful_today_energy_then_sum(
             _ADMITTED_SERIAL,
             _upload_header(today_cents=20, lifetime_tenths=56356, watts=50),
         )
-        html = _plant_view_html(process)
+        html = _plant_view_html(process, "/?unit=day")
     finally:
         process.stop()
 
-    assert 'href="/?day=2026-08-21"' in html
+    assert 'href="/?day=2026-08-21&amp;unit=time"' in html
     assert "2026-08-21 3.90 kWh" in html
-    assert 'href="/?day=2026-08-22"' in html
+    assert 'href="/?day=2026-08-22&amp;unit=time"' in html
     assert "2026-08-22 0.20 kWh" in html
     assert "<dt>Today energy</dt><dd>0.20 kWh</dd>" in html
     assert "3.50 kWh" not in html

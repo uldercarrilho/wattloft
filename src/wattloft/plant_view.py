@@ -4,7 +4,8 @@ import asyncio
 import hmac
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import date, datetime, timezone
+from calendar import monthrange
+from datetime import date, datetime, timedelta, timezone
 from html import escape
 from zoneinfo import ZoneInfo
 
@@ -61,6 +62,16 @@ svg { width: 100%; height: auto; display: block; }
 :focus-visible { outline: 2px solid var(--pigment); outline-offset: 2px; }
 .curve-legend { list-style: none; padding: 0; display: flex; flex-wrap: wrap;
   gap: 0.5rem 1rem; font-family: "IBM Plex Mono", monospace; font-size: 0.8rem; }
+.grain { display: flex; margin: 0 0 1rem; border: 1px solid var(--ink); padding: 0; }
+.grain a { flex: 1; text-align: center; padding: 0.45rem 0.2rem; font-size: 0.82rem;
+  color: var(--ink); text-decoration: none; border-right: 1px solid var(--ink); }
+.grain a:last-child { border-right: 0; }
+.grain a[aria-current="true"] { background: var(--pigment); color: var(--on-pigment); }
+.stepper { display: flex; align-items: center; justify-content: center; gap: 1rem;
+  margin: 0 0 0.75rem; font: 600 1.45rem/1 "Ibarra Real Nova", serif; }
+.stepper a, .stepper .dead { font: 500 1.6rem/1 "Source Sans 3", sans-serif;
+  text-decoration: none; color: var(--pigment); width: 2rem; text-align: center; }
+.stepper .dead { color: var(--muted); opacity: 0.35; }
 """
 _LAST_SAMPLE_JS = """
 (function () {
@@ -144,19 +155,119 @@ def _parse_day(raw: str | None) -> date | None:
         return None
 
 
+def _parse_unit(raw: str | None) -> str:
+    return "day" if raw == "day" else "time"
+
+
+def _history_span(snapshot: PlantSnapshot) -> tuple[date, date]:
+    days = [bar.local_day for bar in snapshot.local_day_bars]
+    if not days:
+        today = now_utc().astimezone(_LOCAL).date()
+        return today, today
+    return days[0], days[-1]
+
+
+def _selected_day(raw: str | None, snapshot: PlantSnapshot) -> date:
+    first, last = _history_span(snapshot)
+    requested = _parse_day(raw)
+    if requested is None:
+        requested = last
+    if requested < first:
+        return first
+    if requested > last:
+        return last
+    return requested
+
+
+def _href(day: date, unit: str) -> str:
+    return f"/?day={day.isoformat()}&unit={unit}"
+
+
+def _render_grain(selected_day: date, unit: str) -> str:
+    links: list[str] = []
+    for grain, title in (("time", "Time"), ("day", "Day")):
+        current = ' aria-current="true"' if grain == unit else ""
+        links.append(
+            f'<a href="{escape(_href(selected_day, grain))}"{current}>{title}</a>'
+        )
+    return f'<nav class="grain" aria-label="Grain">{"".join(links)}</nav>'
+
+
+def _step_control(href: str, glyph: str, name: str) -> str:
+    if not href:
+        return f'<span class="dead" aria-hidden="true">{glyph}</span>'
+    return f'<a href="{escape(href)}" aria-label="{name}">{glyph}</a>'
+
+
+def _add_months(day: date, delta: int) -> date:
+    month = day.month - 1 + delta
+    year = day.year + month // 12
+    month = month % 12 + 1
+    last = monthrange(year, month)[1]
+    return date(year, month, min(day.day, last))
+
+
+def _render_stepper(
+    selected_day: date, unit: str, snapshot: PlantSnapshot
+) -> str:
+    first, last = _history_span(snapshot)
+    if unit == "day":
+        label = selected_day.strftime("%Y-%m")
+        prev_month = _add_months(selected_day.replace(day=1), -1)
+        next_month = _add_months(selected_day.replace(day=1), 1)
+        prev_href = (
+            _href(max(prev_month, first), "day")
+            if prev_month >= first.replace(day=1)
+            else ""
+        )
+        next_href = (
+            _href(min(next_month, last), "day")
+            if next_month <= last.replace(day=1)
+            else ""
+        )
+    else:
+        label = selected_day.isoformat()
+        prev_day = selected_day - timedelta(days=1)
+        next_day = selected_day + timedelta(days=1)
+        prev_href = _href(prev_day, "time") if prev_day >= first else ""
+        next_href = _href(next_day, "time") if next_day <= last else ""
+    return (
+        '<nav class="stepper" aria-label="Period">\n'
+        f"{_step_control(prev_href, '‹', 'Previous')}\n"
+        f"<span>{escape(label)}</span>\n"
+        f"{_step_control(next_href, '›', 'Next')}\n"
+        "</nav>"
+    )
+
+
+def _chart_body(snapshot: PlantSnapshot, selected_day: date, unit: str) -> str:
+    if unit == "day":
+        return f'<ol class="days">\n{_render_bars(snapshot, selected_day)}\n</ol>'
+    if not snapshot.curve:
+        return '<p class="empty">This Local day has no curve Samples.</p>'
+    return _render_curve(snapshot)
+
+
 def _format_kwh(kwh: float) -> str:
     return f"{kwh:.2f} kWh"
 
 
-def _render_bars(snapshot: PlantSnapshot) -> str:
+def _render_bars(snapshot: PlantSnapshot, selected_day: date) -> str:
+    month_bars = tuple(
+        bar
+        for bar in snapshot.local_day_bars
+        if bar.local_day.year == selected_day.year
+        and bar.local_day.month == selected_day.month
+    )
     items: list[str] = []
-    peak = max((bar.today_energy_kwh for bar in snapshot.local_day_bars), default=0)
-    for bar in snapshot.local_day_bars:
+    peak = max((bar.today_energy_kwh for bar in month_bars), default=0)
+    for bar in month_bars:
         day = bar.local_day.isoformat()
         label = escape(f"{day} {_format_kwh(bar.today_energy_kwh)}")
         width = 100 if peak <= 0 else max(12.0, bar.today_energy_kwh / peak * 100)
         items.append(
-            f'<li><a href="/?day={escape(day)}" style="width:{width:.0f}%">{label}</a></li>'
+            f'<li><a href="{escape(_href(bar.local_day, "time"))}" '
+            f'style="width:{width:.0f}%">{label}</a></li>'
         )
     return "\n".join(items)
 
@@ -248,7 +359,9 @@ def _last_sample_html(snapshot: PlantSnapshot) -> str:
     )
 
 
-def _render_kpis(snapshot: PlantSnapshot) -> str:
+def _render_kpis(
+    snapshot: PlantSnapshot, selected_day: date, unit: str
+) -> str:
     today = (
         _format_kwh(snapshot.today_energy_kwh)
         if snapshot.today_energy_kwh is not None
@@ -263,8 +376,9 @@ def _render_kpis(snapshot: PlantSnapshot) -> str:
         f"<div><dt>Lifetime energy</dt><dd>{escape(f'{snapshot.lifetime_energy_kwh:.1f} kWh')}</dd></div>\n"
         f"<div><dt>Last sample</dt><dd>{_last_sample_html(snapshot)}</dd></div>\n"
         "</dl>\n"
-        f'<ol class="days">\n{_render_bars(snapshot)}\n</ol>\n'
-        f"{_render_curve(snapshot)}"
+        f"{_render_stepper(selected_day, unit, snapshot)}\n"
+        f"{_render_grain(selected_day, unit)}\n"
+        f"{_chart_body(snapshot, selected_day, unit)}"
     )
     return _document(body, script=_LAST_SAMPLE_JS)
 
@@ -280,17 +394,18 @@ def create_app(
     async def plant_view(request: Request) -> Response:
         if not request.session.get("operator"):
             return HTMLResponse(_LOGIN, status_code=401)
-        snapshot = await asyncio.to_thread(
-            plant_snapshot, database_url, _parse_day(request.query_params.get("day"))
-        )
+        day_raw = request.query_params.get("day")
+        requested = _parse_day(day_raw)
+        snapshot = await asyncio.to_thread(plant_snapshot, database_url, requested)
         if snapshot is None:
             return HTMLResponse(_EMPTY_HISTORY)
+        selected = _selected_day(day_raw, snapshot)
+        if selected != requested:
+            snapshot = await asyncio.to_thread(plant_snapshot, database_url, selected)
+            if snapshot is None:
+                return HTMLResponse(_EMPTY_HISTORY)
+        unit = _parse_unit(request.query_params.get("unit"))
         if prototype_enabled():
-            selected = _parse_day(request.query_params.get("day"))
-            if selected is None and snapshot.local_day_bars:
-                selected = snapshot.local_day_bars[-1].local_day
-            if selected is None:
-                selected = date.today()
             return HTMLResponse(
                 render_prototype(
                     snapshot,
@@ -299,7 +414,7 @@ def create_app(
                     unit=request.query_params.get("unit") or "time",
                 )
             )
-        return HTMLResponse(_render_kpis(snapshot))
+        return HTMLResponse(_render_kpis(snapshot, selected, unit))
 
     async def login(request: Request) -> Response:
         form = await request.form()
