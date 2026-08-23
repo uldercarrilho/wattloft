@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import socket
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -42,14 +43,27 @@ def _live_shaped_upload_header() -> bytes:
     return bytes(payload)
 
 
-def _local_stamps(start: datetime, end: datetime) -> set[str]:
-    stamps: set[str] = set()
-    tick = start.replace(microsecond=0) - timedelta(seconds=1)
-    last = end.replace(microsecond=0) + timedelta(seconds=1)
-    while tick <= last:
-        stamps.add(tick.strftime("%Y-%m-%d %H:%M:%S"))
-        tick += timedelta(seconds=1)
-    return stamps
+_LAST_SAMPLE = re.compile(
+    r'<time\b[^>]*\bdatetime="([^"]+)"[^>]*>([^<]*)</time>',
+    re.IGNORECASE,
+)
+
+
+def last_sample_on_page(html: str) -> tuple[datetime, str]:
+    match = _LAST_SAMPLE.search(html)
+    assert match is not None
+    return datetime.fromisoformat(match.group(1)), match.group(2)
+
+
+def assert_last_sample_is_receive_time(
+    html: str, *, before: datetime, after: datetime
+) -> None:
+    at, label = last_sample_on_page(html)
+    earliest = before.replace(microsecond=0) - timedelta(seconds=1)
+    latest = after.replace(microsecond=0) + timedelta(seconds=1)
+    assert earliest <= at <= latest
+    assert label.endswith(" ago")
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", label) is None
 
 
 def _recv_exact(sock: socket.socket, size: int) -> bytes:
@@ -89,4 +103,4 @@ def test_admitted_logger_data_frame_becomes_a_sample_on_plant_view(
     assert "5635.4 kWh" in html
     assert "Last sample" in html
     assert "2026-08-20 11:39:15" not in html
-    assert any(stamp in html for stamp in _local_stamps(before, after))
+    assert_last_sample_is_receive_time(html, before=before, after=after)

@@ -41,7 +41,7 @@ The single person allowed to see the Plant in Wattloft. v1 proves it with a pass
 _Avoid_: user, admin, customer, viewer, SSO, Cognito
 
 **Plant view**:
-What the Operator sees over HTTPS on a hostname: Today energy, Current Power, Lifetime energy, the as-of time of Current Power, Local-day Today energy bars, and that Local day’s Power curve (each Logger and the Plant). Nothing else is a v1 surface.
+What the Operator sees over HTTPS on a hostname: Today energy, Current Power, Lifetime energy, Last sample as the relative age of Current Power’s Sample, Local-day Today energy bars, and that Local day’s Power curve (each Logger and the Plant). Login, empty History, and Plant view share one Azulejo look. Nothing else is a v1 surface.
 _Avoid_: report, dashboard, equipment data, live view, efficiency, month rollup, HTTP (plaintext)
 
 **Today energy**:

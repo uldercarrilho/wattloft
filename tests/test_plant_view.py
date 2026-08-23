@@ -9,6 +9,12 @@ from conftest import WattloftProcess
 def test_unauthenticated_get_of_plant_view_is_denied(plant_view_url: str) -> None:
     response = httpx.get(plant_view_url, follow_redirects=False)
     assert response.status_code == 401
+    html = response.text
+    assert 'lang="en"' in html
+    assert "Password" in html
+    assert "Log in" in html
+    assert 'type="password"' in html
+    assert "<script" not in html.lower()
 
 
 def test_wrong_operator_password_is_rejected(plant_view_url: str) -> None:
@@ -46,8 +52,10 @@ def test_empty_history_shows_one_sentence_without_energy_power_or_chart_axes(
         assert "Today energy" not in html
         assert "Current Power" not in html
         assert "Lifetime energy" not in html
+        assert "Log out" in html
         assert "<svg" not in html.lower()
         assert "<canvas" not in html.lower()
+        assert "<script" not in html.lower()
 
 
 def test_empty_history_survives_process_restart(wattloft: WattloftProcess) -> None:

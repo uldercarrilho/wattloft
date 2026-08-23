@@ -38,6 +38,40 @@ def _plant_view_html(wattloft: WattloftProcess, path: str = "/") -> str:
         return client.get(path).text
 
 
+def test_last_sample_is_relative_age_of_current_power_not_a_clock(
+    mysql_url: str,
+) -> None:
+    _reset_history(mysql_url)
+    process = WattloftProcess(mysql_url, now="2026-08-22T10:00:00-03:00")
+    process.start()
+    process.wait_until_listening()
+    try:
+        _ingest(process, _ADMITTED_SERIAL, _live_shaped_upload_header())
+        process.now = "2026-08-22T10:00:30-03:00"
+        process.restart()
+        html = _plant_view_html(process)
+    finally:
+        process.stop()
+
+    assert "Last sample" in html
+    assert 'datetime="2026-08-22T10:00:00-03:00"' in html
+    assert ">30s ago<" in html
+    assert "<dt>Last sample</dt><dd>2026-08-22 10:00:00</dd>" not in html
+
+
+def test_last_sample_ticks_from_inline_script_without_auto_refresh(
+    wattloft: WattloftProcess,
+) -> None:
+    _ingest(wattloft, _ADMITTED_SERIAL, _live_shaped_upload_header())
+    html = _plant_view_html(wattloft)
+    assert "<script>" in html
+    assert "setInterval" in html
+    assert "last-sample" in html
+    assert "http-equiv" not in html.lower()
+    assert "prototype-state" not in html
+    assert "PROTOTYPE" not in html
+
+
 def test_two_admitted_loggers_sum_only_those_that_answered(
     wattloft: WattloftProcess,
 ) -> None:
@@ -81,7 +115,8 @@ def test_logger_with_no_sample_that_local_day_contributes_nothing_to_today_energ
     assert "0.00 kWh" not in html
     assert "<dt>Current Power</dt><dd>400 W</dd>" in html
     assert "<dt>Lifetime energy</dt><dd>5735.4 kWh</dd>" in html
-    assert "2026-08-22 10:00:00" in html
+    assert 'datetime="2026-08-22T10:00:00-03:00"' in html
+    assert ">0s ago<" in html
 
 
 def test_local_day_bars_use_last_successful_today_energy_then_sum(
@@ -170,6 +205,10 @@ def test_selected_local_day_power_curve_shows_each_logger_and_plant(
     assert 'data-at="2026-08-21 15:01:00" data-watts="400"' in plant
     assert 'data-watts="0"' not in plant
     assert 'data-watts="1025"' not in plant
+    assert "<dt>Today energy</dt><dd>0.20 kWh</dd>" in html
+    assert "<dt>Current Power</dt><dd>50 W</dd>" in html
+    assert "<dt>Lifetime energy</dt><dd>5735.6 kWh</dd>" in html
+    assert 'datetime="2026-08-22T10:00:00-03:00"' in html
 
 
 def test_today_energy_dashes_when_no_logger_sampled_this_local_day(
@@ -190,7 +229,8 @@ def test_today_energy_dashes_when_no_logger_sampled_this_local_day(
     assert "<dt>Today energy</dt><dd>-</dd>" in html
     assert "0.00 kWh" not in html
     assert "<dt>Current Power</dt><dd>625 W</dd>" in html
-    assert "2026-08-21 15:00:00" in html
+    assert 'datetime="2026-08-21T15:00:00-03:00"' in html
+    assert ">19 hours ago<" in html
     assert "<dt>Lifetime energy</dt><dd>5635.4 kWh</dd>" in html
 
 
