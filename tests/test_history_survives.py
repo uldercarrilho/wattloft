@@ -13,9 +13,9 @@ from test_admitted_logger_sample import (
     _LOCAL,
     _SEQUENCE,
     _live_shaped_upload_header,
-    _local_stamps,
     _recv_exact,
     _v5_frame,
+    assert_last_sample_is_receive_time,
 )
 from wattloft.history import dump_history, restore_history
 
@@ -46,7 +46,7 @@ def _assert_sample_on_plant_view(
     assert "1.10 kWh" in html
     assert "625 W" in html
     assert "5635.4 kWh" in html
-    assert any(stamp in html for stamp in _local_stamps(before, after))
+    assert_last_sample_is_receive_time(html, before=before, after=after)
 
 
 def test_operator_sees_history_after_process_restart(

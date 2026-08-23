@@ -4,7 +4,7 @@ import asyncio
 import hmac
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, datetime, timezone
 from html import escape
 from zoneinfo import ZoneInfo
 
@@ -14,83 +14,113 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.routing import Route
 
-from wattloft.config import ADMITTED_LOGGER_SERIALS
+from wattloft.config import ADMITTED_LOGGER_SERIALS, now_utc
 from wattloft.history import CurvePoint, CurveSeries, PlantSnapshot, plant_snapshot
 from wattloft.ingest import start_ingest
 from wattloft.plant_view_prototype import prototype_enabled, render_prototype
 
 _LOCAL = ZoneInfo("America/Sao_Paulo")
-
-_LOGIN = """<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Plant</title>
-<style>
-body { margin: 0; padding: 1rem; font: 16px/1.4 sans-serif; max-width: 100%; }
-button { font-size: 1rem; padding: 0.5rem 1rem; }
-input { font-size: 1rem; max-width: 100%; }
-</style>
-</head>
-<body>
-<form method="post" action="/login">
-<label>Password <input type="password" name="password" required></label>
-<button type="submit">Log in</button>
-</form>
-</body>
-</html>
+_FONTS = (
+    "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500"
+    "&family=Ibarra+Real+Nova:wght@600"
+    "&family=Source+Sans+3:wght@400;500&display=swap"
+)
+_CSS = """
+:root {
+  --paper:#E8EEF2; --ink:#1A2A3A; --pigment:#1E4F8C; --muted:#5A6B78;
+  --chip:#F7FAFC; --on-pigment:#F4F7FA;
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 0 0 1.5rem; background: var(--paper); color: var(--ink);
+  font: 16px/1.4 "Source Sans 3", sans-serif; max-width: 100%; }
+main { padding: 0.75rem 1rem 1.5rem; max-width: 42rem; }
+h1 { font: 600 1.7rem/1.1 "Ibarra Real Nova", serif; margin: 0 0 0.75rem; }
+.logout { margin: 0 0 0.6rem; }
+.logout button { font: 500 0.9rem/1 "Source Sans 3", sans-serif; background: none;
+  border: 0; padding: 0; color: var(--muted); text-decoration: underline;
+  cursor: pointer; min-height: 2.4rem; }
+.kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem 1rem; margin: 0 0 0.9rem; }
+.kpis div { margin: 0; }
+.kpis dt { font-size: 0.72rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.kpis dd { margin: 0; font-family: "IBM Plex Mono", monospace; font-size: 1.05rem; }
+.login { max-width: 22rem; }
+.login label { display: block; font-size: 1rem; color: var(--ink); margin: 0 0 0.45rem; }
+.login input { display: block; width: 100%; max-width: 100%; font-size: 1rem;
+  padding: 0.65rem 0.75rem; border: 1px solid var(--ink); background: var(--chip); color: var(--ink); }
+.login button { margin-top: 0.8rem; min-height: 2.6rem; padding: 0.5rem 1.1rem;
+  font: 500 1rem/1 "Source Sans 3", sans-serif; border: 0; background: var(--pigment);
+  color: var(--on-pigment); cursor: pointer; }
+.empty { margin: 0; }
+ol.days { list-style: none; padding: 0; margin: 0 0 1rem; max-width: 100%; }
+ol.days a { display: block; box-sizing: border-box; max-width: 100%;
+  padding: 0.5rem 0.7rem; margin: 0.25rem 0; background: var(--pigment);
+  color: var(--on-pigment); text-decoration: none;
+  font-family: "IBM Plex Mono", monospace; font-size: 0.85rem; }
+svg, .curve-legend, dl, form { max-width: 100%; }
+svg { width: 100%; height: auto; display: block; }
+:focus-visible { outline: 2px solid var(--pigment); outline-offset: 2px; }
+.curve-legend { list-style: none; padding: 0; display: flex; flex-wrap: wrap;
+  gap: 0.5rem 1rem; font-family: "IBM Plex Mono", monospace; font-size: 0.8rem; }
 """
-
-_EMPTY_HISTORY = """<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Plant</title>
-<style>
-body { margin: 0; padding: 1rem; font: 16px/1.4 sans-serif; max-width: 100%; }
-button { font-size: 1rem; padding: 0.5rem 1rem; }
-</style>
-</head>
-<body>
-<form method="post" action="/logout"><button type="submit">Log out</button></form>
-<p>This Plant has no History yet.</p>
-</body>
-</html>
+_LAST_SAMPLE_JS = """
+(function () {
+  const el = document.getElementById("last-sample");
+  if (!el) return;
+  const at = Date.parse(el.getAttribute("datetime") || "");
+  if (!Number.isFinite(at)) return;
+  function label(ms) {
+    const secs = Math.max(0, Math.floor(ms / 1000));
+    if (secs < 60) return secs + "s ago";
+    const mins = Math.floor(secs / 60);
+    if (mins < 60) return mins === 1 ? "1 minute ago" : mins + " minutes ago";
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return hours === 1 ? "1 hour ago" : hours + " hours ago";
+    const days = Math.floor(hours / 24);
+    return days === 1 ? "1 day ago" : days + " days ago";
+  }
+  function tick() {
+    el.textContent = label(Date.now() - at);
+  }
+  tick();
+  setInterval(tick, 1000);
+})();
 """
+_LOGOUT = (
+    '<form class="logout" method="post" action="/logout">'
+    '<button type="submit">Log out</button></form>'
+)
 
-_KPIS = """<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Plant</title>
-<style>
-body {{ margin: 0; padding: 1rem; font: 16px/1.4 sans-serif; max-width: 100%; }}
-svg, ol, dl, form {{ max-width: 100%; }}
-svg {{ width: 100%; height: auto; display: block; }}
-ol {{ list-style: none; padding: 0; }}
-ol a {{ display: block; box-sizing: border-box; max-width: 100%; padding: 0.5rem; margin: 0.25rem 0; background: #2a7; color: #fff; text-decoration: none; }}
-.curve-legend {{ list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; }}
-button {{ font-size: 1rem; padding: 0.5rem 1rem; }}
-</style>
-</head>
-<body>
-<form method="post" action="/logout"><button type="submit">Log out</button></form>
-<dl>
-<dt>Today energy</dt><dd>{today_energy}</dd>
-<dt>Current Power</dt><dd>{current_power}</dd>
-<dt>Lifetime energy</dt><dd>{lifetime_energy}</dd>
-<dt>Last sample</dt><dd>{last_sample}</dd>
-</dl>
-<ol>
-{bars}
-</ol>
-{curve}
-</body>
-</html>
-"""
+
+def _document(body: str, *, script: str = "") -> str:
+    script_tag = f"<script>{script}</script>" if script else ""
+    return (
+        "<!DOCTYPE html>\n"
+        '<html lang="en">\n'
+        "<head>\n"
+        '<meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+        "<title>Plant</title>\n"
+        '<link rel="preconnect" href="https://fonts.googleapis.com">\n'
+        '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
+        f'<link href="{escape(_FONTS)}" rel="stylesheet">\n'
+        f"<style>{_CSS}</style>\n"
+        "</head>\n"
+        f"<body>\n<main>\n{body}\n</main>\n{script_tag}\n</body>\n"
+        "</html>\n"
+    )
+
+
+_LOGIN = _document(
+    "<h1>Plant</h1>\n"
+    '<form class="login" method="post" action="/login">\n'
+    '<label>Password <input type="password" name="password" required></label>\n'
+    '<button type="submit">Log in</button>\n'
+    "</form>"
+)
+_EMPTY_HISTORY = _document(
+    f"{_LOGOUT}\n<h1>Plant</h1>\n"
+    '<p class="empty">This Plant has no History yet.</p>'
+)
 
 
 def _format_watts(watts: float) -> str:
@@ -133,8 +163,8 @@ def _render_bars(snapshot: PlantSnapshot) -> str:
 
 def _series_color(index: int, name: str) -> str:
     if name == "Plant":
-        return "#1a1a1a"
-    return ("#c45c4a", "#2a6fbf")[index % 2]
+        return "#1A2A3A"
+    return ("#9B2C2C", "#2A6B5A")[index % 2]
 
 
 def _xy(point: CurvePoint, max_watts: float) -> tuple[float, float]:
@@ -186,22 +216,57 @@ def _render_curve(snapshot: PlantSnapshot) -> str:
     )
 
 
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _ago(at: datetime) -> str:
+    stamp = _as_utc(at).astimezone(_LOCAL)
+    here = now_utc().astimezone(_LOCAL)
+    secs = max(0, int((here - stamp).total_seconds()))
+    if secs < 60:
+        return f"{secs}s ago"
+    mins = secs // 60
+    if mins < 60:
+        return "1 minute ago" if mins == 1 else f"{mins} minutes ago"
+    hours = mins // 60
+    if hours < 24:
+        return "1 hour ago" if hours == 1 else f"{hours} hours ago"
+    days = hours // 24
+    return "1 day ago" if days == 1 else f"{days} days ago"
+
+
+def _last_sample_html(snapshot: PlantSnapshot) -> str:
+    iso = _as_utc(snapshot.current_power_at).astimezone(_LOCAL).isoformat(
+        timespec="seconds"
+    )
+    return (
+        f'<time id="last-sample" datetime="{escape(iso)}">'
+        f"{escape(_ago(snapshot.current_power_at))}</time>"
+    )
+
+
 def _render_kpis(snapshot: PlantSnapshot) -> str:
-    last_sample = snapshot.current_power_at.astimezone(_LOCAL).strftime(
-        "%Y-%m-%d %H:%M:%S"
+    today = (
+        _format_kwh(snapshot.today_energy_kwh)
+        if snapshot.today_energy_kwh is not None
+        else "-"
     )
-    return _KPIS.format(
-        today_energy=escape(
-            _format_kwh(snapshot.today_energy_kwh)
-            if snapshot.today_energy_kwh is not None
-            else "-"
-        ),
-        current_power=escape(_format_watts(snapshot.current_power_w)),
-        lifetime_energy=escape(f"{snapshot.lifetime_energy_kwh:.1f} kWh"),
-        last_sample=escape(last_sample),
-        bars=_render_bars(snapshot),
-        curve=_render_curve(snapshot),
+    body = (
+        f"{_LOGOUT}\n"
+        "<h1>Plant</h1>\n"
+        '<dl class="kpis">\n'
+        f"<div><dt>Today energy</dt><dd>{escape(today)}</dd></div>\n"
+        f"<div><dt>Current Power</dt><dd>{escape(_format_watts(snapshot.current_power_w))}</dd></div>\n"
+        f"<div><dt>Lifetime energy</dt><dd>{escape(f'{snapshot.lifetime_energy_kwh:.1f} kWh')}</dd></div>\n"
+        f"<div><dt>Last sample</dt><dd>{_last_sample_html(snapshot)}</dd></div>\n"
+        "</dl>\n"
+        f'<ol class="days">\n{_render_bars(snapshot)}\n</ol>\n'
+        f"{_render_curve(snapshot)}"
     )
+    return _document(body, script=_LAST_SAMPLE_JS)
 
 
 def create_app(
