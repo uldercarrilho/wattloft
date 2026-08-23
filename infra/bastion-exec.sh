@@ -70,25 +70,37 @@ ssh_opts=(
   -o ProxyCommand="ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o IdentitiesOnly=yes -W %h:%p -p 22 ${SESSION_ID}@${BASTION_HOST}"
 )
 
-# Wait until cloud-init has docker.
-for _ in $(seq 1 60); do
-  if ssh "${ssh_opts[@]}" "ubuntu@${PRIVATE_IP}" "command -v docker >/dev/null && sudo docker info >/dev/null 2>&1"; then
+# First hop through Bastion sometimes rejects the key once; retry.
+for _ in $(seq 1 30); do
+  if ssh "${ssh_opts[@]}" "ubuntu@${PRIVATE_IP}" true; then
     break
   fi
-  sleep 10
+  sleep 5
 done
 
-ssh "${ssh_opts[@]}" "ubuntu@${PRIVATE_IP}" "sudo mkdir -p /opt/wattloft && sudo chown ubuntu:ubuntu /opt/wattloft"
-scp "${ssh_opts[@]}" \
-  "$ROOT/deploy/compose.yml" \
-  "$ROOT/deploy/Caddyfile" \
-  "$ROOT/deploy/wattloft-env.sh" \
-  "$ROOT/deploy/wattloft-env.service" \
-  "$ROOT/deploy/history-dump.sh" \
-  "$ROOT/deploy/history-dump.service" \
-  "$ROOT/deploy/history-dump.timer" \
-  "$ROOT/deploy/install-host.sh" \
-  "ubuntu@${PRIVATE_IP}:/opt/wattloft/"
-ssh "${ssh_opts[@]}" "ubuntu@${PRIVATE_IP}" "sed -i 's/\r$//' /opt/wattloft/*.sh"
+# Wait until cloud-init has docker (install-host needs it).
+if [[ -z "${SKIP_DOCKER_WAIT:-}" ]]; then
+  for _ in $(seq 1 60); do
+    if ssh "${ssh_opts[@]}" "ubuntu@${PRIVATE_IP}" "command -v docker >/dev/null && sudo docker info >/dev/null 2>&1"; then
+      break
+    fi
+    sleep 10
+  done
+fi
+
+if [[ -z "${SKIP_COPY:-}" ]]; then
+  ssh "${ssh_opts[@]}" "ubuntu@${PRIVATE_IP}" "sudo mkdir -p /opt/wattloft && sudo chown ubuntu:ubuntu /opt/wattloft"
+  scp "${ssh_opts[@]}" \
+    "$ROOT/deploy/compose.yml" \
+    "$ROOT/deploy/Caddyfile" \
+    "$ROOT/deploy/wattloft-env.sh" \
+    "$ROOT/deploy/wattloft-env.service" \
+    "$ROOT/deploy/history-dump.sh" \
+    "$ROOT/deploy/history-dump.service" \
+    "$ROOT/deploy/history-dump.timer" \
+    "$ROOT/deploy/install-host.sh" \
+    "ubuntu@${PRIVATE_IP}:/opt/wattloft/"
+  ssh "${ssh_opts[@]}" "ubuntu@${PRIVATE_IP}" "sed -i 's/\r$//' /opt/wattloft/*.sh"
+fi
 
 ssh "${ssh_opts[@]}" "ubuntu@${PRIVATE_IP}" "$REMOTE_CMD"
