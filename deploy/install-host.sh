@@ -14,7 +14,9 @@ install -m 644 history-dump.timer /etc/systemd/system/wattloft-history-dump.time
 
 systemctl daemon-reload
 systemctl enable wattloft-env.service wattloft-history-dump.timer
-if ! systemctl start wattloft-env.service; then
+# RemainAfterExit oneshot: start is a no-op after the first success, so reclaim
+# would keep a stale GHCR job token and compose pull would 401.
+if ! systemctl restart wattloft-env.service; then
   journalctl -u wattloft-env.service -n 50 --no-pager >&2
   exit 1
 fi
@@ -24,8 +26,22 @@ set -a
 # shellcheck disable=SC1090
 source "$ENV_FILE"
 set +a
-if [[ -n "${GHCR_PULL_TOKEN:-}" ]]; then
-  printf '%s' "$GHCR_PULL_TOKEN" | docker login ghcr.io -u "${GHCR_USERNAME:-uldercarrilho}" --password-stdin
+if [[ -z "${GHCR_PULL_TOKEN:-}" ]]; then
+  echo "install-host: GHCR_PULL_TOKEN missing from ${ENV_FILE}" >&2
+  exit 1
+fi
+printf '%s' "$GHCR_PULL_TOKEN" | docker login ghcr.io -u "${GHCR_USERNAME:-uldercarrilho}" --password-stdin
+
+# OCI Ubuntu images REJECT new TCP except 22. NSG already allows 80/443/10000.
+for port in 80 443 10000; do
+  if ! iptables -C INPUT -p tcp -m state --state NEW -m tcp --dport "$port" -j ACCEPT 2>/dev/null; then
+    iptables -I INPUT -p tcp -m state --state NEW -m tcp --dport "$port" -j ACCEPT
+  fi
+done
+if command -v netfilter-persistent >/dev/null 2>&1; then
+  netfilter-persistent save || true
+elif [[ -d /etc/iptables ]]; then
+  iptables-save > /etc/iptables/rules.v4
 fi
 
 docker compose --env-file "$ENV_FILE" -f "${COMPOSE_DIR}/compose.yml" pull

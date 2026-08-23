@@ -20,6 +20,11 @@ if [[ -z "$INSTANCE_ID" || "$INSTANCE_ID" == "null" ]]; then
   INSTANCE_ID="${OCI_INSTANCE_OCID:-${WATTLOFT_INSTANCE_OCID:?}}"
 fi
 REMOTE_CMD="${*:-sudo bash /opt/wattloft/install-host.sh}"
+if [[ $# -eq 0 ]]; then
+  # Diagnostic one-liners may skip copy; a default install always deploys files
+  # and waits for docker. Inherited SKIP_* from a prior shell must not leak.
+  unset SKIP_COPY SKIP_DOCKER_WAIT
+fi
 
 PRIVATE_IP=$(ociq compute instance list-vnics --instance-id "$INSTANCE_ID" \
   --query "data[0].\"private-ip\"" --raw-output)
@@ -78,14 +83,21 @@ for _ in $(seq 1 30); do
   sleep 5
 done
 
-# Wait until cloud-init has docker (install-host needs it).
+# Wait until cloud-init has docker and oci-cli (wattloft-env needs both).
 if [[ -z "${SKIP_DOCKER_WAIT:-}" ]]; then
-  for _ in $(seq 1 60); do
-    if ssh "${ssh_opts[@]}" "ubuntu@${PRIVATE_IP}" "command -v docker >/dev/null && sudo docker info >/dev/null 2>&1"; then
+  ready=0
+  for _ in $(seq 1 90); do
+    if ssh "${ssh_opts[@]}" "ubuntu@${PRIVATE_IP}" \
+      "command -v docker >/dev/null && sudo docker info >/dev/null 2>&1 && command -v oci >/dev/null"; then
+      ready=1
       break
     fi
     sleep 10
   done
+  if [[ "$ready" != 1 ]]; then
+    echo "docker/oci-cli not ready after cloud-init wait" >&2
+    exit 1
+  fi
 fi
 
 if [[ -z "${SKIP_COPY:-}" ]]; then

@@ -33,5 +33,16 @@ runcmd:
   - pip3 install --break-system-packages --ignore-installed oci-cli
   - systemctl enable --now docker
   - usermod -aG docker ubuntu
+  - |
+    for port in 80 443 10000; do
+      if ! iptables -C INPUT -p tcp -m state --state NEW -m tcp --dport "$port" -j ACCEPT 2>/dev/null; then
+        iptables -I INPUT -p tcp -m state --state NEW -m tcp --dport "$port" -j ACCEPT
+      fi
+    done
+    if command -v netfilter-persistent >/dev/null 2>&1; then
+      netfilter-persistent save || true
+    elif [ -d /etc/iptables ]; then
+      iptables-save > /etc/iptables/rules.v4
+    fi
 
 final_message: "wattloft cloud-init done"
