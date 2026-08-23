@@ -542,9 +542,6 @@ def test_selected_local_day_power_curve_shows_each_logger_and_plant(
     assert 'data-series="3909309465"' in html
     assert 'data-series="3913630013"' in html
     assert 'data-series="Plant"' in html
-    assert ">3909309465</li>" in html
-    assert ">3913630013</li>" in html
-    assert ">Plant</li>" in html
     assert 'data-at="2026-08-21 15:00:00" data-watts="625"' in html
     assert 'data-at="2026-08-21 15:01:00" data-watts="400"' in html
     assert 'data-at="2026-08-22 10:00:00"' not in html
@@ -597,3 +594,102 @@ def test_plant_view_is_usable_on_a_small_phone_screen(
     assert "<svg" in html.lower()
     assert "<dt>Today energy</dt>" in html
     assert 'href="/?day=' in html
+
+
+def _two_logger_selected_day_html(mysql_url: str) -> str:
+    _reset_history(mysql_url)
+    process = WattloftProcess(mysql_url, now="2026-08-21T15:00:00-03:00")
+    process.start()
+    process.wait_until_listening()
+    try:
+        _ingest(process, _ADMITTED_SERIAL, _live_shaped_upload_header())
+        process.set_now("2026-08-21T15:01:00-03:00")
+        _ingest(
+            process,
+            _SECOND_SERIAL,
+            _upload_header(today_cents=240, lifetime_tenths=1000, watts=400),
+        )
+        process.set_now("2026-08-22T10:00:00-03:00")
+        _ingest(
+            process,
+            _ADMITTED_SERIAL,
+            _upload_header(today_cents=20, lifetime_tenths=56356, watts=50),
+        )
+        return _plant_view_html(process, "/?day=2026-08-21")
+    finally:
+        process.stop()
+
+
+def test_time_curve_is_solar_hours_with_hair_and_series_toggles(mysql_url: str) -> None:
+    html = _two_logger_selected_day_html(mysql_url)
+
+    assert 'aria-current="true">Time<' in html
+    assert 'text-anchor="middle">14</text>' in html
+    assert 'text-anchor="middle">15</text>' in html
+    assert 'text-anchor="middle">16</text>' in html
+    assert 'text-anchor="middle">00</text>' not in html
+    assert 'text-anchor="middle">18</text>' not in html
+    assert 'text-anchor="middle">23</text>' not in html
+
+    assert 'id="hair"' in html
+    assert 'id="readout-when">12:00</' in html
+    assert 'id="readout-plant" data-series="Plant"' in html
+    assert 'data-series="3909309465"' in html
+    assert 'data-series="3913630013"' in html
+    readout = html.split('id="readout"', 1)[1].split("</div>", 1)[0]
+    assert "Plant" in readout
+    assert "3909309465" in readout
+    assert "3913630013" in readout
+    assert "—" in readout
+
+    assert 'data-series="Plant" aria-pressed="true"' in html
+    assert 'data-series="3909309465" aria-pressed="true"' in html
+    assert 'data-series="3913630013" aria-pressed="true"' in html
+
+    hint = html.split('class="hint"', 1)[1].split("</p>", 1)[0]
+    assert "hide" in hint.lower()
+    assert "valley" not in hint.lower()
+    assert "Lifetime" not in hint
+
+    assert "pointerdown" in html
+    assert "http-equiv" not in html.lower()
+    assert "location.reload" not in html
+    assert "<script>" in html
+
+
+def test_time_hour_label_eighteen_is_a_complete_centred_tick(mysql_url: str) -> None:
+    _reset_history(mysql_url)
+    process = WattloftProcess(mysql_url, now="2026-08-21T17:00:00-03:00")
+    process.start()
+    process.wait_until_listening()
+    try:
+        _ingest(
+            process,
+            _ADMITTED_SERIAL,
+            _upload_header(today_cents=110, lifetime_tenths=56354, watts=200),
+        )
+        html = _plant_view_html(process, "/?day=2026-08-21&unit=time")
+    finally:
+        process.stop()
+
+    assert 'text-anchor="middle">18</text>' in html
+    assert 'text-anchor="middle">16</text>' in html
+    assert 'text-anchor="middle">1</text>' not in html
+
+
+def test_series_toggles_and_hair_are_time_grain_only(mysql_url: str) -> None:
+    _reset_history(mysql_url)
+    process = WattloftProcess(mysql_url, now="2026-08-21T15:00:00-03:00")
+    process.start()
+    process.wait_until_listening()
+    try:
+        _ingest(process, _ADMITTED_SERIAL, _live_shaped_upload_header())
+        html = _plant_view_html(process, "/?day=2026-08-21&unit=day")
+    finally:
+        process.stop()
+
+    assert 'aria-current="true">Day<' in html
+    assert "aria-pressed" not in html
+    assert 'id="hair"' not in html
+    assert "Tap a name to show or hide its curve." not in html
+    assert "pointerdown" not in html

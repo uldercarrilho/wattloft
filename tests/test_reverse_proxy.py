@@ -220,3 +220,11 @@ def test_admitted_logger_sample_is_visible_after_https_login(
     assert "625 W" in html
     assert "5635.4 kWh" in html
     assert_last_sample_is_receive_time(html, before=before, after=after)
+    assert 'aria-current="true">Time<' in html
+    assert 'data-series="Plant"' in html
+    assert f'data-series="{_ADMITTED_SERIAL}"' in html
+    assert 'data-series="Plant" aria-pressed="true"' in html
+    assert "Tap a name to show or hide its curve." in html
+    assert 'text-anchor="middle"' in html
+    assert 'data-watts="0"' not in html
+    assert 'data-series="3913630013"' not in html

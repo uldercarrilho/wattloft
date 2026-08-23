@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hmac
+import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from calendar import monthrange
@@ -30,6 +31,7 @@ _CSS = """
 :root {
   --paper:#E8EEF2; --ink:#1A2A3A; --pigment:#1E4F8C; --muted:#5A6B78;
   --chip:#F7FAFC; --on-pigment:#F4F7FA;
+  --plant:#1A2A3A; --logger-a:#9B2C2C; --logger-b:#2A6B5A;
 }
 * { box-sizing: border-box; }
 body { margin: 0; padding: 0 0 1.5rem; background: var(--paper); color: var(--ink);
@@ -57,11 +59,37 @@ ol.days a { display: block; box-sizing: border-box; max-width: 100%;
   padding: 0.5rem 0.7rem; margin: 0.25rem 0; background: var(--pigment);
   color: var(--on-pigment); text-decoration: none;
   font-family: "IBM Plex Mono", monospace; font-size: 0.85rem; }
-svg, .curve-legend, dl, form { max-width: 100%; }
+svg, .series-toggles, .readout, dl, form { max-width: 100%; }
 svg { width: 100%; height: auto; display: block; }
+#curve { touch-action: none; color: var(--ink); }
+.axis, .grid { stroke: var(--ink); stroke-opacity: 0.18; }
+.tick { font: 8px "IBM Plex Mono", monospace; fill: var(--muted); }
+#curve .series-plant { stroke: var(--plant); }
+#curve .series-a { stroke: var(--logger-a); }
+#curve .series-b { stroke: var(--logger-b); }
+#curve circle.series-plant { fill: var(--plant); stroke: none; }
+#curve circle.series-a { fill: var(--logger-a); stroke: none; }
+#curve circle.series-b { fill: var(--logger-b); stroke: none; }
 :focus-visible { outline: 2px solid var(--pigment); outline-offset: 2px; }
-.curve-legend { list-style: none; padding: 0; display: flex; flex-wrap: wrap;
-  gap: 0.5rem 1rem; font-family: "IBM Plex Mono", monospace; font-size: 0.8rem; }
+.series-toggles { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.65rem 0 0.2rem; }
+.series-toggle {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  min-height: 2.4rem; padding: 0.3rem 0.7rem;
+  border: 1px solid var(--ink); background: var(--chip); color: var(--ink);
+  font: 500 0.78rem/1.2 "IBM Plex Mono", monospace; cursor: pointer;
+}
+.series-toggle i { width: 0.7rem; height: 0.7rem; border-radius: 50%; flex: none; }
+.series-toggle.series-plant i { background: var(--plant); }
+.series-toggle.series-a i { background: var(--logger-a); }
+.series-toggle.series-b i { background: var(--logger-b); }
+.series-toggle.is-off { opacity: 0.4; border-style: dashed; }
+.series-toggle.is-off i { background: transparent; box-shadow: inset 0 0 0 2px currentColor; }
+.readout { display: grid; grid-template-columns: auto 1fr; gap: 0.1rem 1rem; margin: 0.6rem 0 0;
+  font-family: "IBM Plex Mono", monospace; font-size: 0.85rem; }
+.readout .when { font-weight: 500; }
+.readout .series-plant { font-weight: 500; color: var(--plant); }
+.readout .series-a, .readout .series-b { grid-column: 1 / -1; color: var(--muted); font-size: 0.75rem; }
+.hint { font-size: 0.78rem; color: var(--muted); margin: 0.7rem 0 0; max-width: 36rem; }
 .grain { display: flex; margin: 0 0 1rem; border: 1px solid var(--ink); padding: 0; }
 .grain a { flex: 1; text-align: center; padding: 0.45rem 0.2rem; font-size: 0.82rem;
   color: var(--ink); text-decoration: none; border-right: 1px solid var(--ink); }
@@ -94,6 +122,107 @@ _LAST_SAMPLE_JS = """
   }
   tick();
   setInterval(tick, 1000);
+})();
+"""
+_TIME_JS = r"""
+(function () {
+  const el = document.getElementById("curve-data");
+  const svg = document.getElementById("curve");
+  const hair = document.getElementById("hair");
+  if (!el || !svg || !hair) return;
+  const data = JSON.parse(el.textContent);
+  if (!data.loggers) return;
+  const pad = data.pad || 18;
+  const shown = { Plant: true };
+  Object.keys(data.loggers).forEach(function (n) { shown[n] = true; });
+  function xOf(t) {
+    const span = data.tMax - data.tMin;
+    return span <= 0 ? pad : pad + (t - data.tMin) / span * (400 - 2 * pad);
+  }
+  function loggerAt(points, t) {
+    for (let i = 0; i < points.length; i++) {
+      if (points[i].m === t) return points[i].w;
+    }
+    for (let i = 0; i < points.length - 1; i++) {
+      const a = points[i], b = points[i + 1];
+      if (!(a.m < t && t < b.m)) continue;
+      const dt = b.m - a.m;
+      if (dt > data.window) return null;
+      return a.w + ((t - a.m) / dt) * (b.w - a.w);
+    }
+    return null;
+  }
+  function fmtW(w) {
+    if (w == null) return "—";
+    return (Math.abs(w - Math.round(w)) < 0.05 ? Math.round(w) : w.toFixed(1)) + " W";
+  }
+  function pad2(n) { return String(n).padStart(2, "0"); }
+  function render(t) {
+    t = Math.max(data.tMin, Math.min(data.tMax, Math.round(t)));
+    const x = xOf(t);
+    hair.setAttribute("x1", x);
+    hair.setAttribute("x2", x);
+    let plant = 0;
+    let any = false;
+    const rows = {};
+    for (const [name, pts] of Object.entries(data.loggers)) {
+      const got = loggerAt(pts, t);
+      rows[name] = got;
+      if (got != null) { plant += got; any = true; }
+    }
+    const when = pad2(Math.floor(t / 60)) + ":" + pad2(t % 60);
+    const elWhen = document.getElementById("readout-when");
+    if (elWhen) elWhen.textContent = when;
+    document.querySelectorAll("#readout [data-series]").forEach(function (node) {
+      const key = node.getAttribute("data-series");
+      if (key === "Plant") {
+        node.textContent = "Plant " + (any ? fmtW(plant) : "—");
+      } else {
+        node.textContent = key + " " + fmtW(rows[key]);
+      }
+    });
+  }
+  function fromEvent(ev) {
+    const p = ev.touches ? ev.touches[0] : ev;
+    const r = svg.getBoundingClientRect();
+    const x = (p.clientX - r.left) / r.width * 400;
+    const span = data.tMax - data.tMin;
+    const inner = 400 - 2 * pad;
+    render(data.tMin + ((x - pad) / inner) * span);
+  }
+  svg.addEventListener("pointerdown", function (ev) {
+    svg.setPointerCapture(ev.pointerId);
+    fromEvent(ev);
+  });
+  svg.addEventListener("pointermove", function (ev) {
+    if (!svg.hasPointerCapture(ev.pointerId) && !(ev.buttons & 1)) return;
+    fromEvent(ev);
+  });
+  function applyShown() {
+    document.querySelectorAll("#curve [data-series]").forEach(function (node) {
+      const key = node.getAttribute("data-series");
+      node.style.display = shown[key] ? "" : "none";
+    });
+    document.querySelectorAll("#readout [data-series]").forEach(function (node) {
+      const key = node.getAttribute("data-series");
+      node.hidden = !shown[key];
+    });
+    document.querySelectorAll(".series-toggle").forEach(function (btn) {
+      const key = btn.getAttribute("data-series");
+      const on = !!shown[key];
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+      btn.classList.toggle("is-off", !on);
+    });
+  }
+  document.querySelectorAll(".series-toggle").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      const key = btn.getAttribute("data-series");
+      shown[key] = !shown[key];
+      applyShown();
+    });
+  });
+  applyShown();
+  render(12 * 60);
 })();
 """
 _LOGOUT = (
@@ -379,58 +508,312 @@ def _render_year_bars(snapshot: PlantSnapshot, selected_day: date) -> str:
     return _energy_bars(rows, peak)
 
 
-def _series_color(index: int, name: str) -> str:
+_GAP_MIN = 15
+_PAD_X = 18
+_POWER_FLOOR = 1.0
+
+
+def _minute_of_day(point: CurvePoint) -> int:
+    return point.at.hour * 60 + point.at.minute
+
+
+def _solar_window(snapshot: PlantSnapshot) -> tuple[int, int]:
+    minutes = [
+        _minute_of_day(point)
+        for series in snapshot.curve
+        if series.name != "Plant"
+        for point in series.points
+        if point.watts > _POWER_FLOOR
+    ]
+    if not minutes:
+        minutes = [
+            _minute_of_day(point)
+            for series in snapshot.curve
+            if series.name != "Plant"
+            for point in series.points
+        ]
+    if not minutes:
+        return 0, 23 * 60 + 59
+    lo = max(0, min(minutes) - 60)
+    hi = min(23 * 60 + 59, max(minutes) + 60)
+    if hi <= lo:
+        hi = min(23 * 60 + 59, lo + 60)
+    return lo, hi
+
+
+def _x_solar(minute: float, t_min: int, t_max: int) -> float:
+    span = t_max - t_min
+    if span <= 0:
+        return float(_PAD_X)
+    return _PAD_X + (minute - t_min) / span * (400 - 2 * _PAD_X)
+
+
+def _y_watts(watts: float, max_watts: float) -> float:
+    return 190 - (watts / max_watts) * 160
+
+
+def _series_class(name: str, logger_index: int) -> str:
     if name == "Plant":
-        return "#1A2A3A"
-    return ("#9B2C2C", "#2A6B5A")[index % 2]
+        return "series-plant"
+    return ("series-a", "series-b")[logger_index % 2]
 
 
-def _xy(point: CurvePoint, max_watts: float) -> tuple[float, float]:
-    minutes = point.at.hour * 60 + point.at.minute
-    return minutes / (24 * 60) * 400, 190 - (point.watts / max_watts) * 170
+def _ordered_series(snapshot: PlantSnapshot) -> list[tuple[CurveSeries, str]]:
+    loggers = [series for series in snapshot.curve if series.name != "Plant"]
+    plant = [series for series in snapshot.curve if series.name == "Plant"]
+    named: list[tuple[CurveSeries, str]] = []
+    for series in plant:
+        named.append((series, _series_class(series.name, 0)))
+    for index, series in enumerate(loggers):
+        named.append((series, _series_class(series.name, index)))
+    return named
 
 
-def _render_series(series: CurveSeries, max_watts: float, color: str) -> str:
-    marks: list[str] = []
+def _xy(
+    point: CurvePoint, max_watts: float, t_min: int, t_max: int
+) -> tuple[float, float]:
+    return (
+        _x_solar(_minute_of_day(point), t_min, t_max),
+        _y_watts(point.watts, max_watts),
+    )
+
+
+def _logger_watts_at(points: tuple[CurvePoint, ...], minute: int) -> float | None:
+    stamps = [_minute_of_day(point) for point in points]
+    for index, stamped in enumerate(stamps):
+        if stamped == minute:
+            return points[index].watts
+    for index in range(len(points) - 1):
+        left, right = points[index], points[index + 1]
+        start, end = stamps[index], stamps[index + 1]
+        if not (start < minute < end):
+            continue
+        if end - start > _GAP_MIN:
+            return None
+        span = (minute - start) / (end - start)
+        return left.watts + span * (right.watts - left.watts)
+    return None
+
+
+def _plant_watts_at(loggers: list[CurveSeries], minute: int) -> float | None:
+    watts = 0.0
+    any_live = False
+    for series in loggers:
+        got = _logger_watts_at(series.points, minute)
+        if got is None:
+            continue
+        any_live = True
+        watts += got
+    if not any_live:
+        return None
+    return watts
+
+
+def _raster_plant(
+    loggers: list[CurveSeries],
+    max_watts: float,
+    t_min: int,
+    t_max: int,
+) -> str:
+    minutes = list(range(t_min, t_max + 1, 2))
+    if minutes and minutes[-1] != t_max:
+        minutes.append(t_max)
+    chunks: list[list[str]] = []
     line: list[str] = []
-    for point in series.points:
-        cx, cy = _xy(point, max_watts)
+    for minute in minutes:
+        watts = _plant_watts_at(loggers, minute)
+        if watts is None:
+            if len(line) >= 2:
+                chunks.append(line)
+            line = []
+            continue
+        x = _x_solar(minute, t_min, t_max)
+        y = _y_watts(watts, max_watts)
+        line.append(f"{x:.1f},{y:.1f}")
+    if len(line) >= 2:
+        chunks.append(line)
+    polylines = "".join(
+        f'<polyline class="series-plant" fill="none" stroke-width="2.4" '
+        f'stroke-linejoin="round" points="{" ".join(pts)}"/>'
+        for pts in chunks
+    )
+    stamps: dict[int, datetime] = {}
+    for series in loggers:
+        for point in series.points:
+            stamps.setdefault(_minute_of_day(point), point.at)
+    marks: list[str] = []
+    for minute, at in sorted(stamps.items()):
+        if not (t_min <= minute <= t_max):
+            continue
+        watts = _plant_watts_at(loggers, minute)
+        if watts is None:
+            continue
+        x = _x_solar(minute, t_min, t_max)
+        y = _y_watts(watts, max_watts)
+        stamped = at.strftime("%Y-%m-%d %H:%M:%S")
+        attr = _watts_attr(watts)
+        title = escape(f"Plant {stamped} {_format_watts(watts)}")
+        marks.append(
+            f'<circle class="series-plant" cx="{x:.1f}" cy="{y:.1f}" r="3" '
+            f'data-at="{escape(stamped)}" data-watts="{escape(attr)}">'
+            f"<title>{title}</title></circle>"
+        )
+    return f"{polylines}{''.join(marks)}"
+
+
+def _render_series(
+    series: CurveSeries,
+    max_watts: float,
+    css_class: str,
+    t_min: int,
+    t_max: int,
+    *,
+    connect: bool,
+    extra: str = "",
+) -> str:
+    if not connect:
+        return f'<g data-series="{escape(series.name)}">{extra}</g>'
+    visible = [
+        point
+        for point in series.points
+        if t_min <= _minute_of_day(point) <= t_max
+    ]
+    marks: list[str] = []
+    polylines: list[list[str]] = []
+    line: list[str] = []
+    prev_minute: int | None = None
+    for point in visible:
+        minute = _minute_of_day(point)
+        if prev_minute is not None and minute - prev_minute > _GAP_MIN:
+            if len(line) >= 2:
+                polylines.append(line)
+            line = []
+        cx, cy = _xy(point, max_watts, t_min, t_max)
         line.append(f"{cx:.1f},{cy:.1f}")
         at = point.at.strftime("%Y-%m-%d %H:%M:%S")
         watts = _watts_attr(point.watts)
         title = escape(f"{series.name} {at} {_format_watts(point.watts)}")
         marks.append(
-            f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="3" fill="{color}" '
+            f'<circle class="{css_class}" cx="{cx:.1f}" cy="{cy:.1f}" r="3" '
             f'data-at="{escape(at)}" data-watts="{escape(watts)}">'
             f"<title>{title}</title></circle>"
         )
-    polyline = ""
-    if line:
-        polyline = (
-            f'<polyline fill="none" stroke="{color}" stroke-width="2" '
-            f'points="{" ".join(line)}"/>'
+        prev_minute = minute
+    if len(line) >= 2:
+        polylines.append(line)
+    parts = [
+        f'<polyline class="{css_class}" fill="none" stroke-width="1.2" '
+        f'stroke-linejoin="round" points="{" ".join(pts)}"/>'
+        for pts in polylines
+    ]
+    return (
+        f'<g data-series="{escape(series.name)}">{extra}'
+        f'{"".join(parts)}{"".join(marks)}</g>'
+    )
+
+
+def _hour_labels(t_min: int, t_max: int) -> str:
+    parts: list[str] = [
+        '<line class="axis" x1="0" y1="190" x2="400" y2="190"/>',
+    ]
+    hour = (t_min + 59) // 60
+    end_h = t_max // 60
+    while hour <= end_h and hour < 24:
+        x = _x_solar(hour * 60, t_min, t_max)
+        if 0 <= x <= 400:
+            parts.append(
+                f'<line class="grid" x1="{x:.1f}" y1="24" x2="{x:.1f}" y2="190"/>'
+                f'<text class="tick" x="{x:.1f}" y="205" text-anchor="middle">'
+                f"{hour:02d}</text>"
+            )
+        hour += 1
+    return "".join(parts)
+
+
+def _series_toggles(named: list[tuple[CurveSeries, str]]) -> str:
+    buttons: list[str] = []
+    for series, css_class in named:
+        buttons.append(
+            f'<button type="button" class="series-toggle {css_class}" '
+            f'data-series="{escape(series.name)}" aria-pressed="true">'
+            f"<i></i>{escape(series.name)}</button>"
         )
-    return f'<g data-series="{escape(series.name)}">{polyline}{"".join(marks)}</g>'
+    return (
+        '<div class="series-toggles" role="group" '
+        'aria-label="Show or hide curves">'
+        f"{''.join(buttons)}</div>"
+    )
+
+
+def _readout(named: list[tuple[CurveSeries, str]]) -> str:
+    rows = ['<p class="when" id="readout-when">12:00</p>']
+    for series, css_class in named:
+        ident = 'id="readout-plant" ' if series.name == "Plant" else ""
+        rows.append(
+            f'<p {ident}data-series="{escape(series.name)}" class="{css_class}">'
+            f"{escape(series.name)} —</p>"
+        )
+    return f'<div class="readout" id="readout">{"".join(rows)}</div>'
 
 
 def _render_curve(snapshot: PlantSnapshot) -> str:
     if not snapshot.curve:
         return ""
+    t_min, t_max = _solar_window(snapshot)
     max_watts = max(
         (point.watts for series in snapshot.curve for point in series.points),
         default=0,
     )
     if max_watts <= 0:
         max_watts = 1
-    groups: list[str] = []
-    legend: list[str] = []
-    for index, series in enumerate(snapshot.curve):
-        color = _series_color(index, series.name)
-        groups.append(_render_series(series, max_watts, color))
-        legend.append(f'<li style="color:{color}">{escape(series.name)}</li>')
+    named = _ordered_series(snapshot)
+    loggers = [series for series, _css in named if series.name != "Plant"]
+    groups = [
+        _render_series(
+            series,
+            max_watts,
+            css_class,
+            t_min,
+            t_max,
+            connect=series.name != "Plant",
+            extra=(
+                _raster_plant(loggers, max_watts, t_min, t_max)
+                if series.name == "Plant"
+                else ""
+            ),
+        )
+        for series, css_class in named
+    ]
+    parked = min(max(12 * 60, t_min), t_max)
+    hair_x = _x_solar(parked, t_min, t_max)
+    payload = json.dumps(
+        {
+            "loggers": {
+                series.name: [
+                    {"m": _minute_of_day(point), "w": point.watts}
+                    for point in series.points
+                ]
+                for series, _css in named
+                if series.name != "Plant"
+            },
+            "tMin": t_min,
+            "tMax": t_max,
+            "window": _GAP_MIN,
+            "pad": _PAD_X,
+        },
+        separators=(",", ":"),
+    )
     return (
-        f'<svg viewBox="0 0 400 200" role="img">{"".join(groups)}</svg>'
-        f'<ul class="curve-legend">{"".join(legend)}</ul>'
+        '<svg viewBox="0 0 400 214" role="img" aria-label="Power curve" '
+        'id="curve">'
+        f"{_hour_labels(t_min, t_max)}{''.join(groups)}"
+        f'<line id="hair" x1="{hair_x:.1f}" y1="24" x2="{hair_x:.1f}" '
+        'y2="190" stroke="currentColor" stroke-width="1.2" opacity="0.85"/>'
+        "</svg>"
+        f"{_series_toggles(named)}"
+        f"{_readout(named)}"
+        '<p class="hint">Tap a name to show or hide its curve.</p>'
+        f'<script type="application/json" id="curve-data">{payload}</script>'
     )
 
 
@@ -487,7 +870,10 @@ def _render_kpis(
         f"{_render_grain(selected_day, unit)}\n"
         f"{_chart_body(snapshot, selected_day, unit)}"
     )
-    return _document(body, script=_LAST_SAMPLE_JS)
+    script = _LAST_SAMPLE_JS
+    if unit == "time" and snapshot.curve:
+        script += _TIME_JS
+    return _document(body, script=script)
 
 
 def create_app(
