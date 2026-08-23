@@ -17,6 +17,7 @@ from starlette.routing import Route
 from wattloft.config import ADMITTED_LOGGER_SERIALS
 from wattloft.history import CurvePoint, CurveSeries, PlantSnapshot, plant_snapshot
 from wattloft.ingest import start_ingest
+from wattloft.plant_view_prototype import prototype_enabled, render_prototype
 
 _LOCAL = ZoneInfo("America/Sao_Paulo")
 
@@ -219,6 +220,20 @@ def create_app(
         )
         if snapshot is None:
             return HTMLResponse(_EMPTY_HISTORY)
+        if prototype_enabled():
+            selected = _parse_day(request.query_params.get("day"))
+            if selected is None and snapshot.local_day_bars:
+                selected = snapshot.local_day_bars[-1].local_day
+            if selected is None:
+                selected = date.today()
+            return HTMLResponse(
+                render_prototype(
+                    snapshot,
+                    variant=request.query_params.get("variant") or "F",
+                    selected_day=selected,
+                    unit=request.query_params.get("unit") or "time",
+                )
+            )
         return HTMLResponse(_render_kpis(snapshot))
 
     async def login(request: Request) -> Response:

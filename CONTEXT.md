@@ -26,11 +26,15 @@ _Avoid_: reading, measurement, frame (a frame may fail to become a Sample), poin
 
 **Power**:
 Instantaneous AC watts. Plant Power at a time is the sum of Loggers that actually have a successful Power then. A missing Logger is omitted, not coerced to 0 W.
-_Avoid_: production (when you mean energy), output
+_Avoid_: production (when you mean energy), output, curve watts
 
 **Current Power**:
 The most recent successful Plant Power in History. It is always shown with that Sample’s receive time. Age does not invalidate it. If History has no successful Power, Current Power is absent (a dash), not zero.
-_Avoid_: live power, real-time, now (without an as-of time)
+_Avoid_: live power, real-time, now (without an as-of time), the curve hair
+
+**Curve watts**:
+The Plant view hair’s watts at a Local time: linear interpolation per Logger between consecutive Samples at most 15 minutes apart; a Logger outside that window is omitted, never held and never 0 W. Plant curve watts are the sum of Loggers that have curve watts then. Not a Sample, not Power, not Current Power. A failed parse does not close a gap. In a hole the hair stays and the numbers dash.
+_Avoid_: Power, Current Power, live power, interpolated Power
 
 **Operator**:
 The single person allowed to see the Plant in Wattloft. v1 proves it with a password (or passkey) Wattloft stores. Not a household account list, not an external identity provider, and not “anyone with the link.”
