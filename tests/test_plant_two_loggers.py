@@ -38,15 +38,15 @@ def _plant_view_html(wattloft: WattloftProcess, path: str = "/") -> str:
         return client.get(path).text
 
 
-def test_after_login_with_history_the_page_offers_time_and_day(
+def test_after_login_with_history_the_page_offers_time_day_month_and_year(
     wattloft: WattloftProcess,
 ) -> None:
     _ingest(wattloft, _ADMITTED_SERIAL, _live_shaped_upload_header())
     html = _plant_view_html(wattloft)
     assert ">Time<" in html
     assert ">Day<" in html
-    assert ">Month<" not in html
-    assert ">Year<" not in html
+    assert ">Month<" in html
+    assert ">Year<" in html
 
 
 def test_time_grain_stepper_shows_iso_local_day_and_that_days_power_curve(
@@ -81,6 +81,8 @@ def test_time_grain_stepper_shows_iso_local_day_and_that_days_power_curve(
     assert "2026-08-22 0.20 kWh" not in html
     assert 'aria-current="true">Time<' in html
     assert 'href="/?day=2026-08-21&amp;unit=day"' in html
+    assert 'href="/?day=2026-08-21&amp;unit=month"' in html
+    assert 'href="/?day=2026-08-21&amp;unit=year"' in html
 
 
 def test_day_grain_shows_today_energy_bars_for_the_stepper_month(
@@ -183,6 +185,71 @@ def test_day_stepper_previous_and_next_stop_at_first_and_last_history_month(
     assert "2026-10" not in september
 
 
+def test_month_stepper_previous_and_next_stop_at_first_and_last_history_year(
+    mysql_url: str,
+) -> None:
+    _reset_history(mysql_url)
+    process = WattloftProcess(mysql_url, now="2025-12-15T15:00:00-03:00")
+    process.start()
+    process.wait_until_listening()
+    try:
+        _ingest(process, _ADMITTED_SERIAL, _live_shaped_upload_header())
+        process.set_now("2026-08-21T10:00:00-03:00")
+        _ingest(
+            process,
+            _ADMITTED_SERIAL,
+            _upload_header(today_cents=20, lifetime_tenths=56356, watts=50),
+        )
+        late = _plant_view_html(process, "/?day=2026-08-21&unit=month")
+        early = _plant_view_html(process, "/?day=2025-12-15&unit=month")
+    finally:
+        process.stop()
+
+    assert ">2026<" in late
+    assert 'aria-label="Next"' not in late
+    assert 'href="/?day=2025-12-15&amp;unit=month"' in late
+    assert 'href="/?day=2027' not in late
+    assert ">2025<" in early
+    assert 'aria-label="Previous"' not in early
+    assert 'href="/?day=2026-08-21&amp;unit=month"' in early
+    assert 'href="/?day=2024' not in early
+    assert "<dt>Today energy</dt><dd>0.20 kWh</dd>" in late
+    assert "<dt>Today energy</dt><dd>0.20 kWh</dd>" in early
+
+
+def test_year_grain_stepper_shows_history_year_range_and_has_no_previous_or_next(
+    mysql_url: str,
+) -> None:
+    _reset_history(mysql_url)
+    process = WattloftProcess(mysql_url, now="2025-12-15T15:00:00-03:00")
+    process.start()
+    process.wait_until_listening()
+    try:
+        _ingest(process, _ADMITTED_SERIAL, _live_shaped_upload_header())
+        process.set_now("2026-08-21T10:00:00-03:00")
+        _ingest(
+            process,
+            _ADMITTED_SERIAL,
+            _upload_header(today_cents=20, lifetime_tenths=56356, watts=50),
+        )
+        html = _plant_view_html(process, "/?day=2026-08-21&unit=year")
+    finally:
+        process.stop()
+
+    assert ">2025–2026<" in html
+    assert 'aria-label="Previous"' not in html
+    assert 'aria-label="Next"' not in html
+    assert "2025 1.10 kWh" in html
+    assert "2026 0.20 kWh" in html
+    assert 'href="/?day=2025-12-15&amp;unit=month"' in html
+    assert 'href="/?day=2026-08-21&amp;unit=month"' in html
+    bars = html.split('<ol class="days">', 1)[1].split("</ol>", 1)[0]
+    assert bars.count('aria-current="true"') == 1
+    assert 'aria-current="true"' in bars.split("2026 0.20 kWh", 1)[0]
+    assert "<dt>Today energy</dt><dd>0.20 kWh</dd>" in html
+    assert "<dt>Current Power</dt><dd>50 W</dd>" in html
+
+
 def test_local_day_with_no_curve_samples_shows_one_sentence_and_no_empty_axes(
     mysql_url: str,
 ) -> None:
@@ -218,13 +285,115 @@ def test_unknown_unit_is_time_grain(
     process.wait_until_listening()
     try:
         _ingest(process, _ADMITTED_SERIAL, _live_shaped_upload_header())
-        html = _plant_view_html(process, "/?day=2026-08-21&unit=month")
+        html = _plant_view_html(process, "/?day=2026-08-21&unit=week")
     finally:
         process.stop()
 
     assert 'aria-current="true">Time<' in html
     assert 'data-series="Plant"' in html
-    assert ">Month<" not in html
+
+
+def test_month_grain_sums_local_day_today_energy_per_month_in_the_stepper_year(
+    mysql_url: str,
+) -> None:
+    _reset_history(mysql_url)
+    process = WattloftProcess(mysql_url, now="2026-08-21T15:00:00-03:00")
+    process.start()
+    process.wait_until_listening()
+    try:
+        _ingest(process, _ADMITTED_SERIAL, _live_shaped_upload_header())
+        process.set_now("2026-08-21T16:00:00-03:00")
+        _ingest(
+            process,
+            _ADMITTED_SERIAL,
+            _upload_header(today_cents=150, lifetime_tenths=56354, watts=625),
+        )
+        _ingest(
+            process,
+            _SECOND_SERIAL,
+            _upload_header(today_cents=240, lifetime_tenths=1000, watts=400),
+        )
+        process.set_now("2026-08-22T10:00:00-03:00")
+        _ingest(
+            process,
+            _ADMITTED_SERIAL,
+            _upload_header(today_cents=20, lifetime_tenths=56356, watts=50),
+        )
+        process.set_now("2026-09-01T10:00:00-03:00")
+        _ingest(
+            process,
+            _ADMITTED_SERIAL,
+            _upload_header(today_cents=20, lifetime_tenths=56358, watts=50),
+        )
+        html = _plant_view_html(process, "/?day=2026-08-21&unit=month")
+    finally:
+        process.stop()
+
+    assert ">2026<" in html
+    assert 'aria-current="true">Month<' in html
+    assert 'aria-label="Previous"' not in html
+    assert 'aria-label="Next"' not in html
+    assert "2026-08 4.10 kWh" in html
+    assert "2026-09 0.20 kWh" in html
+    assert 'href="/?day=2026-08-21&amp;unit=day"' in html
+    assert 'href="/?day=2026-09-01&amp;unit=day"' in html
+    assert "2026-08-21 3.90 kWh" not in html
+    assert 'data-series="Plant"' not in html
+    assert "<dt>Today energy</dt><dd>0.20 kWh</dd>" in html
+    assert "<dt>Current Power</dt><dd>50 W</dd>" in html
+    assert 'href="/?day=2026-08-21&amp;unit=time"' in html
+    assert 'href="/?day=2026-08-21&amp;unit=year"' in html
+
+
+def test_year_grain_sums_local_day_today_energy_per_year_in_history(
+    mysql_url: str,
+) -> None:
+    _reset_history(mysql_url)
+    process = WattloftProcess(mysql_url, now="2026-08-21T15:00:00-03:00")
+    process.start()
+    process.wait_until_listening()
+    try:
+        _ingest(process, _ADMITTED_SERIAL, _live_shaped_upload_header())
+        process.set_now("2026-08-21T16:00:00-03:00")
+        _ingest(
+            process,
+            _ADMITTED_SERIAL,
+            _upload_header(today_cents=150, lifetime_tenths=56354, watts=625),
+        )
+        _ingest(
+            process,
+            _SECOND_SERIAL,
+            _upload_header(today_cents=240, lifetime_tenths=1000, watts=400),
+        )
+        process.set_now("2026-08-22T10:00:00-03:00")
+        _ingest(
+            process,
+            _ADMITTED_SERIAL,
+            _upload_header(today_cents=20, lifetime_tenths=56356, watts=50),
+        )
+        process.set_now("2026-09-01T10:00:00-03:00")
+        _ingest(
+            process,
+            _ADMITTED_SERIAL,
+            _upload_header(today_cents=20, lifetime_tenths=56358, watts=50),
+        )
+        html = _plant_view_html(process, "/?day=2026-08-21&unit=year")
+    finally:
+        process.stop()
+
+    assert ">2026<" in html
+    assert "2025" not in html
+    assert 'aria-current="true">Year<' in html
+    assert "2026 4.30 kWh" in html
+    bars = html.split('<ol class="days">', 1)[1].split("</ol>", 1)[0]
+    assert 'href="/?day=2026-08-21&amp;unit=month"' in bars
+    assert bars.count('aria-current="true"') == 1
+    assert "2026-08 4.10 kWh" not in html
+    assert "2026-08-21 3.90 kWh" not in html
+    assert 'data-series="Plant"' not in html
+    assert "<dt>Today energy</dt><dd>0.20 kWh</dd>" in html
+    assert "<dt>Current Power</dt><dd>50 W</dd>" in html
+    assert 'href="/?day=2026-08-21&amp;unit=month"' in html
 
 
 def test_last_sample_is_relative_age_of_current_power_not_a_clock(

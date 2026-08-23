@@ -41,8 +41,8 @@ The single person allowed to see the Plant in Wattloft. v1 proves it with a pass
 _Avoid_: user, admin, customer, viewer, SSO, Cognito
 
 **Plant view**:
-What the Operator sees over HTTPS on a hostname: Today energy, Current Power, Lifetime energy, Last sample as the relative age of Current Power’s Sample, a period stepper, Time grain (that Local day’s Power curve: each Logger and the Plant), and Day grain (Today energy bars for Local days in the stepper’s month, with kWh on each bar). Login, empty History, and Plant view share one Azulejo look. Nothing else is a v1 surface.
-_Avoid_: report, dashboard, equipment data, live view, efficiency, month rollup, HTTP (plaintext)
+What the Operator sees over HTTPS on a hostname: Today energy, Current Power, Lifetime energy, Last sample as the relative age of Current Power’s Sample, a period stepper, and Time, Day, Month, and Year grains. Time is that Local day’s Power curve (each Logger and the Plant). Day, Month, and Year are bars of Local-day Today energy: per Local day in the stepper’s month, summed per month in the stepper’s year, and summed per year in History. Login, empty History, and Plant view share one Azulejo look. Nothing else is a v1 surface.
+_Avoid_: report, dashboard, equipment data, live view, efficiency, HTTP (plaintext)
 
 **Today energy**:
 The Logger’s own “energy today” counter, not watts integrated over time. For a Local day, Plant Today energy is the last successful Today energy per Logger that day, then summed. A Logger with no successful Sample that day contributes nothing, not zero. Staleness of a Logger must stay visible.

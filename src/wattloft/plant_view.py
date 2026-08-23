@@ -156,7 +156,9 @@ def _parse_day(raw: str | None) -> date | None:
 
 
 def _parse_unit(raw: str | None) -> str:
-    return "day" if raw == "day" else "time"
+    if raw in ("time", "day", "month", "year"):
+        return raw
+    return "time"
 
 
 def _history_span(snapshot: PlantSnapshot) -> tuple[date, date]:
@@ -185,7 +187,12 @@ def _href(day: date, unit: str) -> str:
 
 def _render_grain(selected_day: date, unit: str) -> str:
     links: list[str] = []
-    for grain, title in (("time", "Time"), ("day", "Day")):
+    for grain, title in (
+        ("time", "Time"),
+        ("day", "Day"),
+        ("month", "Month"),
+        ("year", "Year"),
+    ):
         current = ' aria-current="true"' if grain == unit else ""
         links.append(
             f'<a href="{escape(_href(selected_day, grain))}"{current}>{title}</a>'
@@ -225,6 +232,27 @@ def _render_stepper(
             if next_month <= last.replace(day=1)
             else ""
         )
+    elif unit == "month":
+        label = str(selected_day.year)
+        prev_year = selected_day.year - 1
+        next_year = selected_day.year + 1
+        prev_href = (
+            _href(_anchor_in_year(snapshot, prev_year, selected_day), "month")
+            if prev_year >= first.year
+            else ""
+        )
+        next_href = (
+            _href(_anchor_in_year(snapshot, next_year, selected_day), "month")
+            if next_year <= last.year
+            else ""
+        )
+    elif unit == "year":
+        if first.year == last.year:
+            label = str(first.year)
+        else:
+            label = f"{first.year}–{last.year}"
+        prev_href = ""
+        next_href = ""
     else:
         label = selected_day.isoformat()
         prev_day = selected_day - timedelta(days=1)
@@ -243,6 +271,12 @@ def _render_stepper(
 def _chart_body(snapshot: PlantSnapshot, selected_day: date, unit: str) -> str:
     if unit == "day":
         return f'<ol class="days">\n{_render_bars(snapshot, selected_day)}\n</ol>'
+    if unit == "month":
+        return (
+            f'<ol class="days">\n{_render_month_bars(snapshot, selected_day)}\n</ol>'
+        )
+    if unit == "year":
+        return f'<ol class="days">\n{_render_year_bars(snapshot, selected_day)}\n</ol>'
     if not snapshot.curve:
         return '<p class="empty">This Local day has no curve Samples.</p>'
     return _render_curve(snapshot)
@@ -252,6 +286,42 @@ def _format_kwh(kwh: float) -> str:
     return f"{kwh:.2f} kWh"
 
 
+def _anchor_in_month(
+    snapshot: PlantSnapshot, year: int, month: int, selected_day: date
+) -> date:
+    if selected_day.year == year and selected_day.month == month:
+        return selected_day
+    for bar in snapshot.local_day_bars:
+        if bar.local_day.year == year and bar.local_day.month == month:
+            return bar.local_day
+    return date(year, month, 1)
+
+
+def _anchor_in_year(
+    snapshot: PlantSnapshot, year: int, selected_day: date
+) -> date:
+    if selected_day.year == year:
+        return selected_day
+    for bar in snapshot.local_day_bars:
+        if bar.local_day.year == year:
+            return bar.local_day
+    return date(year, 1, 1)
+
+
+def _energy_bars(
+    rows: list[tuple[str, str, float, bool]], peak: float
+) -> str:
+    items: list[str] = []
+    for href, label, kwh, current in rows:
+        width = 100 if peak <= 0 else max(12.0, kwh / peak * 100)
+        marked = ' aria-current="true"' if current else ""
+        items.append(
+            f'<li><a href="{escape(href)}"{marked} '
+            f'style="width:{width:.0f}%">{escape(label)}</a></li>'
+        )
+    return "\n".join(items)
+
+
 def _render_bars(snapshot: PlantSnapshot, selected_day: date) -> str:
     month_bars = tuple(
         bar
@@ -259,17 +329,54 @@ def _render_bars(snapshot: PlantSnapshot, selected_day: date) -> str:
         if bar.local_day.year == selected_day.year
         and bar.local_day.month == selected_day.month
     )
-    items: list[str] = []
     peak = max((bar.today_energy_kwh for bar in month_bars), default=0)
-    for bar in month_bars:
-        day = bar.local_day.isoformat()
-        label = escape(f"{day} {_format_kwh(bar.today_energy_kwh)}")
-        width = 100 if peak <= 0 else max(12.0, bar.today_energy_kwh / peak * 100)
-        items.append(
-            f'<li><a href="{escape(_href(bar.local_day, "time"))}" '
-            f'style="width:{width:.0f}%">{label}</a></li>'
+    rows = [
+        (
+            _href(bar.local_day, "time"),
+            f"{bar.local_day.isoformat()} {_format_kwh(bar.today_energy_kwh)}",
+            bar.today_energy_kwh,
+            False,
         )
-    return "\n".join(items)
+        for bar in month_bars
+    ]
+    return _energy_bars(rows, peak)
+
+
+def _render_month_bars(snapshot: PlantSnapshot, selected_day: date) -> str:
+    by_month: dict[tuple[int, int], float] = {}
+    for bar in snapshot.local_day_bars:
+        if bar.local_day.year == selected_day.year:
+            key = (bar.local_day.year, bar.local_day.month)
+            by_month[key] = by_month.get(key, 0.0) + bar.today_energy_kwh
+    peak = max(by_month.values(), default=0)
+    rows = [
+        (
+            _href(_anchor_in_month(snapshot, year, month, selected_day), "day"),
+            f"{year:04d}-{month:02d} {_format_kwh(kwh)}",
+            kwh,
+            month == selected_day.month,
+        )
+        for (year, month), kwh in sorted(by_month.items())
+    ]
+    return _energy_bars(rows, peak)
+
+
+def _render_year_bars(snapshot: PlantSnapshot, selected_day: date) -> str:
+    by_year: dict[int, float] = {}
+    for bar in snapshot.local_day_bars:
+        year = bar.local_day.year
+        by_year[year] = by_year.get(year, 0.0) + bar.today_energy_kwh
+    peak = max(by_year.values(), default=0)
+    rows = [
+        (
+            _href(_anchor_in_year(snapshot, year, selected_day), "month"),
+            f"{year} {_format_kwh(kwh)}",
+            kwh,
+            year == selected_day.year,
+        )
+        for year, kwh in sorted(by_year.items())
+    ]
+    return _energy_bars(rows, peak)
 
 
 def _series_color(index: int, name: str) -> str:
