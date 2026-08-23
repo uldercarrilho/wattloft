@@ -25,10 +25,9 @@ PRIVATE_IP=$(ociq compute instance list-vnics --instance-id "$INSTANCE_ID" \
   --query "data[0].\"private-ip\"" --raw-output)
 BASTION_HOST="host.bastion.${REGION}.oci.oraclecloud.com"
 
-SESSION_ID=$(ociq bastion session create-managed-ssh \
+SESSION_ID=$(ociq bastion session create-port-forwarding \
   --bastion-id "$BASTION_ID" \
   --target-resource-id "$INSTANCE_ID" \
-  --target-os-username ubuntu \
   --target-port 22 \
   --target-private-ip "$PRIVATE_IP" \
   --ssh-public-key-file "$(oci_file "${SSH_KEY}.pub")" \
@@ -44,8 +43,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Poll session lifecycle. Do not --wait-for-state on create: that waits on the
-# work request and hangs the whole 20 minutes while the session stays CREATING.
+# Port-forward to sshd. Managed SSH stays CREATING when the plugin cannot
+# finish localhost SSH on a 1 GB Micro still running cloud-init.
 for _ in $(seq 1 120); do
   state=$(ociq bastion session get --session-id "$SESSION_ID" --query "data.\"lifecycle-state\"" --raw-output)
   echo "  bastion session ${state}"
