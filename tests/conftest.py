@@ -6,7 +6,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from pathlib import Path
 
 import httpx
@@ -26,15 +26,28 @@ def _free_port() -> int:
 
 
 class WattloftProcess:
-    def __init__(self, database_url: str, *, now: str | None = None) -> None:
+    def __init__(
+        self,
+        database_url: str,
+        *,
+        now: str | None = None,
+        extra_env: Mapping[str, str] | None = None,
+    ) -> None:
         self.database_url = database_url
         self.now = now
+        self.extra_env = dict(extra_env or {})
         self.port = 0
         self.ingest_port = 0
         self.url = ""
         self._proc: subprocess.Popen[bytes] | None = None
         self._log_file = None
         self._log_path: Path | None = None
+        self._now_path: Path | None = None
+
+    def set_now(self, stamped: str) -> None:
+        self.now = stamped
+        if self._now_path is not None:
+            self._now_path.write_text(stamped, encoding="utf-8")
 
     def start(self) -> None:
         self.port = _free_port()
@@ -51,8 +64,14 @@ class WattloftProcess:
                 "INGEST_PORT": str(self.ingest_port),
             }
         )
+        env.update(self.extra_env)
         if self.now is not None:
-            env["WATTLOFT_NOW"] = self.now
+            if self._now_path is None:
+                handle, name = tempfile.mkstemp(prefix="wattloft-now-", suffix=".txt")
+                os.close(handle)
+                self._now_path = Path(name)
+            self._now_path.write_text(self.now, encoding="utf-8")
+            env["WATTLOFT_NOW_FILE"] = str(self._now_path)
         log_file = tempfile.NamedTemporaryFile(
             prefix=f"wattloft-test-{self.port}-",
             suffix=".log",

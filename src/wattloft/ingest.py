@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from collections.abc import Iterable
 
 from wattloft.config import now_utc
@@ -15,6 +16,11 @@ from wattloft.v5 import (
 
 IDLE_TIMEOUT_S = 300
 MAX_BUF = 65536
+
+
+def idle_timeout_s() -> float:
+    raw = os.environ.get("INGEST_IDLE_TIMEOUT_S")
+    return float(raw) if raw is not None else IDLE_TIMEOUT_S
 
 
 def handle_frame(
@@ -47,9 +53,10 @@ async def serve_logger(
     admitted_logger_serials: frozenset[str],
 ) -> None:
     buf = b""
+    timeout_s = idle_timeout_s()
     try:
         while True:
-            chunk = await asyncio.wait_for(reader.read(4096), timeout=IDLE_TIMEOUT_S)
+            chunk = await asyncio.wait_for(reader.read(4096), timeout=timeout_s)
             if not chunk:
                 break
             buf += chunk
