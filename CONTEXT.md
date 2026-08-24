@@ -33,7 +33,7 @@ The most recent successful Plant Power in History. It is always shown with that 
 _Avoid_: live power, real-time, now (without an as-of time), the curve hair
 
 **Curve watts**:
-The Plant view hair’s watts at a Local time: linear interpolation per Logger between consecutive Samples at most 15 minutes apart; a Logger outside that window is omitted, never held and never 0 W. Plant curve watts are the sum of Loggers that have curve watts then. Not a Sample, not Power, not Current Power. A failed parse does not close a gap. In a hole the hair stays and the numbers dash.
+The Plant view hair’s watts at a Local time. Per Logger: linear interpolation between consecutive Samples at most 15 minutes apart; a longer gap where Lifetime energy still rose (implied average watts at least max(20 W, 40% of the quieter endpoint Power), Lifetime delta above 0.02 kWh) is a smooth Power curve; a longer gap where Lifetime barely moved valleys and that Logger is omitted, never held and never 0 W. Plant curve watts are the sum of Loggers that have curve watts then (smooth or near), never a Logger in fail. Not a Sample, not Power, not Current Power. A failed parse does not close a gap. In a hole the hair stays and the numbers dash.
 _Avoid_: Power, Current Power, live power, interpolated Power
 
 **Operator**:

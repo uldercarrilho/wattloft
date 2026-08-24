@@ -70,6 +70,7 @@ svg { width: 100%; height: auto; display: block; }
 #curve circle.series-plant { fill: var(--plant); stroke: none; }
 #curve circle.series-a { fill: var(--logger-a); stroke: none; }
 #curve circle.series-b { fill: var(--logger-b); stroke: none; }
+#curve polyline.fail { stroke-dasharray: 3 3; stroke-opacity: 0.5; }
 :focus-visible { outline: 2px solid var(--pigment); outline-offset: 2px; }
 .series-toggles { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.65rem 0 0.2rem; }
 .series-toggle {
@@ -139,6 +140,22 @@ _TIME_JS = r"""
     const span = data.tMax - data.tMin;
     return span <= 0 ? pad : pad + (t - data.tMin) / span * (400 - 2 * pad);
   }
+  function hermite(p0, m0, p1, m1, s) {
+    const s2 = s * s, s3 = s2 * s;
+    const w = (2*s3 - 3*s2 + 1)*p0 + (s3 - 2*s2 + s)*m0
+      + (-2*s3 + 3*s2)*p1 + (s3 - s2)*m1;
+    return Math.max(0, w);
+  }
+  function lifetimeOk(a, b) {
+    const hours = (b.m - a.m) / 60;
+    if (hours <= 0) return false;
+    if (a.l == null || b.l == null) return false;
+    const dL = b.l - a.l;
+    if (dL <= 0.02) return false;
+    const implied = (dL / hours) * 1000;
+    const floor = Math.min(a.w, b.w) * 0.4;
+    return implied >= Math.max(20, floor);
+  }
   function loggerAt(points, t) {
     for (let i = 0; i < points.length; i++) {
       if (points[i].m === t) return points[i].w;
@@ -147,8 +164,20 @@ _TIME_JS = r"""
       const a = points[i], b = points[i + 1];
       if (!(a.m < t && t < b.m)) continue;
       const dt = b.m - a.m;
-      if (dt > data.window) return null;
-      return a.w + ((t - a.m) / dt) * (b.w - a.w);
+      const s = (t - a.m) / dt;
+      if (dt <= data.window) {
+        return a.w + s * (b.w - a.w);
+      }
+      if (!lifetimeOk(a, b)) return null;
+      const prev = i > 0 ? points[i - 1] : null;
+      const nxt = i + 2 < points.length ? points[i + 2] : null;
+      const m0 = prev && a.m !== prev.m
+        ? (a.w - prev.w) / (a.m - prev.m) * dt
+        : b.w - a.w;
+      const m1 = nxt && nxt.m !== b.m
+        ? (nxt.w - b.w) / (nxt.m - b.m) * dt
+        : b.w - a.w;
+      return hermite(a.w, m0, b.w, m1, s);
     }
     return null;
   }
@@ -552,6 +581,87 @@ def _y_watts(watts: float, max_watts: float) -> float:
     return 190 - (watts / max_watts) * 160
 
 
+def _hermite(p0: float, m0: float, p1: float, m1: float, s: float) -> float:
+    s2 = s * s
+    s3 = s2 * s
+    watts = (
+        (2 * s3 - 3 * s2 + 1) * p0
+        + (s3 - 2 * s2 + s) * m0
+        + (-2 * s3 + 3 * s2) * p1
+        + (s3 - s2) * m1
+    )
+    return max(0.0, watts)
+
+
+def _valley_watts(left: CurvePoint, right: CurvePoint, minute: float) -> float:
+    dt = _minute_of_day(right) - _minute_of_day(left)
+    if dt <= 0:
+        return 0.0
+    s = (minute - _minute_of_day(left)) / dt
+    if s <= 0.5:
+        u = s / 0.5
+        return left.watts * (1 - u) * (1 - u)
+    u = (s - 0.5) / 0.5
+    return right.watts * u * u
+
+
+def _lifetime_ok(left: CurvePoint, right: CurvePoint) -> bool:
+    hours = (_minute_of_day(right) - _minute_of_day(left)) / 60
+    if hours <= 0:
+        return False
+    if left.lifetime_kwh is None or right.lifetime_kwh is None:
+        return False
+    delta = right.lifetime_kwh - left.lifetime_kwh
+    if delta <= 0.02:
+        return False
+    implied = (delta / hours) * 1000
+    floor = min(left.watts, right.watts) * 0.4
+    return implied >= max(20.0, floor)
+
+
+def _gap_mode(left: CurvePoint, right: CurvePoint) -> str:
+    if _minute_of_day(right) - _minute_of_day(left) <= _GAP_MIN:
+        return "near"
+    if _lifetime_ok(left, right):
+        return "smooth"
+    return "fail"
+
+
+def _span_tangents(
+    points: tuple[CurvePoint, ...], index: int
+) -> tuple[float, float]:
+    left = points[index]
+    right = points[index + 1]
+    dt = float(_minute_of_day(right) - _minute_of_day(left))
+    prev = points[index - 1] if index > 0 else None
+    nxt = points[index + 2] if index + 2 < len(points) else None
+    left_m = _minute_of_day(left)
+    right_m = _minute_of_day(right)
+    if prev is not None and left_m != _minute_of_day(prev):
+        m0 = (left.watts - prev.watts) / (left_m - _minute_of_day(prev)) * dt
+    else:
+        m0 = right.watts - left.watts
+    if nxt is not None and _minute_of_day(nxt) != right_m:
+        m1 = (nxt.watts - right.watts) / (_minute_of_day(nxt) - right_m) * dt
+    else:
+        m1 = right.watts - left.watts
+    return m0, m1
+
+
+def _watts_between(
+    points: tuple[CurvePoint, ...], index: int, minute: float, mode: str
+) -> float:
+    left, right = points[index], points[index + 1]
+    span = _minute_of_day(right) - _minute_of_day(left)
+    s = (minute - _minute_of_day(left)) / span
+    if mode == "fail":
+        return _valley_watts(left, right, minute)
+    if mode == "smooth":
+        m0, m1 = _span_tangents(points, index)
+        return _hermite(left.watts, m0, right.watts, m1, s)
+    return left.watts + s * (right.watts - left.watts)
+
+
 def _series_class(name: str, logger_index: int) -> str:
     if name == "Plant":
         return "series-plant"
@@ -584,14 +694,13 @@ def _logger_watts_at(points: tuple[CurvePoint, ...], minute: int) -> float | Non
         if stamped == minute:
             return points[index].watts
     for index in range(len(points) - 1):
-        left, right = points[index], points[index + 1]
         start, end = stamps[index], stamps[index + 1]
         if not (start < minute < end):
             continue
-        if end - start > _GAP_MIN:
+        mode = _gap_mode(points[index], points[index + 1])
+        if mode == "fail":
             return None
-        span = (minute - start) / (end - start)
-        return left.watts + span * (right.watts - left.watts)
+        return _watts_between(points, index, float(minute), mode)
     return None
 
 
@@ -673,39 +782,50 @@ def _render_series(
 ) -> str:
     if not connect:
         return f'<g data-series="{escape(series.name)}">{extra}</g>'
-    visible = [
+    visible = tuple(
         point
         for point in series.points
         if t_min <= _minute_of_day(point) <= t_max
-    ]
+    )
     marks: list[str] = []
-    polylines: list[list[str]] = []
-    line: list[str] = []
-    prev_minute: int | None = None
+    parts: list[str] = []
+    for index in range(len(visible) - 1):
+        left, right = visible[index], visible[index + 1]
+        mode = _gap_mode(left, right)
+        start = float(_minute_of_day(left))
+        end = float(_minute_of_day(right))
+        coords: list[str] = []
+        minute = start
+        while minute < end:
+            watts = (
+                left.watts
+                if minute == start
+                else _watts_between(visible, index, minute, mode)
+            )
+            x = _x_solar(minute, t_min, t_max)
+            y = _y_watts(watts, max_watts)
+            coords.append(f"{x:.1f},{y:.1f}")
+            minute += 2.0
+        x = _x_solar(end, t_min, t_max)
+        y = _y_watts(right.watts, max_watts)
+        coords.append(f"{x:.1f},{y:.1f}")
+        if len(coords) >= 2:
+            fail = " fail" if mode == "fail" else ""
+            parts.append(
+                f'<polyline class="{css_class}{fail}" fill="none" '
+                f'stroke-width="1.2" stroke-linejoin="round" '
+                f'points="{" ".join(coords)}"/>'
+            )
     for point in visible:
-        minute = _minute_of_day(point)
-        if prev_minute is not None and minute - prev_minute > _GAP_MIN:
-            if len(line) >= 2:
-                polylines.append(line)
-            line = []
         cx, cy = _xy(point, max_watts, t_min, t_max)
-        line.append(f"{cx:.1f},{cy:.1f}")
         at = point.at.strftime("%Y-%m-%d %H:%M:%S")
-        watts = _watts_attr(point.watts)
+        attr = _watts_attr(point.watts)
         title = escape(f"{series.name} {at} {_format_watts(point.watts)}")
         marks.append(
             f'<circle class="{css_class}" cx="{cx:.1f}" cy="{cy:.1f}" r="3" '
-            f'data-at="{escape(at)}" data-watts="{escape(watts)}">'
+            f'data-at="{escape(at)}" data-watts="{escape(attr)}">'
             f"<title>{title}</title></circle>"
         )
-        prev_minute = minute
-    if len(line) >= 2:
-        polylines.append(line)
-    parts = [
-        f'<polyline class="{css_class}" fill="none" stroke-width="1.2" '
-        f'stroke-linejoin="round" points="{" ".join(pts)}"/>'
-        for pts in polylines
-    ]
     return (
         f'<g data-series="{escape(series.name)}">{extra}'
         f'{"".join(parts)}{"".join(marks)}</g>'
@@ -790,7 +910,11 @@ def _render_curve(snapshot: PlantSnapshot) -> str:
         {
             "loggers": {
                 series.name: [
-                    {"m": _minute_of_day(point), "w": point.watts}
+                    {
+                        "m": _minute_of_day(point),
+                        "w": point.watts,
+                        "l": point.lifetime_kwh,
+                    }
                     for point in series.points
                 ]
                 for series, _css in named
@@ -812,7 +936,10 @@ def _render_curve(snapshot: PlantSnapshot) -> str:
         "</svg>"
         f"{_series_toggles(named)}"
         f"{_readout(named)}"
-        '<p class="hint">Tap a name to show or hide its curve.</p>'
+        '<p class="hint">Tap a name to show or hide its curve. '
+        "A gap where Lifetime energy still rose is interpolated "
+        "as a smooth Power curve — that energy happened. Where Lifetime barely "
+        "moved, the line valleys: no Samples and no estimate, possible Logger failure.</p>"
         f'<script type="application/json" id="curve-data">{payload}</script>'
     )
 

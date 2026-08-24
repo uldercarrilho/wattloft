@@ -15,6 +15,7 @@ _LOCAL = ZoneInfo("America/Sao_Paulo")
 class CurvePoint:
     at: datetime
     watts: float
+    lifetime_kwh: float | None = None
 
 
 @dataclass(frozen=True)
@@ -48,11 +49,13 @@ def _local_minute(value: datetime) -> datetime:
     return stamped.replace(tzinfo=None)
 
 
-def _curve_series(rows: Iterable[tuple[str, datetime, float]]) -> tuple[CurveSeries, ...]:
+def _curve_series(
+    rows: Iterable[tuple[str, datetime, float, float | None]],
+) -> tuple[CurveSeries, ...]:
     by_logger: dict[str, list[CurvePoint]] = {}
     by_minute: dict[datetime, float] = {}
-    for serial, minute, watts in rows:
-        point = CurvePoint(at=minute, watts=watts)
+    for serial, minute, watts, lifetime_kwh in rows:
+        point = CurvePoint(at=minute, watts=watts, lifetime_kwh=lifetime_kwh)
         by_logger.setdefault(serial, []).append(point)
         by_minute[minute] = by_minute.get(minute, 0.0) + watts
     series = [
@@ -86,7 +89,7 @@ def plant_snapshot(
     latest_power_at: datetime | None = None
     power_in_minute: dict[str, float] = {}
     bar_last: dict[tuple[date, str], float] = {}
-    curve_last: dict[tuple[str, datetime], float] = {}
+    curve_last: dict[tuple[str, datetime], tuple[float, float | None]] = {}
 
     for sample in samples:
         local_stamp = _local(sample.received_at)
@@ -103,7 +106,8 @@ def plant_snapshot(
             latest_power_at = sample.received_at
         if sample_day == curve_day:
             curve_last[(sample.logger_serial, _local_minute(sample.received_at))] = (
-                sample.ac_power_w
+                sample.ac_power_w,
+                sample.lifetime_energy_kwh,
             )
 
     if not lifetime_last or latest_power_at is None:
@@ -121,7 +125,8 @@ def plant_snapshot(
         by_bar_day[day] = by_bar_day.get(day, 0.0) + kwh
 
     curve_points = [
-        (serial, minute, watts) for (serial, minute), watts in curve_last.items()
+        (serial, minute, watts, lifetime_kwh)
+        for (serial, minute), (watts, lifetime_kwh) in curve_last.items()
     ]
 
     return PlantSnapshot(
