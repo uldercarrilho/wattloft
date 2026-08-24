@@ -50,6 +50,35 @@ def test_after_login_with_history_the_page_offers_time_day_month_and_year(
     assert ">Year<" in html
 
 
+def test_operator_plant_view_ignores_prototype_gate_and_variant(
+    mysql_url: str,
+) -> None:
+    _reset_history(mysql_url)
+    process = WattloftProcess(
+        mysql_url,
+        now="2026-08-21T15:00:00-03:00",
+        extra_env={"WATTLOFT_PROTOTYPE": "1"},
+    )
+    process.start()
+    process.wait_until_listening()
+    try:
+        _ingest(process, _ADMITTED_SERIAL, _live_shaped_upload_header())
+        html = _plant_view_html(process, "/?variant=F")
+    finally:
+        process.stop()
+
+    assert "<title>Plant</title>" in html
+    assert ">Time<" in html
+    assert ">Day<" in html
+    assert ">Month<" in html
+    assert ">Year<" in html
+    assert "Last sample" in html
+    assert "prototype-state" not in html
+    assert "PROTOTYPE" not in html
+    assert "Plant · prototype" not in html
+    assert "variant=" not in html
+
+
 def test_time_grain_stepper_shows_iso_local_day_and_that_days_power_curve(
     mysql_url: str,
 ) -> None:
