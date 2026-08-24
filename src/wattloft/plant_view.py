@@ -19,7 +19,6 @@ from starlette.routing import Route
 from wattloft.config import ADMITTED_LOGGER_SERIALS, now_utc
 from wattloft.history import CurvePoint, CurveSeries, PlantSnapshot, plant_snapshot
 from wattloft.ingest import start_ingest
-from wattloft.plant_view_prototype import prototype_enabled, render_prototype
 
 _LOCAL = ZoneInfo("America/Sao_Paulo")
 _FONTS = (
@@ -1025,15 +1024,6 @@ def create_app(
             if snapshot is None:
                 return HTMLResponse(_EMPTY_HISTORY)
         unit = _parse_unit(request.query_params.get("unit"))
-        if prototype_enabled():
-            return HTMLResponse(
-                render_prototype(
-                    snapshot,
-                    variant=request.query_params.get("variant") or "F",
-                    selected_day=selected,
-                    unit=request.query_params.get("unit") or "time",
-                )
-            )
         return HTMLResponse(_render_kpis(snapshot, selected, unit))
 
     async def login(request: Request) -> Response:
