@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import socket
 
 import httpx
@@ -620,6 +621,23 @@ def _two_logger_selected_day_html(mysql_url: str) -> str:
         process.stop()
 
 
+def _curve_data(html: str) -> dict[str, object]:
+    raw = html.split('id="curve-data">', 1)[1].split("</script>", 1)[0]
+    payload = json.loads(raw)
+    assert isinstance(payload, dict)
+    return payload
+
+
+def test_time_curve_samples_carry_lifetime_energy(mysql_url: str) -> None:
+    html = _two_logger_selected_day_html(mysql_url)
+    payload = _curve_data(html)
+    loggers = payload["loggers"]
+    assert isinstance(loggers, dict)
+    assert loggers["1000000001"] == [{"m": 15 * 60, "w": 625, "l": 5635.4}]
+    assert loggers["1000000002"] == [{"m": 15 * 60 + 1, "w": 400, "l": 100.0}]
+    assert "Plant" not in loggers
+
+
 def test_time_curve_is_solar_hours_with_hair_and_series_toggles(mysql_url: str) -> None:
     html = _two_logger_selected_day_html(mysql_url)
 
@@ -648,8 +666,8 @@ def test_time_curve_is_solar_hours_with_hair_and_series_toggles(mysql_url: str) 
 
     hint = html.split('class="hint"', 1)[1].split("</p>", 1)[0]
     assert "hide" in hint.lower()
-    assert "valley" not in hint.lower()
-    assert "Lifetime" not in hint
+    assert "Lifetime" in hint
+    assert "valley" in hint.lower()
 
     assert "pointerdown" in html
     assert "http-equiv" not in html.lower()
@@ -693,3 +711,77 @@ def test_series_toggles_and_hair_are_time_grain_only(mysql_url: str) -> None:
     assert 'id="hair"' not in html
     assert "Tap a name to show or hide its curve." not in html
     assert "pointerdown" not in html
+
+
+def _svg_series(html: str, name: str) -> str:
+    svg = html.split("<svg", 1)[1].split("</svg>", 1)[0]
+    return svg.split(f'data-series="{name}"', 1)[1].split("</g>", 1)[0]
+
+
+def _long_gap_html(
+    mysql_url: str,
+    *,
+    later_lifetime_tenths: int,
+    hole_logger: bool,
+) -> str:
+    _reset_history(mysql_url)
+    process = WattloftProcess(mysql_url, now="2026-08-21T10:00:00-03:00")
+    process.start()
+    process.wait_until_listening()
+    try:
+        _ingest(
+            process,
+            _ADMITTED_SERIAL,
+            _upload_header(today_cents=100, lifetime_tenths=1000, watts=400),
+        )
+        if hole_logger:
+            process.set_now("2026-08-21T10:20:00-03:00")
+            _ingest(
+                process,
+                _SECOND_SERIAL,
+                _upload_header(today_cents=50, lifetime_tenths=500, watts=300),
+            )
+        process.set_now("2026-08-21T10:40:00-03:00")
+        _ingest(
+            process,
+            _ADMITTED_SERIAL,
+            _upload_header(
+                today_cents=100,
+                lifetime_tenths=later_lifetime_tenths,
+                watts=400,
+            ),
+        )
+        return _plant_view_html(process, "/?day=2026-08-21")
+    finally:
+        process.stop()
+
+
+def test_failure_hole_does_not_coerce_plant_to_include_zero_watts(
+    mysql_url: str,
+) -> None:
+    html = _long_gap_html(
+        mysql_url, later_lifetime_tenths=1000, hole_logger=True
+    )
+    assert 'data-series="1000000001"' in html
+    logger = _svg_series(html, "1000000001")
+    plant = _svg_series(html, "Plant")
+    assert "<polyline" in logger
+    assert "fail" in logger
+    assert "fail" not in plant
+    assert 'data-at="2026-08-21 10:20:00" data-watts="300"' in plant
+    assert 'data-watts="0"' not in plant
+    assert 'data-watts="400"' not in plant.split('data-at="2026-08-21 10:20:00"', 1)[1].split(">", 1)[0]
+
+
+def test_lifetime_backed_gap_draws_smooth_logger_curve_not_a_valley(
+    mysql_url: str,
+) -> None:
+    html = _long_gap_html(
+        mysql_url, later_lifetime_tenths=1003, hole_logger=False
+    )
+    logger = _svg_series(html, "1000000001")
+    plant = _svg_series(html, "Plant")
+    assert "<polyline" in logger
+    assert "fail" not in logger
+    assert "fail" not in plant
+    assert "<polyline" in plant
