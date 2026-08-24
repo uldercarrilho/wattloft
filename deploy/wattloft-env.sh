@@ -15,6 +15,7 @@ secret_id=$(oci vault secret list \
   --auth instance_principal \
   --compartment-id "$COMPARTMENT_ID" \
   --name "$SECRET_NAME" \
+  --all \
   --query "data[?\"lifecycle-state\"=='ACTIVE'] | [0].id" \
   --raw-output)
 

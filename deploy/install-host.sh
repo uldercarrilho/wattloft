@@ -4,6 +4,7 @@ set -euo pipefail
 
 COMPOSE_DIR="${WATTLOFT_COMPOSE_DIR:-/opt/wattloft}"
 ENV_FILE="${WATTLOFT_ENV_FILE:-/etc/wattloft/wattloft.env}"
+DEPLOY_ENV_FILE="${WATTLOFT_DEPLOY_ENV_FILE:-/etc/wattloft/deploy.env}"
 cd "$COMPOSE_DIR"
 
 install -m 755 wattloft-env.sh /usr/local/sbin/wattloft-env
@@ -21,13 +22,21 @@ if ! systemctl restart wattloft-env.service; then
   exit 1
 fi
 
+if [[ -f "${COMPOSE_DIR}/deploy.env" ]]; then
+  install -m 600 "${COMPOSE_DIR}/deploy.env" "$DEPLOY_ENV_FILE"
+fi
+
 # shellcheck disable=SC1090
 set -a
 # shellcheck disable=SC1090
 source "$ENV_FILE"
+if [[ -f "$DEPLOY_ENV_FILE" ]]; then
+  # shellcheck disable=SC1090
+  source "$DEPLOY_ENV_FILE"
+fi
 set +a
 if [[ -z "${GHCR_PULL_TOKEN:-}" ]]; then
-  echo "install-host: GHCR_PULL_TOKEN missing from ${ENV_FILE}" >&2
+  echo "install-host: GHCR_PULL_TOKEN missing from ${ENV_FILE} / ${DEPLOY_ENV_FILE}" >&2
   exit 1
 fi
 printf '%s' "$GHCR_PULL_TOKEN" | docker login ghcr.io -u "${GHCR_USERNAME:-uldercarrilho}" --password-stdin
@@ -44,6 +53,10 @@ elif [[ -d /etc/iptables ]]; then
   iptables-save > /etc/iptables/rules.v4
 fi
 
-docker compose --env-file "$ENV_FILE" -f "${COMPOSE_DIR}/compose.yml" pull
-docker compose --env-file "$ENV_FILE" -f "${COMPOSE_DIR}/compose.yml" up -d
+compose_env=(--env-file "$ENV_FILE")
+if [[ -f "$DEPLOY_ENV_FILE" ]]; then
+  compose_env+=(--env-file "$DEPLOY_ENV_FILE")
+fi
+docker compose "${compose_env[@]}" -f "${COMPOSE_DIR}/compose.yml" pull
+docker compose "${compose_env[@]}" -f "${COMPOSE_DIR}/compose.yml" up -d
 systemctl start wattloft-history-dump.timer
