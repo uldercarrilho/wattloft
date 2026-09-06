@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 from starlette.applications import Starlette
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.routing import Route
 
 from wattloft.config import ADMITTED_LOGGER_SERIALS, now_utc
@@ -949,42 +949,6 @@ def _as_utc(value: datetime) -> datetime:
     return value.astimezone(timezone.utc)
 
 
-def _curve_payload(snapshot: PlantSnapshot) -> list[dict[str, object]]:
-    series_payload: list[dict[str, object]] = []
-    for series in snapshot.curve:
-        points: list[dict[str, object]] = []
-        for point in series.points:
-            item: dict[str, object] = {
-                "at": point.at.isoformat(timespec="seconds"),
-                "watts": point.watts,
-            }
-            if point.lifetime_kwh is not None:
-                item["lifetime_kwh"] = point.lifetime_kwh
-            points.append(item)
-        series_payload.append({"name": series.name, "points": points})
-    return series_payload
-
-
-def _snapshot_payload(snapshot: PlantSnapshot, selected: date) -> dict[str, object]:
-    return {
-        "selected_day": selected.isoformat(),
-        "today_energy_kwh": snapshot.today_energy_kwh,
-        "current_power_w": snapshot.current_power_w,
-        "lifetime_energy_kwh": snapshot.lifetime_energy_kwh,
-        "current_power_at": _as_utc(snapshot.current_power_at).isoformat(
-            timespec="seconds"
-        ),
-        "local_day_bars": [
-            {
-                "local_day": bar.local_day.isoformat(),
-                "today_energy_kwh": bar.today_energy_kwh,
-            }
-            for bar in snapshot.local_day_bars
-        ],
-        "curve": _curve_payload(snapshot),
-    }
-
-
 def _ago(at: datetime) -> str:
     stamp = _as_utc(at).astimezone(_LOCAL)
     here = now_utc().astimezone(_LOCAL)
@@ -1038,21 +1002,6 @@ def _render_kpis(
     return _document(body, script=script)
 
 
-async def _load_clamped_snapshot(
-    database_url: str, day_raw: str | None
-) -> tuple[PlantSnapshot, date] | None:
-    requested = _parse_day(day_raw)
-    snapshot = await asyncio.to_thread(plant_snapshot, database_url, requested)
-    if snapshot is None:
-        return None
-    selected = _selected_day(day_raw, snapshot)
-    if selected != requested:
-        snapshot = await asyncio.to_thread(plant_snapshot, database_url, selected)
-        if snapshot is None:
-            return None
-    return snapshot, selected
-
-
 def create_app(
     operator_password: str,
     database_url: str,
@@ -1064,12 +1013,16 @@ def create_app(
     async def plant_view(request: Request) -> Response:
         if not request.session.get("operator"):
             return HTMLResponse(_LOGIN, status_code=401)
-        loaded = await _load_clamped_snapshot(
-            database_url, request.query_params.get("day")
-        )
-        if loaded is None:
+        day_raw = request.query_params.get("day")
+        requested = _parse_day(day_raw)
+        snapshot = await asyncio.to_thread(plant_snapshot, database_url, requested)
+        if snapshot is None:
             return HTMLResponse(_EMPTY_HISTORY)
-        snapshot, selected = loaded
+        selected = _selected_day(day_raw, snapshot)
+        if selected != requested:
+            snapshot = await asyncio.to_thread(plant_snapshot, database_url, selected)
+            if snapshot is None:
+                return HTMLResponse(_EMPTY_HISTORY)
         unit = _parse_unit(request.query_params.get("unit"))
         return HTMLResponse(_render_kpis(snapshot, selected, unit))
 
@@ -1087,15 +1040,6 @@ def create_app(
         request.session.clear()
         return RedirectResponse("/", status_code=303)
 
-    async def snapshot(request: Request) -> Response:
-        loaded = await _load_clamped_snapshot(
-            database_url, request.query_params.get("day")
-        )
-        if loaded is None:
-            return Response(status_code=404)
-        plant, selected = loaded
-        return JSONResponse(_snapshot_payload(plant, selected))
-
     @asynccontextmanager
     async def lifespan(_app: Starlette) -> AsyncIterator[None]:
         server = await start_ingest(
@@ -1109,7 +1053,6 @@ def create_app(
             Route("/", plant_view),
             Route("/login", login, methods=["POST"]),
             Route("/logout", logout, methods=["POST"]),
-            Route("/snapshot", snapshot),
         ],
         lifespan=lifespan,
     )
