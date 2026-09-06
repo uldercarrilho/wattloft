@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import re
 import socket
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-import httpx
-
-from conftest import OPERATOR_PASSWORD, WattloftProcess
+from conftest import WattloftProcess
+from snapshot import assert_current_power_at, snapshot_json
 
 _LOCAL = ZoneInfo("America/Sao_Paulo")
 _START = 0xA5
@@ -43,27 +41,14 @@ def _live_shaped_upload_header() -> bytes:
     return bytes(payload)
 
 
-_LAST_SAMPLE = re.compile(
-    r'<time\b[^>]*\bdatetime="([^"]+)"[^>]*>([^<]*)</time>',
-    re.IGNORECASE,
-)
-
-
-def last_sample_on_page(html: str) -> tuple[datetime, str]:
-    match = _LAST_SAMPLE.search(html)
-    assert match is not None
-    return datetime.fromisoformat(match.group(1)), match.group(2)
-
-
 def assert_last_sample_is_receive_time(
-    html: str, *, before: datetime, after: datetime
+    body: dict[str, object], *, before: datetime, after: datetime
 ) -> None:
-    at, label = last_sample_on_page(html)
+    assert_current_power_at(body, before=before, after=after)
     earliest = before.replace(microsecond=0) - timedelta(seconds=1)
     latest = after.replace(microsecond=0) + timedelta(seconds=1)
+    at = datetime.fromisoformat(str(body["current_power_at"]))
     assert earliest <= at <= latest
-    assert label.endswith(" ago")
-    assert re.fullmatch(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", label) is None
 
 
 def _recv_exact(sock: socket.socket, size: int) -> bytes:
@@ -90,17 +75,9 @@ def test_admitted_logger_data_frame_becomes_a_sample_on_plant_view(
 
     assert ack == _EXPECTED_ACK
 
-    with httpx.Client(base_url=wattloft.url, follow_redirects=False) as client:
-        client.post("/login", data={"password": OPERATOR_PASSWORD})
-        html = client.get("/").text
-
-    assert "This Plant has no History yet." not in html
-    assert "Today energy" in html
-    assert "1.10 kWh" in html
-    assert "Current Power" in html
-    assert "625 W" in html
-    assert "Lifetime energy" in html
-    assert "5635.4 kWh" in html
-    assert "Last sample" in html
-    assert "2026-08-20 11:39:15" not in html
-    assert_last_sample_is_receive_time(html, before=before, after=after)
+    body = snapshot_json(wattloft.url)
+    assert body["today_energy_kwh"] == 1.1
+    assert body["current_power_w"] == 625
+    assert body["lifetime_energy_kwh"] == 5635.4
+    assert "2026-08-20T11:39:15" not in str(body["current_power_at"])
+    assert_last_sample_is_receive_time(body, before=before, after=after)

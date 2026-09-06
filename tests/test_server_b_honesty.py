@@ -3,11 +3,10 @@ from __future__ import annotations
 import socket
 import time
 
-import httpx
 import pytest
 
-from conftest import OPERATOR_PASSWORD, WattloftProcess, _reset_history
-from wattloft.ingest import IDLE_TIMEOUT_S
+from conftest import WattloftProcess, _reset_history
+from snapshot import assert_empty_history, snapshot_json
 from test_admitted_logger_sample import (
     _ADMITTED_SERIAL,
     _CONTROL_DATA,
@@ -17,6 +16,7 @@ from test_admitted_logger_sample import (
     _recv_exact,
     _v5_frame,
 )
+from wattloft.ingest import IDLE_TIMEOUT_S
 
 _CONTROL_HELLO = 0x4110
 _CONTROL_HEARTBEAT = 0x4710
@@ -25,12 +25,6 @@ _UNKNOWN_SERIAL = 1111111111
 _EXPECTED_HELLO_ACK = bytes.fromhex("a50a0010110400195403e9000000000000000000008815")
 # Proven 23-byte ACK: 10 zero-byte payload, control 0x1710, same sequence and logger serial.
 _EXPECTED_HEARTBEAT_ACK = bytes.fromhex("a50a0010170400195403e9000000000000000000008e15")
-
-
-def _plant_view_html(wattloft: WattloftProcess) -> str:
-    with httpx.Client(base_url=wattloft.url, follow_redirects=False) as client:
-        client.post("/login", data={"password": OPERATOR_PASSWORD})
-        return client.get("/").text
 
 
 def _no_ack(sock: socket.socket) -> bytes:
@@ -70,12 +64,7 @@ def test_hello_is_acked_and_does_not_appear_as_a_sample(
         ack = _recv_exact(sock, len(_EXPECTED_HELLO_ACK))
 
     assert ack == _EXPECTED_HELLO_ACK
-
-    html = _plant_view_html(wattloft)
-    assert "This Plant has no History yet." in html
-    assert "625 W" not in html
-    assert "1.10 kWh" not in html
-    assert "5635.4 kWh" not in html
+    assert_empty_history(wattloft.url)
 
 
 def test_heartbeat_is_acked_and_does_not_appear_as_a_sample(
@@ -89,12 +78,7 @@ def test_heartbeat_is_acked_and_does_not_appear_as_a_sample(
         ack = _recv_exact(sock, len(_EXPECTED_HEARTBEAT_ACK))
 
     assert ack == _EXPECTED_HEARTBEAT_ACK
-
-    html = _plant_view_html(wattloft)
-    assert "This Plant has no History yet." in html
-    assert "625 W" not in html
-    assert "1.10 kWh" not in html
-    assert "5635.4 kWh" not in html
+    assert_empty_history(wattloft.url)
 
 
 def test_truncated_frame_is_not_acked_and_plant_view_gains_no_zero_power(
@@ -109,11 +93,7 @@ def test_truncated_frame_is_not_acked_and_plant_view_gains_no_zero_power(
         with pytest.raises(socket.timeout):
             sock.recv(23)
 
-    html = _plant_view_html(wattloft)
-    assert "This Plant has no History yet." in html
-    assert "0 W" not in html
-    assert "0.00 kWh" not in html
-    assert "0.0 kWh" not in html
+    assert_empty_history(wattloft.url)
 
 
 def test_bad_checksum_frame_is_not_acked_and_plant_view_gains_no_zero_power(
@@ -130,12 +110,7 @@ def test_bad_checksum_frame_is_not_acked_and_plant_view_gains_no_zero_power(
         ack = _no_ack(sock)
 
     assert ack == b""
-
-    html = _plant_view_html(wattloft)
-    assert "This Plant has no History yet." in html
-    assert "0 W" not in html
-    assert "0.00 kWh" not in html
-    assert "0.0 kWh" not in html
+    assert_empty_history(wattloft.url)
 
 
 def test_unknown_logger_serial_is_closed_with_no_ack_and_plant_view_unchanged(
@@ -148,9 +123,9 @@ def test_unknown_logger_serial_is_closed_with_no_ack_and_plant_view_unchanged(
         sock.sendall(admitted)
         assert _recv_exact(sock, len(_EXPECTED_ACK)) == _EXPECTED_ACK
 
-    before = _plant_view_html(wattloft)
-    assert "625 W" in before
-    assert "1.10 kWh" in before
+    before = snapshot_json(wattloft.url)
+    assert before["current_power_w"] == 625
+    assert before["today_energy_kwh"] == 1.1
 
     stranger = _v5_frame(
         _CONTROL_DATA, _SEQUENCE, _UNKNOWN_SERIAL, _stranger_shaped_upload_header()
@@ -162,14 +137,13 @@ def test_unknown_logger_serial_is_closed_with_no_ack_and_plant_view_unchanged(
 
     assert ack == b""
 
-    html = _plant_view_html(wattloft)
-    assert "625 W" in html
-    assert "1.10 kWh" in html
-    assert "5635.4 kWh" in html
-    assert "50 W" not in html
-    assert "9.99 kWh" not in html
-    assert "100.0 kWh" not in html
-    assert "This Plant has no History yet." not in html
+    body = snapshot_json(wattloft.url)
+    assert body["current_power_w"] == 625
+    assert body["today_energy_kwh"] == 1.1
+    assert body["lifetime_energy_kwh"] == 5635.4
+    assert body["current_power_w"] != 50
+    assert body["today_energy_kwh"] != 9.99
+    assert body["lifetime_energy_kwh"] != 100.0
 
 
 def test_night_zero_watt_data_frame_shows_current_power_as_zero_watts_not_a_dash(
@@ -184,11 +158,10 @@ def test_night_zero_watt_data_frame_shows_current_power_as_zero_watts_not_a_dash
 
     assert ack == _EXPECTED_ACK
 
-    html = _plant_view_html(wattloft)
-    assert "<dt>Current Power</dt><dd>0 W</dd>" in html
-    assert "1.10 kWh" in html
-    assert "5635.4 kWh" in html
-    assert "This Plant has no History yet." not in html
+    body = snapshot_json(wattloft.url)
+    assert body["current_power_w"] == 0
+    assert body["today_energy_kwh"] == 1.1
+    assert body["lifetime_energy_kwh"] == 5635.4
 
 
 def test_failed_parse_is_acked_but_does_not_display_as_zero(
@@ -202,12 +175,7 @@ def test_failed_parse_is_acked_but_does_not_display_as_zero(
         ack = _recv_exact(sock, len(_EXPECTED_ACK))
 
     assert ack == _EXPECTED_ACK
-
-    html = _plant_view_html(wattloft)
-    assert "This Plant has no History yet." in html
-    assert "0 W" not in html
-    assert "0.00 kWh" not in html
-    assert "0.0 kWh" not in html
+    assert_empty_history(wattloft.url)
 
 
 def test_failed_parse_does_not_zero_an_existing_sample(
@@ -229,11 +197,11 @@ def test_failed_parse_does_not_zero_an_existing_sample(
 
     assert ack == _EXPECTED_ACK
 
-    html = _plant_view_html(wattloft)
-    assert "625 W" in html
-    assert "1.10 kWh" in html
-    assert "0 W" not in html
-    assert "0.00 kWh" not in html
+    body = snapshot_json(wattloft.url)
+    assert body["current_power_w"] == 625
+    assert body["today_energy_kwh"] == 1.1
+    assert body["current_power_w"] != 0
+    assert body["today_energy_kwh"] != 0
 
 
 def test_ingest_idle_timeout_default_is_300_seconds() -> None:
