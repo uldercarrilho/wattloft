@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPlantChartModel } from "./plantChartModel";
+import { buildPlantChartModel, energyReadout, timeReadout } from "./plantChartModel";
 import type { PlantSnapshot } from "./types";
 
 const loggerA = "3909309465";
@@ -340,5 +340,103 @@ describe("buildPlantChartModel energy Stack", () => {
     expect(missing.datasets).toEqual([
       { name: "Plant", role: "plant", stacked: false, values: [3.9, 0.2] },
     ]);
+  });
+});
+
+describe("timeReadout", () => {
+  it("formats noon and dashes an omitted Logger", () => {
+    const model = buildPlantChartModel(
+      snapshot([
+        {
+          name: loggerA,
+          points: [
+            { at: "2026-08-21T11:40:00", watts: 100, lifetime_kwh: 10 },
+            { at: "2026-08-21T12:20:00", watts: 80, lifetime_kwh: 10.01 },
+          ],
+        },
+        {
+          name: loggerB,
+          points: [
+            { at: "2026-08-21T11:40:00", watts: 50, lifetime_kwh: 4 },
+            { at: "2026-08-21T12:20:00", watts: 50, lifetime_kwh: 4.2 },
+          ],
+        },
+      ]),
+      "time",
+      "overlay",
+      new Set(["Plant", loggerA, loggerB]),
+    );
+    expect(model.kind).toBe("time");
+    if (model.kind !== "time") return;
+    const readout = timeReadout(model, 12 * 60, "overlay");
+    expect(readout.when).toBe("12:00");
+    expect(readout.rows.find((row) => row.name === loggerA)?.text).toBe("—");
+    expect(readout.rows.find((row) => row.name === loggerB)?.text).toBe("50 W");
+    expect(readout.rows.find((row) => row.name === "Plant")?.text).toBe("50 W");
+  });
+
+  it("keeps Overlay Plant as all Loggers and Stack Plant as visible only", () => {
+    const curve = [
+      {
+        name: loggerA,
+        points: [
+          { at: "2026-08-21T01:40:00", watts: 100, lifetime_kwh: 10 },
+          { at: "2026-08-21T01:50:00", watts: 200, lifetime_kwh: 10.1 },
+        ],
+      },
+      {
+        name: loggerB,
+        points: [
+          { at: "2026-08-21T01:40:00", watts: 50, lifetime_kwh: 4 },
+          { at: "2026-08-21T01:50:00", watts: 50, lifetime_kwh: 4.05 },
+        ],
+      },
+    ];
+    const overlay = buildPlantChartModel(
+      snapshot(curve),
+      "time",
+      "overlay",
+      new Set(["Plant", loggerB]),
+    );
+    expect(overlay.kind).toBe("time");
+    if (overlay.kind !== "time") return;
+    const overlayReadout = timeReadout(overlay, 105, "overlay");
+    expect(overlayReadout.rows.find((row) => row.name === "Plant")?.text).toBe("200 W");
+    expect(overlayReadout.rows.find((row) => row.name === loggerA)).toBeUndefined();
+    const stacked = buildPlantChartModel(snapshot(curve), "time", "stack", new Set([loggerB]));
+    expect(stacked.kind).toBe("time");
+    if (stacked.kind !== "time") return;
+    const stackReadout = timeReadout(stacked, 105, "stack");
+    expect(stackReadout.rows.find((row) => row.name === "Plant")?.text).toBe("50 W");
+    expect(stackReadout.rows.find((row) => row.name === loggerB)?.text).toBe("50 W");
+  });
+});
+
+describe("energyReadout", () => {
+  it("uses the period label and Stack per-Logger kWh", () => {
+    const overlay = buildPlantChartModel(energySnapshot, "day", "overlay", new Set(["Plant"]));
+    expect(overlay.kind).toBe("energy");
+    if (overlay.kind !== "energy") return;
+    expect(energyReadout(overlay, 0)).toEqual({
+      when: "2026-08-21 3.90 kWh",
+      rows: [{ name: "Plant", text: "3.90 kWh" }],
+    });
+    const stacked = buildPlantChartModel(
+      energySnapshot,
+      "day",
+      "stack",
+      new Set([loggerA, loggerB]),
+    );
+    expect(stacked.kind).toBe("energy");
+    if (stacked.kind !== "energy") return;
+    expect(energyReadout(stacked, 0)).toEqual({
+      when: "2026-08-21 3.90 kWh",
+      rows: [
+        { name: "Plant", text: "3.90 kWh" },
+        { name: loggerA, text: "2.10 kWh" },
+        { name: loggerB, text: "1.80 kWh" },
+      ],
+    });
+    expect(energyReadout(stacked, 1).rows.find((row) => row.name === loggerB)?.text).toBe("—");
   });
 });
