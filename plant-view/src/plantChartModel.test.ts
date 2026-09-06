@@ -277,7 +277,7 @@ describe("buildPlantChartModel energy Overlay", () => {
     expect(model.currentIndex).toBe(0);
     expect(model.yMax).toBe(3.9);
     expect(model.datasets).toEqual([
-      { name: "Plant", role: "plant", stacked: false, values: [3.9, 0.2] },
+      { name: "Plant", role: "plant", stacked: false, swatch: "pigment", values: [3.9, 0.2] },
     ]);
   });
 
@@ -338,7 +338,7 @@ describe("buildPlantChartModel energy Stack", () => {
     expect(missing.kind).toBe("energy");
     if (missing.kind !== "energy") return;
     expect(missing.datasets).toEqual([
-      { name: "Plant", role: "plant", stacked: false, values: [3.9, 0.2] },
+      { name: "Plant", role: "plant", stacked: false, swatch: "pigment", values: [3.9, 0.2] },
     ]);
   });
 });
