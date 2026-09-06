@@ -1,0 +1,27 @@
+{
+  "name": "wattloft-plant-view",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k \"tsx watch src/server.ts\" \"vite\"",
+    "build": "vite build && esbuild src/server.ts --bundle --platform=node --format=esm --outfile=dist/server.js --packages=external",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.1",
+    "hono": "^4.13.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.1",
+    "concurrently": "^10.0.5",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2",
+    "vitest": "^5.0.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}

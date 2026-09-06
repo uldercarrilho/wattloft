@@ -9,3 +9,4 @@ build/
 .ruff_cache/
 .cache/
 *.log
+node_modules/
