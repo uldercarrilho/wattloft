@@ -41,8 +41,16 @@ The single person allowed to see the Plant in Wattloft. v1 proves it with a pass
 _Avoid_: user, admin, customer, viewer, SSO, Cognito
 
 **Plant view**:
-What the Operator sees over HTTPS on a hostname: Today energy, Current Power, Lifetime energy, Last sample as the relative age of Current Power’s Sample, a period stepper, and Time, Day, Month, and Year grains. Time is that Local day’s Power curve (each Logger and the Plant). Day, Month, and Year are bars of that Local-day production: per Local day in the stepper’s month, summed per month in the stepper’s year, and summed per year in History. Login, empty History, and Plant view share one Azulejo look. Nothing else is a v1 surface.
+What the Operator sees over HTTPS on a hostname: Today energy, Current Power, Lifetime energy, Last sample as the relative age of Current Power’s Sample, a period stepper, Time, Day, Month, and Year grains, and Overlay or Stack as one chart mode for every grain. Time Overlay is that Local day’s Power curve (each Logger and the Plant); Time Stack is stacked curve watts (Loggers only; Plant is the height). Day, Month, and Year Overlay are Plant-total bars of that Local-day production: per Local day in the stepper’s month, summed per month in the stepper’s year, and summed per year in History; Stack splits those bars by Logger. Login, empty History, and Plant view share one Azulejo look. Nothing else is a v1 surface.
 _Avoid_: report, dashboard, equipment data, live view, efficiency, HTTP (plaintext)
+
+**Overlay**:
+Plant view’s default chart drawing: Time is the Power curve of each Logger and the Plant; Day, Month, and Year are Plant-total energy bars.
+_Avoid_: combined, lines, current chart (as a label)
+
+**Stack**:
+Plant view’s composition drawing: Loggers only; Plant is the stack height. Time is stacked curve watts; Day, Month, and Year are stacked energy bars. One mode with Overlay for every grain.
+_Avoid_: 100% stack, device breakdown, grouped bars
 
 **Today energy**:
 The Logger’s own “energy today” counter, not watts integrated over time. For a Local day, Plant Today energy is that day’s production: last successful non-zero Lifetime energy per Logger that day minus that Logger’s last successful non-zero Lifetime on the previous Local day in History, then summed. If a Logger has no previous Lifetime in History, use its last successful Today energy that day. A trailing zero Lifetime or Today energy does not wipe an earlier successful value that day. A Logger with no successful Sample that day contributes nothing, not zero. Staleness of a Logger must stay visible.
