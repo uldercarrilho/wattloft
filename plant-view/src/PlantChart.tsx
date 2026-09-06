@@ -177,13 +177,14 @@ export function PlantChart({
   }
   const label = model.kind === "time" ? "Power curve" : "Energy bars";
   return (
-    <canvas
-      ref={canvasRef}
-      className="plant-chart"
-      role="img"
-      aria-label={label}
-      style={{ touchAction: "none" }}
-    />
+    <div className="plant-chart">
+      <canvas
+        ref={canvasRef}
+        role="img"
+        aria-label={label}
+        style={{ touchAction: "none" }}
+      />
+    </div>
   );
 }
 
