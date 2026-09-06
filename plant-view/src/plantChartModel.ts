@@ -2,6 +2,8 @@ import type { ChartMode } from "./chartMode";
 import { curveWattsAt, type LoggerPoint } from "./curveWatts";
 import {
   dayEnergyBars,
+  formatKwh,
+  formatWatts,
   monthEnergyBars,
   yearEnergyBars,
   type EnergyBar,
@@ -259,4 +261,80 @@ export function buildPlantChartModel(
     return timeOverlay(snapshot, visible);
   }
   return energyModel(snapshot, unit, mode, visible);
+}
+
+export type Readout = { when: string; rows: { name: string; text: string }[] };
+
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+function wattsText(value: number | null | undefined): string {
+  if (value == null) return "—";
+  return formatWatts(value);
+}
+
+function kwhText(value: number | null | undefined): string {
+  if (value == null) return "—";
+  return formatKwh(value);
+}
+
+function valueAt(dataset: ChartDataset, index: number): number | null {
+  const value = dataset.values[index];
+  return value === undefined ? null : value;
+}
+
+export function timeReadout(model: TimeChartModel, minute: number, mode: ChartMode): Readout {
+  const t = Math.max(model.minutes[0] ?? 0, Math.min(model.minutes.at(-1) ?? 0, Math.round(minute)));
+  const index = model.minutes.indexOf(t);
+  const rows: Readout["rows"] = [];
+  if (mode === "stack") {
+    let plant = 0;
+    let any = false;
+    for (const dataset of model.datasets) {
+      const value = index < 0 ? null : valueAt(dataset, index);
+      if (value != null) {
+        plant += value;
+        any = true;
+      }
+    }
+    rows.push({ name: "Plant", text: any ? wattsText(plant) : "—" });
+  }
+  for (const dataset of model.datasets) {
+    rows.push({
+      name: dataset.name,
+      text: index < 0 ? "—" : wattsText(valueAt(dataset, index)),
+    });
+  }
+  return {
+    when: `${pad2(Math.floor(t / 60))}:${pad2(t % 60)}`,
+    rows,
+  };
+}
+
+export function energyReadout(model: EnergyChartModel, index: number): Readout {
+  const i = Math.max(0, Math.min(model.readoutLabels.length - 1, index));
+  const when = model.readoutLabels[i] ?? "";
+  if (model.datasets.some((dataset) => dataset.stacked)) {
+    const rows: Readout["rows"] = [];
+    let plant = 0;
+    let any = false;
+    for (const dataset of model.datasets) {
+      const value = valueAt(dataset, i);
+      if (value != null) {
+        plant += value;
+        any = true;
+      }
+      rows.push({ name: dataset.name, text: kwhText(value) });
+    }
+    return {
+      when,
+      rows: [{ name: "Plant", text: any ? kwhText(plant) : "—" }, ...rows],
+    };
+  }
+  const plant = model.datasets.find((dataset) => dataset.role === "plant");
+  return {
+    when,
+    rows: [{ name: "Plant", text: kwhText(plant ? valueAt(plant, i) : null) }],
+  };
 }
