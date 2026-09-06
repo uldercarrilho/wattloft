@@ -1,5 +1,11 @@
 import type { ChartMode } from "./chartMode";
 import { curveWattsAt, type LoggerPoint } from "./curveWatts";
+import {
+  dayEnergyBars,
+  monthEnergyBars,
+  yearEnergyBars,
+  type EnergyBar,
+} from "./grains";
 import type { CurveSeries, Grain, PlantSnapshot } from "./types";
 
 export const GAP_MIN = 15;
@@ -176,6 +182,67 @@ function timeStack(snapshot: PlantSnapshot, visible: ReadonlySet<string>): TimeC
   };
 }
 
+function energyBars(snapshot: PlantSnapshot, unit: Grain, visible?: ReadonlySet<string>): EnergyBar[] {
+  if (unit === "month") return monthEnergyBars(snapshot, snapshot.selected_day, visible);
+  if (unit === "year") return yearEnergyBars(snapshot, snapshot.selected_day, visible);
+  return dayEnergyBars(snapshot, snapshot.selected_day, visible);
+}
+
+function tickLabel(unit: Grain, label: string): string {
+  const head = label.split(" ")[0] ?? label;
+  if (unit === "day") return head.slice(-2);
+  return head;
+}
+
+function energyModel(
+  snapshot: PlantSnapshot,
+  unit: Grain,
+  mode: ChartMode,
+  visible: ReadonlySet<string>,
+): EnergyChartModel {
+  const stacked = mode === "stack";
+  const bars = energyBars(snapshot, unit, stacked ? visible : undefined);
+  const currentIndex =
+    unit === "day"
+      ? Math.max(
+          0,
+          bars.findIndex((bar) => bar.href.includes(`day=${snapshot.selected_day}`)),
+        )
+      : Math.max(0, bars.findIndex((bar) => bar.current));
+  const yMax = Math.max(1, ...bars.map((bar) => bar.kwh));
+  const useStack = stacked && bars.some((bar) => bar.segments.length > 0);
+  const datasets: ChartDataset[] = useStack
+    ? [...visible]
+        .filter((name) => name !== "Plant")
+        .sort((a, b) => a.localeCompare(b))
+        .map((name) => ({
+          name,
+          role: "logger" as const,
+          stacked: true,
+          values: bars.map((bar) => {
+            const part = bar.segments.find((segment) => segment.name === name);
+            return part ? part.kwh : null;
+          }),
+        }))
+    : [
+        {
+          name: "Plant",
+          role: "plant",
+          stacked: false,
+          values: bars.map((bar) => bar.kwh),
+        },
+      ];
+  return {
+    kind: "energy",
+    tickLabels: bars.map((bar) => tickLabel(unit, bar.label)),
+    readoutLabels: bars.map((bar) => bar.label),
+    hrefs: bars.map((bar) => bar.href),
+    currentIndex,
+    yMax,
+    datasets,
+  };
+}
+
 export function buildPlantChartModel(
   snapshot: PlantSnapshot,
   unit: Grain,
@@ -191,5 +258,5 @@ export function buildPlantChartModel(
     }
     return timeOverlay(snapshot, visible);
   }
-  return { kind: "empty-time" };
+  return energyModel(snapshot, unit, mode, visible);
 }
