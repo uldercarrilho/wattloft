@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
+import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 
 const COOKIE = "wattloft";
@@ -14,6 +15,7 @@ export type CreateAppOptions = {
   cookieSecure: boolean;
   documentHtml: string;
   fetch?: typeof fetch;
+  staticRoot?: string;
 };
 
 function sign(password: string): string {
@@ -126,6 +128,10 @@ export function createApp(opts: CreateAppOptions): Hono {
     return c.json({ empty: false, unit, ...snapshot });
   });
 
+  if (opts.staticRoot) {
+    app.use("/assets/*", serveStatic({ root: opts.staticRoot }));
+  }
+
   app.get("*", (c) => c.html(opts.documentHtml));
   return app;
 }
@@ -161,6 +167,7 @@ export function start(): void {
     apiUrl,
     cookieSecure: process.env.COOKIE_SECURE === "true",
     documentHtml,
+    staticRoot: existsSync(join(here, "client")) ? join(here, "client") : undefined,
   });
   const hostname = process.env.PLANT_VIEW_HOST ?? "127.0.0.1";
   const port = Number(process.env.PLANT_VIEW_PORT ?? "3000");
