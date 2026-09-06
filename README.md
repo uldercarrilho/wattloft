@@ -2,7 +2,7 @@
 
 Wattloft observes production of one household solar Plant. It exists so that Plant can be watched without using the vendor cloud as the store.
 
-Loggers push Solarman V5 frames to Wattloft on Server B. Wattloft records Samples in History and serves Plant view over HTTPS to the Operator. Server A stays the vendor slot.
+Loggers push Solarman V5 frames to Wattloft on Server B. Wattloft records Samples in History. Plant view is a React app on the same hostname. Server A stays the vendor slot.
 
 ## Plant view
 
@@ -22,13 +22,13 @@ Only Admitted Loggers may create Samples. Unknown serials get no ACK and no writ
 
 ## Runtime
 
-v1 is one Python process: ingest, History writes, and Plant view. Caddy terminates TLS in front. History lives in private MySQL HeatWave, not on the VM.
+Two processes on the pet VM: Python (Server B ingest, History, `GET /snapshot` on loopback) and Node (Operator session and Plant view). Caddy terminates TLS and proxies 443 to Node. History lives in private MySQL HeatWave, not on the VM.
 
-The collector runs on an Always Free OCI pet in São Paulo. Push to `main` tests, publishes a private GHCR image, and deploys through OCI Bastion. The Operator does not SSH.
+The collector runs on an Always Free OCI pet in São Paulo. Push to `main` tests, publishes private GHCR images, and deploys through OCI Bastion. The Operator does not SSH.
 
 ## Develop
 
-Python 3.12+. Tests need Docker (MySQL via testcontainers).
+Python 3.12+ and Node 22. Tests need Docker (MySQL via testcontainers).
 
 ```bash
 pip install -e ".[dev]"
@@ -36,15 +36,28 @@ pytest -q
 mypy
 ```
 
-To run the process locally:
+```bash
+cd plant-view
+npm install
+npm test
+npm run typecheck
+```
+
+To run locally, two processes:
 
 ```bash
-export OPERATOR_PASSWORD=…
 export DATABASE_URL=mysql://…
 wattloft
 ```
 
-Optional env: `PLANT_VIEW_HOST` / `PLANT_VIEW_PORT` (default `127.0.0.1:8000`), `INGEST_HOST` / `INGEST_PORT` (default `0.0.0.0:10000`).
+```bash
+cd plant-view
+export OPERATOR_PASSWORD=…
+export WATTLOFT_API_URL=http://127.0.0.1:8000
+npm run dev
+```
+
+Open Plant view at `http://127.0.0.1:5173`. Optional Python env: `WATTLOFT_API_HOST` / `WATTLOFT_API_PORT` (default `127.0.0.1:8000`), `INGEST_HOST` / `INGEST_PORT` (default `0.0.0.0:10000`). Optional Node env: `PLANT_VIEW_HOST` / `PLANT_VIEW_PORT` (default `127.0.0.1:3000`).
 
 ## Domain
 

@@ -6,10 +6,21 @@ services:
     env_file:
       - /etc/wattloft/wattloft.env
     environment:
-      PLANT_VIEW_HOST: "127.0.0.1"
-      PLANT_VIEW_PORT: "8000"
+      WATTLOFT_API_HOST: "127.0.0.1"
+      WATTLOFT_API_PORT: "8000"
       INGEST_HOST: "0.0.0.0"
       INGEST_PORT: "10000"
+  plant-view:
+    image: ${WATTLOFT_PLANT_VIEW_IMAGE:-ghcr.io/uldercarrilho/wattloft-plant-view:main}
+    network_mode: host
+    restart: unless-stopped
+    env_file:
+      - /etc/wattloft/wattloft.env
+    environment:
+      WATTLOFT_API_URL: "http://127.0.0.1:8000"
+      PLANT_VIEW_HOST: "127.0.0.1"
+      PLANT_VIEW_PORT: "3000"
+      COOKIE_SECURE: "true"
   caddy:
     image: caddy:2.11.4
     network_mode: host
@@ -17,7 +28,7 @@ services:
     env_file:
       - /etc/wattloft/wattloft.env
     environment:
-      PLANT_VIEW_PORT: "8000"
+      PLANT_VIEW_PORT: "3000"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

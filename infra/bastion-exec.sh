@@ -113,9 +113,10 @@ if [[ -z "${SKIP_COPY:-}" ]]; then
     "$ROOT/deploy/install-host.sh" \
     "ubuntu@${PRIVATE_IP}:/opt/wattloft/"
   ssh "${ssh_opts[@]}" "ubuntu@${PRIVATE_IP}" "sed -i 's/\r$//' /opt/wattloft/*.sh"
-  if [[ -n "${WATTLOFT_IMAGE:-}" || -n "${GHCR_PULL_TOKEN:-}" ]]; then
+  if [[ -n "${WATTLOFT_IMAGE:-}" || -n "${WATTLOFT_PLANT_VIEW_IMAGE:-}" || -n "${GHCR_PULL_TOKEN:-}" ]]; then
     deploy_env=$(mktemp)
     [[ -n "${WATTLOFT_IMAGE:-}" ]] && printf 'WATTLOFT_IMAGE=%s\n' "$WATTLOFT_IMAGE" >> "$deploy_env"
+    [[ -n "${WATTLOFT_PLANT_VIEW_IMAGE:-}" ]] && printf 'WATTLOFT_PLANT_VIEW_IMAGE=%s\n' "$WATTLOFT_PLANT_VIEW_IMAGE" >> "$deploy_env"
     [[ -n "${GHCR_PULL_TOKEN:-}" ]] && printf 'GHCR_PULL_TOKEN=%s\n' "$GHCR_PULL_TOKEN" >> "$deploy_env"
     [[ -n "${GHCR_USERNAME:-}" ]] && printf 'GHCR_USERNAME=%s\n' "$GHCR_USERNAME" >> "$deploy_env"
     scp "${ssh_opts[@]}" "$deploy_env" "ubuntu@${PRIVATE_IP}:/opt/wattloft/deploy.env"
