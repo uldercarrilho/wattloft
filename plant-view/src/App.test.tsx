@@ -162,4 +162,45 @@ describe("Plant view", () => {
       "false",
     );
   });
+
+  it("draws Stack Day segments from loggers and Overlay Day without them", async () => {
+    const withLoggers = {
+      ...snapshot,
+      local_day_bars: [
+        {
+          local_day: "2026-08-21",
+          today_energy_kwh: 3.9,
+          loggers: [
+            { name: "3909309465", today_energy_kwh: 2.1 },
+            { name: "3909310155", today_energy_kwh: 1.8 },
+          ],
+        },
+        {
+          local_day: "2026-08-22",
+          today_energy_kwh: 0.2,
+          loggers: [{ name: "3909309465", today_energy_kwh: 0.2 }],
+        },
+        { local_day: "2026-09-01", today_energy_kwh: 0.2 },
+      ],
+    };
+    window.history.replaceState({}, "", "/?day=2026-08-21&unit=day");
+    stubPlant(200, withLoggers);
+    render(<App />);
+    await screen.findByText("2026-08-21 3.90 kWh");
+    expect(document.querySelector("ol.days [data-series]")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Stack" }));
+    expect(document.querySelector("ol.days [data-series='3909310155']")).toBeTruthy();
+    expect(document.querySelectorAll("ol.days [data-series='3909309465']").length).toBeGreaterThan(
+      0,
+    );
+  });
+
+  it("draws Stack Day as a solid Plant-total bar when loggers are missing", async () => {
+    window.localStorage.setItem(CHART_MODE_KEY, "stack");
+    window.history.replaceState({}, "", "/?day=2026-08-21&unit=day");
+    stubPlant(200, snapshot);
+    render(<App />);
+    expect(await screen.findByText("2026-08-21 3.90 kWh")).toBeTruthy();
+    expect(document.querySelector("ol.days [data-series]")).toBeNull();
+  });
 });

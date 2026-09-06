@@ -1,21 +1,23 @@
 import { useEffect, useState } from "react";
 import { TimeCurve } from "./curve";
 import {
+  type ChartMode,
+  readChartMode,
+  writeChartMode,
+} from "./chartMode";
+import {
+  type EnergyBar,
   dayEnergyBars,
   formatKwh,
   formatWatts,
   href,
   monthEnergyBars,
   parseUnit,
+  stackLoggerNames,
   stepper,
   yearEnergyBars,
 } from "./grains";
 import { LastSample, lifetimeKwh } from "./LastSample";
-import {
-  type ChartMode,
-  readChartMode,
-  writeChartMode,
-} from "./chartMode";
 import type { Grain, PlantPayload, PlantSnapshot } from "./types";
 
 type ViewState =
@@ -61,52 +63,62 @@ function Login() {
   );
 }
 
-function Chart({ snapshot, unit }: { snapshot: PlantSnapshot; unit: Grain }) {
+function loggerClass(name: string, names: string[]): string {
+  return names.indexOf(name) % 2 === 0 ? "series-a" : "series-b";
+}
+
+function EnergyList({ bars, names }: { bars: EnergyBar[]; names: string[] }) {
+  return (
+    <ol className="days">
+      {bars.map((bar) => (
+        <li key={bar.label}>
+          <a
+            href={bar.href}
+            style={{ width: `${Math.round(bar.width)}%` }}
+            aria-current={bar.current ? "true" : undefined}
+          >
+            {bar.segments.length > 0 ? (
+              <span className="day-stack">
+                {bar.segments.map((part) => (
+                  <span
+                    key={part.name}
+                    data-series={part.name}
+                    className={loggerClass(part.name, names)}
+                    style={{ width: `${part.width}%` }}
+                  />
+                ))}
+              </span>
+            ) : null}
+            <span className="day-label">{bar.label}</span>
+          </a>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function Chart({
+  snapshot,
+  unit,
+  mode,
+}: {
+  snapshot: PlantSnapshot;
+  unit: Grain;
+  mode: ChartMode;
+}) {
+  const names = stackLoggerNames(snapshot);
+  const visible = mode === "stack" ? new Set(names) : undefined;
   if (unit === "day") {
-    return (
-      <ol className="days">
-        {dayEnergyBars(snapshot, snapshot.selected_day).map((bar) => (
-          <li key={bar.label}>
-            <a href={bar.href} style={{ width: `${Math.round(bar.width)}%` }}>
-              {bar.label}
-            </a>
-          </li>
-        ))}
-      </ol>
-    );
+    return <EnergyList bars={dayEnergyBars(snapshot, snapshot.selected_day, visible)} names={names} />;
   }
   if (unit === "month") {
     return (
-      <ol className="days">
-        {monthEnergyBars(snapshot, snapshot.selected_day).map((bar) => (
-          <li key={bar.label}>
-            <a
-              href={bar.href}
-              style={{ width: `${Math.round(bar.width)}%` }}
-              aria-current={bar.current ? "true" : undefined}
-            >
-              {bar.label}
-            </a>
-          </li>
-        ))}
-      </ol>
+      <EnergyList bars={monthEnergyBars(snapshot, snapshot.selected_day, visible)} names={names} />
     );
   }
   if (unit === "year") {
     return (
-      <ol className="days">
-        {yearEnergyBars(snapshot, snapshot.selected_day).map((bar) => (
-          <li key={bar.label}>
-            <a
-              href={bar.href}
-              style={{ width: `${Math.round(bar.width)}%` }}
-              aria-current={bar.current ? "true" : undefined}
-            >
-              {bar.label}
-            </a>
-          </li>
-        ))}
-      </ol>
+      <EnergyList bars={yearEnergyBars(snapshot, snapshot.selected_day, visible)} names={names} />
     );
   }
   if (snapshot.curve.length === 0) {
@@ -198,7 +210,7 @@ function Plant({ payload }: { payload: Extract<PlantPayload, { empty: false }> }
           Stack
         </button>
       </nav>
-      <Chart snapshot={snapshot} unit={unit} />
+      <Chart snapshot={snapshot} unit={unit} mode={mode} />
     </main>
   );
 }
