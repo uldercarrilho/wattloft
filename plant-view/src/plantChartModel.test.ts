@@ -231,3 +231,114 @@ describe("buildPlantChartModel Time Stack", () => {
     expect(model.yMax).toBe(1);
   });
 });
+
+const energySnapshot: PlantSnapshot = {
+  selected_day: "2026-08-21",
+  today_energy_kwh: 0.2,
+  current_power_w: 50,
+  lifetime_energy_kwh: 5635.4,
+  current_power_at: "2026-08-22T13:00:00+00:00",
+  local_day_bars: [
+    {
+      local_day: "2026-08-21",
+      today_energy_kwh: 3.9,
+      loggers: [
+        { name: loggerA, today_energy_kwh: 2.1 },
+        { name: loggerB, today_energy_kwh: 1.8 },
+      ],
+    },
+    {
+      local_day: "2026-08-22",
+      today_energy_kwh: 0.2,
+      loggers: [{ name: loggerA, today_energy_kwh: 0.2 }],
+    },
+    {
+      local_day: "2026-09-01",
+      today_energy_kwh: 0.2,
+      loggers: [{ name: loggerA, today_energy_kwh: 0.2 }],
+    },
+  ],
+  curve: [],
+};
+
+describe("buildPlantChartModel energy Overlay", () => {
+  it("maps Day to one Plant series with hrefs and the selected day current", () => {
+    const model = buildPlantChartModel(
+      energySnapshot,
+      "day",
+      "overlay",
+      new Set(["Plant"]),
+    );
+    expect(model.kind).toBe("energy");
+    if (model.kind !== "energy") return;
+    expect(model.tickLabels).toEqual(["21", "22"]);
+    expect(model.readoutLabels).toEqual(["2026-08-21 3.90 kWh", "2026-08-22 0.20 kWh"]);
+    expect(model.hrefs).toEqual(["/?day=2026-08-21&unit=time", "/?day=2026-08-22&unit=time"]);
+    expect(model.currentIndex).toBe(0);
+    expect(model.yMax).toBe(3.9);
+    expect(model.datasets).toEqual([
+      { name: "Plant", role: "plant", stacked: false, values: [3.9, 0.2] },
+    ]);
+  });
+
+  it("keeps Month and Year drill hrefs from grains", () => {
+    const month = buildPlantChartModel(energySnapshot, "month", "overlay", new Set(["Plant"]));
+    expect(month.kind).toBe("energy");
+    if (month.kind !== "energy") return;
+    expect(month.tickLabels).toEqual(["2026-08", "2026-09"]);
+    expect(month.hrefs).toEqual(["/?day=2026-08-21&unit=day", "/?day=2026-09-01&unit=day"]);
+    expect(month.currentIndex).toBe(0);
+    const year = buildPlantChartModel(energySnapshot, "year", "overlay", new Set(["Plant"]));
+    expect(year.kind).toBe("energy");
+    if (year.kind !== "energy") return;
+    expect(year.tickLabels).toEqual(["2026"]);
+    expect(year.hrefs).toEqual(["/?day=2026-08-21&unit=month"]);
+    expect(year.currentIndex).toBe(0);
+  });
+});
+
+describe("buildPlantChartModel energy Stack", () => {
+  it("splits Day columns by visible Loggers and nulls a missing slice", () => {
+    const model = buildPlantChartModel(
+      energySnapshot,
+      "day",
+      "stack",
+      new Set([loggerA, loggerB]),
+    );
+    expect(model.kind).toBe("energy");
+    if (model.kind !== "energy") return;
+    expect(model.datasets.map((d) => d.name)).toEqual([loggerA, loggerB]);
+    expect(model.datasets.every((d) => d.stacked && d.role === "logger")).toBe(true);
+    expect(model.datasets[0]?.values).toEqual([2.1, 0.2]);
+    expect(model.datasets[1]?.values).toEqual([1.8, null]);
+    expect(model.yMax).toBe(3.9);
+  });
+
+  it("uses visible totals for yMax and a Plant column when loggers are missing", () => {
+    const hidden = buildPlantChartModel(energySnapshot, "day", "stack", new Set([loggerA]));
+    expect(hidden.kind).toBe("energy");
+    if (hidden.kind !== "energy") return;
+    expect(hidden.datasets.map((d) => d.name)).toEqual([loggerA]);
+    expect(hidden.datasets[0]?.values).toEqual([2.1, 0.2]);
+    expect(hidden.yMax).toBe(2.1);
+    expect(hidden.readoutLabels[0]).toBe("2026-08-21 2.10 kWh");
+    const bare = snapshot([]);
+    const missing = buildPlantChartModel(
+      {
+        ...bare,
+        local_day_bars: [
+          { local_day: "2026-08-21", today_energy_kwh: 3.9 },
+          { local_day: "2026-08-22", today_energy_kwh: 0.2 },
+        ],
+      },
+      "day",
+      "stack",
+      new Set([loggerA]),
+    );
+    expect(missing.kind).toBe("energy");
+    if (missing.kind !== "energy") return;
+    expect(missing.datasets).toEqual([
+      { name: "Plant", role: "plant", stacked: false, values: [3.9, 0.2] },
+    ]);
+  });
+});
