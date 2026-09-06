@@ -124,3 +124,110 @@ describe("buildPlantChartModel Time Overlay", () => {
     expect(model).toEqual({ kind: "empty-time" });
   });
 });
+
+describe("buildPlantChartModel Time Stack", () => {
+  it("has no Plant dataset and stacks visible Loggers", () => {
+    const model = buildPlantChartModel(
+      snapshot([
+        {
+          name: loggerA,
+          points: [
+            { at: "2026-08-21T01:40:00", watts: 100, lifetime_kwh: 10 },
+            { at: "2026-08-21T01:50:00", watts: 200, lifetime_kwh: 10.1 },
+          ],
+        },
+        {
+          name: loggerB,
+          points: [
+            { at: "2026-08-21T01:40:00", watts: 50, lifetime_kwh: 4 },
+            { at: "2026-08-21T01:50:00", watts: 50, lifetime_kwh: 4.05 },
+          ],
+        },
+        { name: "Plant", points: [{ at: "2026-08-21T01:40:00", watts: 999 }] },
+      ]),
+      "time",
+      "stack",
+      new Set([loggerA, loggerB]),
+    );
+    expect(model.kind).toBe("time");
+    if (model.kind !== "time") return;
+    expect(model.datasets.map((d) => d.name)).toEqual([loggerA, loggerB]);
+    expect(model.datasets.every((d) => d.stacked && d.role === "logger")).toBe(true);
+    const at105 = model.minutes.indexOf(105);
+    expect(model.datasets[0]?.values[at105]).toBe(150);
+    expect(model.datasets[1]?.values[at105]).toBe(50);
+    expect(model.yMax).toBe(250);
+  });
+
+  it("omits a hidden Logger and a null minute instead of a 0 slab", () => {
+    const model = buildPlantChartModel(
+      snapshot([
+        {
+          name: loggerA,
+          points: [
+            { at: "2026-08-21T01:40:00", watts: 100, lifetime_kwh: 10 },
+            { at: "2026-08-21T02:00:00", watts: 80, lifetime_kwh: 10.01 },
+          ],
+        },
+        {
+          name: loggerB,
+          points: [
+            { at: "2026-08-21T01:40:00", watts: 50, lifetime_kwh: 4 },
+            { at: "2026-08-21T02:00:00", watts: 50, lifetime_kwh: 4.2 },
+          ],
+        },
+      ]),
+      "time",
+      "stack",
+      new Set([loggerB]),
+    );
+    expect(model.kind).toBe("time");
+    if (model.kind !== "time") return;
+    expect(model.datasets.map((d) => d.name)).toEqual([loggerB]);
+    const at110 = model.minutes.indexOf(110);
+    expect(model.datasets[0]?.values[at110]).toBe(50);
+    const both = buildPlantChartModel(
+      snapshot([
+        {
+          name: loggerA,
+          points: [
+            { at: "2026-08-21T01:40:00", watts: 100, lifetime_kwh: 10 },
+            { at: "2026-08-21T02:00:00", watts: 80, lifetime_kwh: 10.01 },
+          ],
+        },
+        {
+          name: loggerB,
+          points: [
+            { at: "2026-08-21T01:40:00", watts: 50, lifetime_kwh: 4 },
+            { at: "2026-08-21T02:00:00", watts: 50, lifetime_kwh: 4.2 },
+          ],
+        },
+      ]),
+      "time",
+      "stack",
+      new Set([loggerA, loggerB]),
+    );
+    expect(both.kind).toBe("time");
+    if (both.kind !== "time") return;
+    expect(both.datasets.find((d) => d.name === loggerA)?.values[at110]).toBeNull();
+    expect(both.datasets.find((d) => d.name === loggerB)?.values[at110]).toBe(50);
+  });
+
+  it("returns empty datasets when every Logger is hidden", () => {
+    const model = buildPlantChartModel(
+      snapshot([
+        {
+          name: loggerA,
+          points: [{ at: "2026-08-21T15:00:00", watts: 100, lifetime_kwh: 10 }],
+        },
+      ]),
+      "time",
+      "stack",
+      new Set(),
+    );
+    expect(model.kind).toBe("time");
+    if (model.kind !== "time") return;
+    expect(model.datasets).toEqual([]);
+    expect(model.yMax).toBe(1);
+  });
+});
