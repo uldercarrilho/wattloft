@@ -1,22 +1,23 @@
 import { useEffect, useState } from "react";
-import { TimeCurve } from "./curve";
-import { TimeStack } from "./stackCurve";
 import {
   type ChartMode,
   readChartMode,
   writeChartMode,
 } from "./chartMode";
 import {
-  type EnergyBar,
-  dayEnergyBars,
+  energyReadout,
+  buildPlantChartModel,
+  parkedMinute,
+  timeReadout,
+} from "./plantChartModel";
+import { PlantChart } from "./PlantChart";
+import {
   formatKwh,
   formatWatts,
   href,
-  monthEnergyBars,
   parseUnit,
   stackLoggerNames,
   stepper,
-  yearEnergyBars,
 } from "./grains";
 import { LastSample, lifetimeKwh } from "./LastSample";
 import type { Grain, PlantPayload, PlantSnapshot } from "./types";
@@ -65,73 +66,76 @@ function Login() {
 }
 
 function loggerClass(name: string, names: string[]): string {
-  return names.indexOf(name) % 2 === 0 ? "series-a" : "series-b";
+  if (name === "Plant") return "series-plant";
+  const loggers = names.filter((n) => n !== "Plant");
+  return loggers.indexOf(name) % 2 === 0 ? "series-a" : "series-b";
 }
 
-function EnergyList({ bars, names }: { bars: EnergyBar[]; names: string[] }) {
-  return (
-    <ol className="days">
-      {bars.map((bar) => (
-        <li key={bar.label}>
-          <a
-            href={bar.href}
-            style={{ width: `${Math.round(bar.width)}%` }}
-            aria-current={bar.current ? "true" : undefined}
-          >
-            {bar.segments.length > 0 ? (
-              <span className="day-stack">
-                {bar.segments.map((part) => (
-                  <span
-                    key={part.name}
-                    data-series={part.name}
-                    className={loggerClass(part.name, names)}
-                    style={{ width: `${part.width}%` }}
-                  />
-                ))}
-              </span>
-            ) : null}
-            <span className="day-label">{bar.label}</span>
-          </a>
-        </li>
-      ))}
-    </ol>
-  );
+function overlayTimeNames(snapshot: PlantSnapshot): string[] {
+  const loggers = snapshot.curve
+    .filter((series) => series.name !== "Plant")
+    .map((series) => series.name)
+    .sort((a, b) => a.localeCompare(b));
+  return ["Plant", ...loggers];
 }
 
 function Chart({
   snapshot,
   unit,
   mode,
-  hidden,
+  visible,
 }: {
   snapshot: PlantSnapshot;
   unit: Grain;
   mode: ChartMode;
-  hidden: ReadonlySet<string>;
+  visible: ReadonlySet<string>;
 }) {
-  const names = stackLoggerNames(snapshot);
-  const visible =
-    mode === "stack" ? new Set(names.filter((name) => !hidden.has(name))) : undefined;
-  if (unit === "day") {
-    return <EnergyList bars={dayEnergyBars(snapshot, snapshot.selected_day, visible)} names={names} />;
-  }
-  if (unit === "month") {
-    return (
-      <EnergyList bars={monthEnergyBars(snapshot, snapshot.selected_day, visible)} names={names} />
-    );
-  }
-  if (unit === "year") {
-    return (
-      <EnergyList bars={yearEnergyBars(snapshot, snapshot.selected_day, visible)} names={names} />
-    );
-  }
-  if (snapshot.curve.length === 0) {
+  const model = buildPlantChartModel(snapshot, unit, mode, visible);
+  const [pointer, setPointer] = useState<number | null>(null);
+  useEffect(() => {
+    setPointer(null);
+  }, [snapshot.selected_day, unit, mode]);
+  if (model.kind === "empty-time") {
     return <p className="empty">This Local day has no curve Samples.</p>;
   }
-  if (mode === "stack") {
-    return <TimeStack snapshot={snapshot} visible={visible ?? new Set(names)} />;
-  }
-  return <TimeCurve snapshot={snapshot} />;
+  const readout =
+    model.kind === "time"
+      ? timeReadout(model, pointer ?? parkedMinute(model), mode)
+      : energyReadout(model, pointer ?? model.currentIndex);
+  return (
+    <>
+      <PlantChart
+        model={model}
+        mode={mode}
+        onPointer={setPointer}
+        onBarNavigate={(href) => {
+          window.history.pushState({}, "", href);
+          window.dispatchEvent(new PopStateEvent("popstate"));
+        }}
+        onDrawError={() => undefined}
+      />
+      <div className="readout" aria-live="polite">
+        <span className="when">{readout.when}</span>
+        {readout.rows.map((row) => (
+          <p
+            key={row.name}
+            data-series={row.name}
+            className={row.name === "Plant" ? "series-plant" : ""}
+          >
+            {row.name} {row.text}
+          </p>
+        ))}
+      </div>
+      {unit === "time" ? (
+        <p className="hint">
+          Tap a name to show or hide its curve. A gap where Lifetime energy still rose
+          is interpolated as a smooth Power curve — that energy happened. Where Lifetime
+          barely moved, the line valleys: no Samples and no estimate, possible Logger
+          failure.
+        </p>
+      ) : null}
+    </>
+  );
 }
 
 function Plant({ payload }: { payload: Extract<PlantPayload, { empty: false }> }) {
@@ -139,7 +143,15 @@ function Plant({ payload }: { payload: Extract<PlantPayload, { empty: false }> }
   const snapshot = payload;
   const [mode, setMode] = useState<ChartMode>(() => readChartMode(window.localStorage));
   const [hidden, setHidden] = useState<Set<string>>(() => new Set());
-  const names = stackLoggerNames(snapshot);
+  const names =
+    unit === "time" && snapshot.curve.length === 0
+      ? []
+      : mode === "stack"
+        ? stackLoggerNames(snapshot)
+        : unit === "time"
+          ? overlayTimeNames(snapshot)
+          : [];
+  const visible = new Set(names.filter((name) => !hidden.has(name)));
   const today =
     snapshot.today_energy_kwh === null ? "-" : formatKwh(snapshot.today_energy_kwh);
   const period = stepper(snapshot, snapshot.selected_day, unit);
@@ -222,8 +234,8 @@ function Plant({ payload }: { payload: Extract<PlantPayload, { empty: false }> }
           Stack
         </button>
       </nav>
-      <Chart snapshot={snapshot} unit={unit} mode={mode} hidden={hidden} />
-      {mode === "stack" && names.length > 0 ? (
+      <Chart snapshot={snapshot} unit={unit} mode={mode} visible={visible} />
+      {names.length > 0 ? (
         <div className="series-toggles">
           {names.map((name) => (
             <button
