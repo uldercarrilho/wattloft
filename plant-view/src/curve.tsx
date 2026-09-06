@@ -1,35 +1,10 @@
 import { useEffect, useRef } from "react";
 import type { CurvePoint, CurveSeries, PlantSnapshot } from "./types";
 import { activateTimeCurve } from "./timeCurve";
+import { GAP_MIN, minuteOfDay, solarWindow } from "./plantChartModel";
 
-export const GAP_MIN = 15;
+export { GAP_MIN, minuteOfDay, solarWindow } from "./plantChartModel";
 export const PAD_X = 18;
-const POWER_FLOOR = 1.0;
-
-export function minuteOfDay(at: string): number {
-  const time = at.includes("T") ? at.split("T")[1] : at.split(" ")[1];
-  const [h, m] = (time ?? "00:00").split(":").map(Number);
-  return (h ?? 0) * 60 + (m ?? 0);
-}
-
-export function solarWindow(snapshot: PlantSnapshot): [number, number] {
-  const loggers = snapshot.curve.filter((series) => series.name !== "Plant");
-  let minutes = loggers.flatMap((series) =>
-    series.points.filter((point) => point.watts > POWER_FLOOR).map((point) => minuteOfDay(point.at)),
-  );
-  if (minutes.length === 0) {
-    minutes = loggers.flatMap((series) => series.points.map((point) => minuteOfDay(point.at)));
-  }
-  if (minutes.length === 0) {
-    return [0, 23 * 60 + 59];
-  }
-  const lo = Math.max(0, Math.min(...minutes) - 60);
-  let hi = Math.min(23 * 60 + 59, Math.max(...minutes) + 60);
-  if (hi <= lo) {
-    hi = Math.min(23 * 60 + 59, lo + 60);
-  }
-  return [lo, hi];
-}
 
 export function xSolar(minute: number, tMin: number, tMax: number): number {
   const span = tMax - tMin;
