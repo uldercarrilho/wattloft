@@ -46,7 +46,7 @@ describe("grains", () => {
     expect(bars[0]?.href).toBe("/?day=2026-08-21&unit=time");
   });
 
-  it("sums Local-day Today energy per month in the stepper year", () => {
+  it("sums Local-day production per month in the stepper year", () => {
     const bars = monthEnergyBars(snapshot, "2026-08-21");
     expect(bars.map((bar) => bar.label)).toEqual([
       "2026-08 4.10 kWh",
@@ -56,10 +56,29 @@ describe("grains", () => {
     expect(bars[1]?.href).toBe("/?day=2026-09-01&unit=day");
   });
 
-  it("sums Local-day Today energy per year in History", () => {
+  it("sums Local-day production per year in History", () => {
     const bars = yearEnergyBars(snapshot, "2026-08-21");
     expect(bars.map((bar) => bar.label)).toEqual(["2026 4.30 kWh"]);
     expect(bars[0]?.href).toBe("/?day=2026-08-21&unit=month");
+  });
+
+  it("Month and Year sum Local-day production, not a running Today energy total", () => {
+    const production: PlantSnapshot = {
+      ...snapshot,
+      local_day_bars: [
+        { local_day: "2026-09-01", today_energy_kwh: 10 },
+        { local_day: "2026-09-02", today_energy_kwh: 12 },
+        { local_day: "2026-09-03", today_energy_kwh: 8 },
+        { local_day: "2025-12-31", today_energy_kwh: 5 },
+      ],
+    };
+    expect(monthEnergyBars(production, "2026-09-02").map((bar) => bar.label)).toEqual([
+      "2026-09 30.00 kWh",
+    ]);
+    expect(yearEnergyBars(production, "2026-09-02").map((bar) => bar.label)).toEqual([
+      "2025 5.00 kWh",
+      "2026 30.00 kWh",
+    ]);
   });
 
   it("labels the Time stepper with the ISO Local day and stops at History ends", () => {

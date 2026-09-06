@@ -9,7 +9,7 @@ Loggers push Solarman V5 frames to Wattloft on Server B. Wattloft records Sample
 On the shared hostname, the Operator sees:
 
 - Today energy, Current Power (with as-of time), and Lifetime energy
-- Local-day Today energy bars (`America/Sao_Paulo`)
+- Local-day production bars (`America/Sao_Paulo`)
 - That Local day’s Power curve (each Logger and the Plant)
 
 A password authenticates the Operator. Plant view is not served over HTTP.
