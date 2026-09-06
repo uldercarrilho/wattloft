@@ -57,6 +57,25 @@ afterEach(() => {
 });
 
 describe("PlantChart", () => {
+  it("draws the canvas inside a sized plot slot, not as the slot itself", () => {
+    const model = buildPlantChartModel(energySnapshot, "day", "overlay", new Set(["Plant"]));
+    expect(model.kind).toBe("energy");
+    if (model.kind !== "energy") return;
+    render(
+      <PlantChart
+        model={model}
+        mode="overlay"
+        onPointer={vi.fn()}
+        onBarNavigate={vi.fn()}
+        onDrawError={vi.fn()}
+      />,
+    );
+    const canvas = screen.getByRole("img", { name: "Energy bars" });
+    const slot = canvas.closest(".plant-chart");
+    expect(slot).toBeTruthy();
+    expect(slot).not.toBe(canvas);
+  });
+
   it("shows draw-failure copy when Chart.js cannot init", () => {
     chartState.throwNext = true;
     const model = buildPlantChartModel(energySnapshot, "day", "overlay", new Set(["Plant"]));
