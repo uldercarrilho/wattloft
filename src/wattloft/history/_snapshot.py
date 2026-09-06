@@ -25,9 +25,16 @@ class CurveSeries:
 
 
 @dataclass(frozen=True)
+class LoggerEnergy:
+    name: str
+    today_energy_kwh: float
+
+
+@dataclass(frozen=True)
 class LocalDayBar:
     local_day: date
     today_energy_kwh: float
+    loggers: tuple[LoggerEnergy, ...]
 
 
 @dataclass(frozen=True)
@@ -58,10 +65,10 @@ def _positive(value: float | None) -> float | None:
 def _local_day_production(
     bar_life: dict[tuple[date, str], float],
     bar_today: dict[tuple[date, str], float],
-) -> dict[date, float]:
+) -> dict[date, dict[str, float]]:
     serials = {serial for _, serial in bar_life} | {serial for _, serial in bar_today}
     days = sorted({day for day, _ in bar_life} | {day for day, _ in bar_today})
-    by_bar_day: dict[date, float] = {}
+    by_bar_day: dict[date, dict[str, float]] = {}
     for serial in serials:
         prev_life: float | None = None
         for day in days:
@@ -75,7 +82,7 @@ def _local_day_production(
                 produced = today
             else:
                 produced = 0.0
-            by_bar_day[day] = by_bar_day.get(day, 0.0) + produced
+            by_bar_day.setdefault(day, {})[serial] = produced
             if life is not None:
                 prev_life = life
     return by_bar_day
@@ -165,13 +172,25 @@ def build_plant_snapshot(
     ]
 
     return PlantSnapshot(
-        today_energy_kwh=by_bar_day.get(local_day),
+        today_energy_kwh=(
+            None
+            if local_day not in by_bar_day
+            else sum(by_bar_day[local_day].values())
+        ),
         current_power_w=sum(power_in_minute.values()),
         lifetime_energy_kwh=sum(lifetime_last.values()),
         current_power_at=latest_power_at,
         local_day_bars=tuple(
-            LocalDayBar(local_day=day, today_energy_kwh=kwh)
-            for day, kwh in sorted(by_bar_day.items())
+            LocalDayBar(
+                local_day=day,
+                today_energy_kwh=sum(parts.values()),
+                loggers=tuple(
+                    LoggerEnergy(name=serial, today_energy_kwh=kwh)
+                    for serial, kwh in sorted(parts.items())
+                    if kwh != 0
+                ),
+            )
+            for day, parts in sorted(by_bar_day.items())
         ),
         curve=_curve_series(curve_points),
     )

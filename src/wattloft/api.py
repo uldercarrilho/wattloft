@@ -76,6 +76,13 @@ def _snapshot_payload(snapshot: PlantSnapshot, selected_day: date) -> dict[str, 
             {
                 "local_day": bar.local_day.isoformat(),
                 "today_energy_kwh": bar.today_energy_kwh,
+                "loggers": [
+                    {
+                        "name": part.name,
+                        "today_energy_kwh": part.today_energy_kwh,
+                    }
+                    for part in bar.loggers
+                ],
             }
             for bar in snapshot.local_day_bars
         ],
