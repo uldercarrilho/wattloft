@@ -138,6 +138,44 @@ function timeOverlay(snapshot: PlantSnapshot, visible: ReadonlySet<string>): Tim
   };
 }
 
+function peakStacked(datasets: ChartDataset[], minutes: number[]): number {
+  let max = 1;
+  for (let i = 0; i < minutes.length; i++) {
+    let sum = 0;
+    for (const dataset of datasets) {
+      const value = dataset.values[i];
+      if (value != null) sum += value;
+    }
+    if (sum > max) max = sum;
+  }
+  return max;
+}
+
+function timeStack(snapshot: PlantSnapshot, visible: ReadonlySet<string>): TimeChartModel {
+  const loggers = loggerSeries(snapshot);
+  const [tMin, tMax] = solarWindow(snapshot);
+  const minutes: number[] = [];
+  for (let t = tMin; t <= tMax; t++) minutes.push(t);
+  const datasets: ChartDataset[] = [];
+  for (const series of loggers) {
+    if (!visible.has(series.name)) continue;
+    const points = loggerPoints(series);
+    datasets.push({
+      name: series.name,
+      role: "logger",
+      stacked: true,
+      values: minutes.map((t) => curveWattsAt(points, t, GAP_MIN)),
+    });
+  }
+  return {
+    kind: "time",
+    minutes,
+    tickHours: hourTicks(tMin, tMax),
+    yMax: peakStacked(datasets, minutes),
+    datasets,
+  };
+}
+
 export function buildPlantChartModel(
   snapshot: PlantSnapshot,
   unit: Grain,
@@ -148,9 +186,10 @@ export function buildPlantChartModel(
     if (snapshot.curve.length === 0) {
       return { kind: "empty-time" };
     }
-    if (mode === "overlay") {
-      return timeOverlay(snapshot, visible);
+    if (mode === "stack") {
+      return timeStack(snapshot, visible);
     }
+    return timeOverlay(snapshot, visible);
   }
   return { kind: "empty-time" };
 }
