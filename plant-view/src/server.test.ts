@@ -1,0 +1,124 @@
+import { describe, expect, it } from "vitest";
+import { createApp } from "./server";
+
+const DOCUMENT = "<!doctype html><title>Plant</title>";
+const PASSWORD = "correct-horse";
+
+function app(fetchImpl?: typeof fetch) {
+  return createApp({
+    operatorPassword: PASSWORD,
+    apiUrl: "http://127.0.0.1:9",
+    cookieSecure: false,
+    documentHtml: DOCUMENT,
+    fetch: fetchImpl,
+  });
+}
+
+describe("Operator BFF", () => {
+  it("rejects the wrong Operator password", async () => {
+    const rejected = await app().request("/login", {
+      method: "POST",
+      body: new URLSearchParams({ password: "not-the-password" }),
+    });
+    expect(rejected.status).toBe(401);
+    expect(await rejected.text()).toBe(DOCUMENT);
+    expect(rejected.headers.getSetCookie().join()).not.toContain("wattloft=");
+  });
+
+  it("sets a session cookie and redirects after the correct password", async () => {
+    const granted = await app().request("/login", {
+      method: "POST",
+      body: new URLSearchParams({ password: PASSWORD }),
+    });
+    expect(granted.status).toBe(303);
+    expect(granted.headers.get("location")).toBe("/");
+    const cookie = granted.headers.getSetCookie().join("\n");
+    expect(cookie).toMatch(/wattloft=/);
+    expect(cookie).toMatch(/HttpOnly/i);
+    expect(cookie).toMatch(/SameSite=Lax/i);
+    expect(cookie).not.toMatch(/Secure/i);
+  });
+
+  it("clears the session on logout", async () => {
+    const client = app();
+    const granted = await client.request("/login", {
+      method: "POST",
+      body: new URLSearchParams({ password: PASSWORD }),
+    });
+    const cookie = granted.headers.get("set-cookie") ?? "";
+    const ended = await client.request("/logout", {
+      method: "POST",
+      headers: { cookie },
+    });
+    expect(ended.status).toBe(303);
+    const cleared = ended.headers.getSetCookie().join("\n");
+    expect(cleared).toMatch(/wattloft=/);
+    expect(cleared).toMatch(/Max-Age=0/i);
+  });
+
+  it("denies plant data without a session", async () => {
+    const denied = await app().request("/api/plant");
+    expect(denied.status).toBe(401);
+  });
+
+  it("maps Python empty History to an empty plant payload", async () => {
+    const fetchImpl: typeof fetch = async () =>
+      new Response("", { status: 404 });
+    const client = app(fetchImpl);
+    const granted = await client.request("/login", {
+      method: "POST",
+      body: new URLSearchParams({ password: PASSWORD }),
+    });
+    const plant = await client.request("/api/plant", {
+      headers: { cookie: granted.headers.get("set-cookie") ?? "" },
+    });
+    expect(plant.status).toBe(200);
+    expect(await plant.json()).toEqual({ empty: true });
+  });
+
+  it("returns 502 when the snapshot API is down", async () => {
+    const fetchImpl: typeof fetch = async () => {
+      throw new TypeError("fetch failed");
+    };
+    const client = app(fetchImpl);
+    const granted = await client.request("/login", {
+      method: "POST",
+      body: new URLSearchParams({ password: PASSWORD }),
+    });
+    const plant = await client.request("/api/plant", {
+      headers: { cookie: granted.headers.get("set-cookie") ?? "" },
+    });
+    expect(plant.status).toBe(502);
+  });
+
+  it("forwards a snapshot and defaults unknown unit to time", async () => {
+    const fetchImpl: typeof fetch = async (input) => {
+      const url = new URL(String(input));
+      expect(url.pathname).toBe("/snapshot");
+      expect(url.searchParams.get("day")).toBe("2026-08-21");
+      expect(url.searchParams.has("unit")).toBe(false);
+      return Response.json({
+        selected_day: "2026-08-21",
+        today_energy_kwh: 0.2,
+        current_power_w: 50,
+        lifetime_energy_kwh: 5635.4,
+        current_power_at: "2026-08-22T13:00:00+00:00",
+        local_day_bars: [],
+        curve: [],
+      });
+    };
+    const client = app(fetchImpl);
+    const granted = await client.request("/login", {
+      method: "POST",
+      body: new URLSearchParams({ password: PASSWORD }),
+    });
+    const plant = await client.request("/api/plant?day=2026-08-21&unit=week", {
+      headers: { cookie: granted.headers.get("set-cookie") ?? "" },
+    });
+    expect(plant.status).toBe(200);
+    const body = await plant.json();
+    expect(body.empty).toBe(false);
+    expect(body.unit).toBe("time");
+    expect(body.today_energy_kwh).toBe(0.2);
+  });
+});
