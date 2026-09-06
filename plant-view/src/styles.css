@@ -34,7 +34,8 @@ ol.days a { display: block; box-sizing: border-box; max-width: 100%; position: r
 .day-stack .series-a { background: var(--logger-a); }
 .day-stack .series-b { background: var(--logger-b); }
 .day-label { position: relative; z-index: 1; }
-svg, .series-toggles, .readout, dl, form { max-width: 100%; }
+svg, .series-toggles, .readout, dl, form, .plant-chart { max-width: 100%; }
+.plant-chart { width: 100%; height: auto; aspect-ratio: 400 / 214; display: block; }
 svg { width: 100%; height: auto; display: block; }
 #curve { touch-action: none; color: var(--ink); }
 .axis, .grid { stroke: var(--ink); stroke-opacity: 0.18; }

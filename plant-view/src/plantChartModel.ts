@@ -5,6 +5,7 @@ import {
   formatKwh,
   formatWatts,
   monthEnergyBars,
+  stackLoggerNames,
   yearEnergyBars,
   type EnergyBar,
 } from "./grains";
@@ -17,6 +18,7 @@ export type ChartDataset = {
   name: string;
   role: "plant" | "logger";
   stacked: boolean;
+  swatch: "plant" | "pigment" | "logger-a" | "logger-b";
   values: (number | null)[];
 };
 
@@ -80,6 +82,10 @@ function loggerPoints(series: CurveSeries): LoggerPoint[] {
   }));
 }
 
+function loggerSwatch(name: string, ordered: string[]): "logger-a" | "logger-b" {
+  return ordered.indexOf(name) % 2 === 0 ? "logger-a" : "logger-b";
+}
+
 function hourTicks(tMin: number, tMax: number): number[] {
   const ticks: number[] = [];
   for (let hour = Math.ceil(tMin / 60); hour <= Math.floor(tMax / 60); hour++) {
@@ -119,6 +125,7 @@ function timeOverlay(snapshot: PlantSnapshot, visible: ReadonlySet<string>): Tim
     }
     return any ? sum : null;
   });
+  const ordered = points.map((series) => series.name);
   const datasets: ChartDataset[] = [];
   for (const series of points) {
     if (!visible.has(series.name)) continue;
@@ -126,6 +133,7 @@ function timeOverlay(snapshot: PlantSnapshot, visible: ReadonlySet<string>): Tim
       name: series.name,
       role: "logger",
       stacked: false,
+      swatch: loggerSwatch(series.name, ordered),
       values: minutes.map((t) => curveWattsAt(series.points, t, GAP_MIN)),
     });
   }
@@ -134,6 +142,7 @@ function timeOverlay(snapshot: PlantSnapshot, visible: ReadonlySet<string>): Tim
       name: "Plant",
       role: "plant",
       stacked: false,
+      swatch: "plant",
       values: plantValues,
     });
   }
@@ -164,6 +173,7 @@ function timeStack(snapshot: PlantSnapshot, visible: ReadonlySet<string>): TimeC
   const [tMin, tMax] = solarWindow(snapshot);
   const minutes: number[] = [];
   for (let t = tMin; t <= tMax; t++) minutes.push(t);
+  const ordered = loggers.map((series) => series.name);
   const datasets: ChartDataset[] = [];
   for (const series of loggers) {
     if (!visible.has(series.name)) continue;
@@ -172,6 +182,7 @@ function timeStack(snapshot: PlantSnapshot, visible: ReadonlySet<string>): TimeC
       name: series.name,
       role: "logger",
       stacked: true,
+      swatch: loggerSwatch(series.name, ordered),
       values: minutes.map((t) => curveWattsAt(points, t, GAP_MIN)),
     });
   }
@@ -213,6 +224,7 @@ function energyModel(
       : Math.max(0, bars.findIndex((bar) => bar.current));
   const yMax = Math.max(1, ...bars.map((bar) => bar.kwh));
   const useStack = stacked && bars.some((bar) => bar.segments.length > 0);
+  const ordered = stackLoggerNames(snapshot);
   const datasets: ChartDataset[] = useStack
     ? [...visible]
         .filter((name) => name !== "Plant")
@@ -221,6 +233,7 @@ function energyModel(
           name,
           role: "logger" as const,
           stacked: true,
+          swatch: loggerSwatch(name, ordered),
           values: bars.map((bar) => {
             const part = bar.segments.find((segment) => segment.name === name);
             return part ? part.kwh : null;
@@ -231,6 +244,7 @@ function energyModel(
           name: "Plant",
           role: "plant",
           stacked: false,
+          swatch: "pigment",
           values: bars.map((bar) => bar.kwh),
         },
       ];
@@ -261,6 +275,12 @@ export function buildPlantChartModel(
     return timeOverlay(snapshot, visible);
   }
   return energyModel(snapshot, unit, mode, visible);
+}
+
+export function parkedMinute(model: TimeChartModel): number {
+  const tMin = model.minutes[0] ?? 0;
+  const tMax = model.minutes.at(-1) ?? 0;
+  return Math.min(Math.max(12 * 60, tMin), tMax);
 }
 
 export type Readout = { when: string; rows: { name: string; text: string }[] };
