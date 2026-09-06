@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { TimeCurve } from "./curve";
+import { TimeStack } from "./stackCurve";
 import {
   type ChartMode,
   readChartMode,
@@ -123,6 +124,9 @@ function Chart({
   }
   if (snapshot.curve.length === 0) {
     return <p className="empty">This Local day has no curve Samples.</p>;
+  }
+  if (mode === "stack") {
+    return <TimeStack snapshot={snapshot} visible={visible ?? new Set(names)} />;
   }
   return <TimeCurve snapshot={snapshot} />;
 }

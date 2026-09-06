@@ -2,17 +2,17 @@ import { useEffect, useRef } from "react";
 import type { CurvePoint, CurveSeries, PlantSnapshot } from "./types";
 import { activateTimeCurve } from "./timeCurve";
 
-const GAP_MIN = 15;
-const PAD_X = 18;
+export const GAP_MIN = 15;
+export const PAD_X = 18;
 const POWER_FLOOR = 1.0;
 
-function minuteOfDay(at: string): number {
+export function minuteOfDay(at: string): number {
   const time = at.includes("T") ? at.split("T")[1] : at.split(" ")[1];
   const [h, m] = (time ?? "00:00").split(":").map(Number);
   return (h ?? 0) * 60 + (m ?? 0);
 }
 
-function solarWindow(snapshot: PlantSnapshot): [number, number] {
+export function solarWindow(snapshot: PlantSnapshot): [number, number] {
   const loggers = snapshot.curve.filter((series) => series.name !== "Plant");
   let minutes = loggers.flatMap((series) =>
     series.points.filter((point) => point.watts > POWER_FLOOR).map((point) => minuteOfDay(point.at)),
@@ -31,13 +31,13 @@ function solarWindow(snapshot: PlantSnapshot): [number, number] {
   return [lo, hi];
 }
 
-function xSolar(minute: number, tMin: number, tMax: number): number {
+export function xSolar(minute: number, tMin: number, tMax: number): number {
   const span = tMax - tMin;
   if (span <= 0) return PAD_X;
   return PAD_X + ((minute - tMin) / span) * (400 - 2 * PAD_X);
 }
 
-function yWatts(watts: number, maxWatts: number): number {
+export function yWatts(watts: number, maxWatts: number): number {
   return 190 - (watts / maxWatts) * 160;
 }
 

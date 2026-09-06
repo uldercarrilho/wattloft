@@ -136,6 +136,16 @@ describe("Plant view", () => {
     expect(last.getAttribute("datetime")).toBe("2026-08-22T10:00:00-03:00");
   });
 
+  it("Time Overlay has a Plant toggle and Time Stack does not", async () => {
+    window.history.replaceState({}, "", "/?day=2026-08-21&unit=time");
+    stubPlant(200, { ...snapshot, unit: "time" });
+    render(<App />);
+    expect(await screen.findByRole("button", { name: "Plant" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Stack" }));
+    expect(screen.queryByRole("button", { name: "Plant" })).toBeNull();
+    expect(document.querySelector("#curve")).toBeTruthy();
+  });
+
   it("shows Overlay pressed by default and remembers Stack in this browser", async () => {
     window.history.replaceState({}, "", "/?day=2026-08-21&unit=day");
     stubPlant(200, snapshot);
