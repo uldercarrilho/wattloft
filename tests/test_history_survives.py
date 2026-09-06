@@ -3,9 +3,8 @@ from __future__ import annotations
 import socket
 from datetime import datetime
 
-import httpx
-
-from conftest import OPERATOR_PASSWORD, WattloftProcess, _reset_history
+from conftest import WattloftProcess, _reset_history
+from snapshot import assert_empty_history, snapshot_json
 from test_admitted_logger_sample import (
     _ADMITTED_SERIAL,
     _CONTROL_DATA,
@@ -33,49 +32,36 @@ def _ingest_one_sample(wattloft: WattloftProcess) -> tuple[datetime, datetime]:
     return before, after
 
 
-def _plant_view_html(wattloft: WattloftProcess) -> str:
-    with httpx.Client(base_url=wattloft.url, follow_redirects=False) as client:
-        client.post("/login", data={"password": OPERATOR_PASSWORD})
-        return client.get("/").text
-
-
-def _assert_sample_on_plant_view(
-    html: str, *, before: datetime, after: datetime
+def _assert_sample_on_snapshot(
+    wattloft: WattloftProcess, *, before: datetime, after: datetime
 ) -> None:
-    assert "This Plant has no History yet." not in html
-    assert "1.10 kWh" in html
-    assert "625 W" in html
-    assert "5635.4 kWh" in html
-    assert_last_sample_is_receive_time(html, before=before, after=after)
+    body = snapshot_json(wattloft.url)
+    assert body["today_energy_kwh"] == 1.1
+    assert body["current_power_w"] == 625
+    assert body["lifetime_energy_kwh"] == 5635.4
+    assert_last_sample_is_receive_time(body, before=before, after=after)
 
 
 def test_operator_sees_history_after_process_restart(
     wattloft: WattloftProcess,
 ) -> None:
     before, after = _ingest_one_sample(wattloft)
-    _assert_sample_on_plant_view(_plant_view_html(wattloft), before=before, after=after)
-
+    _assert_sample_on_snapshot(wattloft, before=before, after=after)
     wattloft.restart()
-
-    with httpx.Client(base_url=wattloft.url, follow_redirects=False) as client:
-        denied = client.get("/")
-        assert denied.status_code == 401
-        client.post("/login", data={"password": OPERATOR_PASSWORD})
-        html = client.get("/").text
-    _assert_sample_on_plant_view(html, before=before, after=after)
+    _assert_sample_on_snapshot(wattloft, before=before, after=after)
 
 
 def test_dumped_history_restores_onto_plant_view(
     mysql_url: str, wattloft: WattloftProcess
 ) -> None:
     before, after = _ingest_one_sample(wattloft)
-    _assert_sample_on_plant_view(_plant_view_html(wattloft), before=before, after=after)
+    _assert_sample_on_snapshot(wattloft, before=before, after=after)
 
     dump = dump_history(mysql_url)
     _reset_history(mysql_url)
     wattloft.restart()
-    assert "This Plant has no History yet." in _plant_view_html(wattloft)
+    assert_empty_history(wattloft.url)
 
     restore_history(mysql_url, dump)
     wattloft.restart()
-    _assert_sample_on_plant_view(_plant_view_html(wattloft), before=before, after=after)
+    _assert_sample_on_snapshot(wattloft, before=before, after=after)

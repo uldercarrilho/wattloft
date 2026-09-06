@@ -57,9 +57,8 @@ class WattloftProcess:
         env.update(
             {
                 "DATABASE_URL": self.database_url,
-                "OPERATOR_PASSWORD": OPERATOR_PASSWORD,
-                "PLANT_VIEW_HOST": "127.0.0.1",
-                "PLANT_VIEW_PORT": str(self.port),
+                "WATTLOFT_API_HOST": "127.0.0.1",
+                "WATTLOFT_API_PORT": str(self.port),
                 "INGEST_HOST": "127.0.0.1",
                 "INGEST_PORT": str(self.ingest_port),
             }
