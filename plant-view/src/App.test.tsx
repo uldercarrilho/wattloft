@@ -1,9 +1,39 @@
 /** @vitest-environment jsdom */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { App } from "./App";
 import { CHART_MODE_KEY } from "./chartMode";
 import type { PlantPayload } from "./types";
+
+const chartState = vi.hoisted(() => ({
+  throwNext: false,
+  instances: [] as { config: { options?: { onClick?: Function } } }[],
+}));
+
+vi.mock("chart.js", () => {
+  function Chart(_canvas: unknown, config: { options?: { onClick?: Function } }) {
+    if (chartState.throwNext) {
+      chartState.throwNext = false;
+      throw new Error("chart failed");
+    }
+    const instance = { config, destroy: vi.fn() };
+    chartState.instances.push(instance);
+    return instance;
+  }
+  Chart.register = vi.fn();
+  return {
+    Chart,
+    LineController: class LineController {},
+    BarController: class BarController {},
+    LineElement: class LineElement {},
+    BarElement: class BarElement {},
+    PointElement: class PointElement {},
+    LinearScale: class LinearScale {},
+    CategoryScale: class CategoryScale {},
+    Filler: class Filler {},
+  };
+});
+
+import { App } from "./App";
 
 const snapshot: Extract<PlantPayload, { empty: false }> = {
   empty: false,
@@ -57,6 +87,8 @@ describe("Plant view", () => {
     cleanup();
     vi.unstubAllGlobals();
     vi.useRealTimers();
+    chartState.instances = [];
+    chartState.throwNext = false;
   });
 
   it("shows the password form when the Operator is not authenticated", async () => {
@@ -78,7 +110,7 @@ describe("Plant view", () => {
     expect(screen.getByRole("button", { name: "Log out" })).toBeTruthy();
     expect(screen.queryByText("Today energy")).toBeNull();
     expect(screen.queryByText("Current Power")).toBeNull();
-    expect(document.querySelector("svg")).toBeNull();
+    expect(document.querySelector("canvas")).toBeNull();
     expect(screen.queryByRole("button", { name: "Overlay" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Stack" })).toBeNull();
   });
@@ -102,8 +134,10 @@ describe("Plant view", () => {
     expect(await screen.findByText("0.20 kWh")).toBeTruthy();
     expect(screen.getByText("50 W")).toBeTruthy();
     expect(screen.getByText("5635.4 kWh")).toBeTruthy();
+    expect(await screen.findByRole("img", { name: "Energy bars" })).toBeTruthy();
     expect(screen.getByText("2026-08-21 3.90 kWh")).toBeTruthy();
     expect(screen.queryByText("2026-09-01 0.20 kWh")).toBeNull();
+    expect(document.querySelector("ol.days")).toBeNull();
     expect(screen.getByRole("link", { name: "Time" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Day" }).getAttribute("aria-current")).toBe(
       "true",
@@ -143,7 +177,7 @@ describe("Plant view", () => {
     expect(await screen.findByRole("button", { name: "Plant" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Stack" }));
     expect(screen.queryByRole("button", { name: "Plant" })).toBeNull();
-    expect(document.querySelector("#curve")).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Power curve" })).toBeTruthy();
   });
 
   it("shows Overlay pressed by default and remembers Stack in this browser", async () => {
@@ -197,13 +231,11 @@ describe("Plant view", () => {
     stubPlant(200, withLoggers);
     render(<App />);
     await screen.findByText("2026-08-21 3.90 kWh");
-    expect(document.querySelector("ol.days [data-series]")).toBeNull();
     expect(screen.queryByRole("button", { name: "1000000001" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Stack" }));
-    expect(document.querySelector("ol.days [data-series='1000000003']")).toBeTruthy();
-    expect(document.querySelectorAll("ol.days [data-series='1000000001']").length).toBeGreaterThan(
-      0,
-    );
+    expect(screen.getByRole("button", { name: "1000000003" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "1000000001" })).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Energy bars" })).toBeTruthy();
   });
 
   it("draws Stack Day as a solid Plant-total bar when loggers are missing", async () => {
@@ -212,7 +244,7 @@ describe("Plant view", () => {
     stubPlant(200, snapshot);
     render(<App />);
     expect(await screen.findByText("2026-08-21 3.90 kWh")).toBeTruthy();
-    expect(document.querySelector("ol.days [data-series]")).toBeNull();
+    expect(screen.getByRole("img", { name: "Energy bars" })).toBeTruthy();
   });
 
   it("hides a Logger across Stack Day bars when its toggle is off", async () => {
@@ -242,7 +274,6 @@ describe("Plant view", () => {
     expect(await screen.findByText("2026-08-21 3.90 kWh")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "1000000003" }));
     expect(screen.getByText("2026-08-21 2.10 kWh")).toBeTruthy();
-    expect(document.querySelector("ol.days [data-series='1000000003']")).toBeNull();
     expect(screen.queryByRole("button", { name: "Plant" })).toBeNull();
   });
 
@@ -253,8 +284,29 @@ describe("Plant view", () => {
     await screen.findByRole("button", { name: "Plant" });
     fireEvent.click(screen.getByRole("button", { name: "Stack" }));
     expect(screen.queryByRole("button", { name: "Plant" })).toBeNull();
-    expect(document.querySelector('#curve [data-series="1000000001"]')).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Power curve" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "1000000001" }));
-    expect(document.querySelector('#curve [data-series="1000000001"]')).toBeNull();
+    expect(screen.getByRole("img", { name: "Power curve" })).toBeTruthy();
+    expect(screen.queryByText("1000000001 625 W")).toBeNull();
+  });
+
+  it("navigates from a Day column click", async () => {
+    window.history.replaceState({}, "", "/?day=2026-08-21&unit=day");
+    stubPlant(200, snapshot);
+    const push = vi.spyOn(window.history, "pushState");
+    render(<App />);
+    await screen.findByRole("img", { name: "Energy bars" });
+    chartState.instances[0]?.config.options?.onClick?.({}, [{ index: 0 }]);
+    expect(push).toHaveBeenCalledWith({}, "", "/?day=2026-08-21&unit=time");
+  });
+
+  it("keeps KPIs when Chart.js cannot draw", async () => {
+    chartState.throwNext = true;
+    window.history.replaceState({}, "", "/?day=2026-08-21&unit=day");
+    stubPlant(200, snapshot);
+    render(<App />);
+    expect(await screen.findByText("Plant view cannot draw this chart.")).toBeTruthy();
+    expect(screen.getByText("Today energy")).toBeTruthy();
+    expect(screen.getByText("0.20 kWh")).toBeTruthy();
   });
 });
