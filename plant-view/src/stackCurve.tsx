@@ -110,12 +110,17 @@ export function TimeStack({
   const hairX = xSolar(parked, tMin, tMax);
 
   useEffect(() => {
-    const el = root.current;
-    const svg = el?.querySelector("#curve");
-    const hair = el?.querySelector("#hair");
-    if (!el || !(svg instanceof SVGElement) || hair === null) {
+    const host = root.current;
+    if (!host) {
       return () => undefined;
     }
+    const panel: HTMLDivElement = host;
+    const svg = panel.querySelector("#curve");
+    const hair = panel.querySelector("#hair");
+    if (svg === null || hair === null || !(svg instanceof SVGElement)) {
+      return () => undefined;
+    }
+    const plot = svg;
     const line = hair;
     function render(raw: number): void {
       const t = Math.max(tMin, Math.min(tMax, Math.round(raw)));
@@ -125,23 +130,23 @@ export function TimeStack({
       let plant = 0;
       let any = false;
       const when = pad2(Math.floor(t / 60)) + ":" + pad2(t % 60);
-      const elWhen = el.querySelector("#readout-when");
+      const elWhen = panel.querySelector("#readout-when");
       if (elWhen) elWhen.textContent = when;
       for (const series of shown) {
         const got = curveWattsAt(series.points, t, GAP_MIN);
-        const node = el.querySelector(`#readout [data-series="${series.name}"]`);
+        const node = panel.querySelector(`#readout [data-series="${series.name}"]`);
         if (node) node.textContent = `${series.name} ${fmtW(got)}`;
         if (got != null) {
           plant += got;
           any = true;
         }
       }
-      const plantNode = el.querySelector("#readout-plant");
+      const plantNode = panel.querySelector("#readout-plant");
       if (plantNode) plantNode.textContent = `Plant ${any ? fmtW(plant) : "—"}`;
     }
     function fromEvent(ev: PointerEvent): void {
-      if (typeof svg.getBoundingClientRect !== "function") return;
-      const r = svg.getBoundingClientRect();
+      if (typeof plot.getBoundingClientRect !== "function") return;
+      const r = plot.getBoundingClientRect();
       const x = ((ev.clientX - r.left) / r.width) * 400;
       const span = tMax - tMin;
       const inner = 400 - 2 * PAD_X;
@@ -149,25 +154,25 @@ export function TimeStack({
     }
     function onDown(ev: Event): void {
       const pointer = ev as PointerEvent;
-      if (typeof svg.setPointerCapture === "function") {
-        svg.setPointerCapture(pointer.pointerId);
+      if (typeof plot.setPointerCapture === "function") {
+        plot.setPointerCapture(pointer.pointerId);
       }
       fromEvent(pointer);
     }
     function onMove(ev: Event): void {
       const pointer = ev as PointerEvent;
       const captured =
-        typeof svg.hasPointerCapture === "function" &&
-        svg.hasPointerCapture(pointer.pointerId);
+        typeof plot.hasPointerCapture === "function" &&
+        plot.hasPointerCapture(pointer.pointerId);
       if (!captured && !(pointer.buttons & 1)) return;
       fromEvent(pointer);
     }
-    svg.addEventListener("pointerdown", onDown);
-    svg.addEventListener("pointermove", onMove);
+    plot.addEventListener("pointerdown", onDown);
+    plot.addEventListener("pointermove", onMove);
     render(12 * 60);
     return () => {
-      svg.removeEventListener("pointerdown", onDown);
-      svg.removeEventListener("pointermove", onMove);
+      plot.removeEventListener("pointerdown", onDown);
+      plot.removeEventListener("pointermove", onMove);
     };
   }, [shown, tMin, tMax]);
 
