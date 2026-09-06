@@ -38,6 +38,13 @@ def _bar(snapshot: PlantSnapshot, local_day: str) -> float:
     raise AssertionError(f"missing bar {local_day}")
 
 
+def _loggers(snapshot: PlantSnapshot, local_day: str) -> dict[str, float]:
+    for bar in snapshot.local_day_bars:
+        if bar.local_day.isoformat() == local_day:
+            return {part.name: part.today_energy_kwh for part in bar.loggers}
+    raise AssertionError(f"missing bar {local_day}")
+
+
 def test_day_bars_are_that_local_days_production_not_accumulated_today_energy() -> None:
     snapshot = build_plant_snapshot(
         (
@@ -81,3 +88,37 @@ def test_two_loggers_sum_lifetime_deltas_per_local_day() -> None:
     assert _bar(snapshot, "2026-09-01") == 14.0
     assert _bar(snapshot, "2026-09-02") == 17.0
     assert snapshot.today_energy_kwh == 17.0
+    assert _loggers(snapshot, "2026-09-01") == {
+        "1000000001": 10.0,
+        "1000000002": 4.0,
+    }
+    assert _loggers(snapshot, "2026-09-02") == {
+        "1000000001": 12.0,
+        "1000000002": 5.0,
+    }
+    assert sum(_loggers(snapshot, "2026-09-01").values()) == _bar(
+        snapshot, "2026-09-01"
+    )
+    assert sum(_loggers(snapshot, "2026-09-02").values()) == _bar(
+        snapshot, "2026-09-02"
+    )
+
+
+def test_logger_without_samples_that_day_is_omitted_from_loggers() -> None:
+    other = "1000000002"
+    snapshot = build_plant_snapshot(
+        (
+            _sample("2026-09-01T18:00:00", today=10.0, lifetime=1000.0),
+            _sample("2026-09-01T18:01:00", today=4.0, lifetime=500.0, serial=other),
+            _sample("2026-09-02T18:00:00", today=22.0, lifetime=1012.0),
+        ),
+        now=_at("2026-09-02T18:00:00"),
+    )
+    assert snapshot is not None
+    assert _loggers(snapshot, "2026-09-01") == {
+        "1000000001": 10.0,
+        "1000000002": 4.0,
+    }
+    assert _loggers(snapshot, "2026-09-02") == {"1000000001": 12.0}
+    assert "1000000002" not in _loggers(snapshot, "2026-09-02")
+    assert 0 not in _loggers(snapshot, "2026-09-02").values()
