@@ -62,10 +62,13 @@ svg { width: 100%; height: auto; display: block; }
 .readout .series-a, .readout .series-b { grid-column: 1 / -1; color: var(--muted); font-size: 0.75rem; }
 .hint { font-size: 0.78rem; color: var(--muted); margin: 0.7rem 0 0; max-width: 36rem; }
 .grain { display: flex; margin: 0 0 1rem; border: 1px solid var(--ink); padding: 0; }
-.grain a { flex: 1; text-align: center; padding: 0.45rem 0.2rem; font-size: 0.82rem;
+.chart-mode { max-width: 14rem; }
+.grain a, .grain button { flex: 1; text-align: center; padding: 0.45rem 0.2rem; font-size: 0.82rem;
   color: var(--ink); text-decoration: none; border-right: 1px solid var(--ink); }
-.grain a:last-child { border-right: 0; }
-.grain a[aria-current="true"] { background: var(--pigment); color: var(--on-pigment); }
+.grain button { background: none; border-top: 0; border-bottom: 0; border-left: 0; cursor: pointer;
+  font: 500 0.82rem/1.4 "Source Sans 3", sans-serif; }
+.grain a:last-child, .grain button:last-child { border-right: 0; }
+.grain a[aria-current="true"], .grain button[aria-pressed="true"] { background: var(--pigment); color: var(--on-pigment); }
 .stepper { display: flex; align-items: center; justify-content: center; gap: 1rem;
   margin: 0 0 0.75rem; font: 600 1.45rem/1 "Ibarra Real Nova", serif; }
 .stepper a, .stepper .dead { font: 500 1.6rem/1 "Source Sans 3", sans-serif;

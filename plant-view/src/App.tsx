@@ -11,6 +11,11 @@ import {
   yearEnergyBars,
 } from "./grains";
 import { LastSample, lifetimeKwh } from "./LastSample";
+import {
+  type ChartMode,
+  readChartMode,
+  writeChartMode,
+} from "./chartMode";
 import type { Grain, PlantPayload, PlantSnapshot } from "./types";
 
 type ViewState =
@@ -113,9 +118,14 @@ function Chart({ snapshot, unit }: { snapshot: PlantSnapshot; unit: Grain }) {
 function Plant({ payload }: { payload: Extract<PlantPayload, { empty: false }> }) {
   const unit = payload.unit;
   const snapshot = payload;
+  const [mode, setMode] = useState<ChartMode>(() => readChartMode(window.localStorage));
   const today =
     snapshot.today_energy_kwh === null ? "-" : formatKwh(snapshot.today_energy_kwh);
   const period = stepper(snapshot, snapshot.selected_day, unit);
+  function chooseMode(next: ChartMode) {
+    writeChartMode(window.localStorage, next);
+    setMode(next);
+  }
   return (
     <main>
       <Logout />
@@ -171,6 +181,22 @@ function Plant({ payload }: { payload: Extract<PlantPayload, { empty: false }> }
             {grain[0]!.toUpperCase() + grain.slice(1)}
           </a>
         ))}
+      </nav>
+      <nav className="grain chart-mode" aria-label="Chart mode">
+        <button
+          type="button"
+          aria-pressed={mode === "overlay"}
+          onClick={() => chooseMode("overlay")}
+        >
+          Overlay
+        </button>
+        <button
+          type="button"
+          aria-pressed={mode === "stack"}
+          onClick={() => chooseMode("stack")}
+        >
+          Stack
+        </button>
       </nav>
       <Chart snapshot={snapshot} unit={unit} />
     </main>

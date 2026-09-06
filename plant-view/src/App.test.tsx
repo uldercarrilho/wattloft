@@ -1,7 +1,8 @@
 /** @vitest-environment jsdom */
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
+import { CHART_MODE_KEY } from "./chartMode";
 import type { PlantPayload } from "./types";
 
 const snapshot: Extract<PlantPayload, { empty: false }> = {
@@ -49,6 +50,7 @@ function stubPlant(status: number, body?: unknown): void {
 describe("Plant view", () => {
   beforeEach(() => {
     window.history.replaceState({}, "", "/");
+    window.localStorage.clear();
   });
 
   afterEach(() => {
@@ -63,6 +65,8 @@ describe("Plant view", () => {
     expect(await screen.findByLabelText("Password")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Log in" })).toBeTruthy();
     expect(screen.queryByText("Today energy")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Overlay" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Stack" })).toBeNull();
   });
 
   it("shows empty History without KPIs or a chart", async () => {
@@ -75,6 +79,8 @@ describe("Plant view", () => {
     expect(screen.queryByText("Today energy")).toBeNull();
     expect(screen.queryByText("Current Power")).toBeNull();
     expect(document.querySelector("svg")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Overlay" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Stack" })).toBeNull();
   });
 
   it("shows a failure sentence when History cannot be reached", async () => {
@@ -85,6 +91,8 @@ describe("Plant view", () => {
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Log out" })).toBeTruthy();
     expect(screen.queryByText("This Plant has no History yet.")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Overlay" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Stack" })).toBeNull();
   });
 
   it("renders KPIs, Day bars, and grain names from the snapshot", async () => {
@@ -126,5 +134,32 @@ describe("Plant view", () => {
     render(<App />);
     const last = await screen.findByText("30s ago");
     expect(last.getAttribute("datetime")).toBe("2026-08-22T10:00:00-03:00");
+  });
+
+  it("shows Overlay pressed by default and remembers Stack in this browser", async () => {
+    window.history.replaceState({}, "", "/?day=2026-08-21&unit=day");
+    stubPlant(200, snapshot);
+    render(<App />);
+    const overlay = await screen.findByRole("button", { name: "Overlay" });
+    const stack = screen.getByRole("button", { name: "Stack" });
+    expect(overlay.getAttribute("aria-pressed")).toBe("true");
+    expect(stack.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(stack);
+    expect(stack.getAttribute("aria-pressed")).toBe("true");
+    expect(overlay.getAttribute("aria-pressed")).toBe("false");
+    expect(window.localStorage.getItem(CHART_MODE_KEY)).toBe("stack");
+  });
+
+  it("opens Stack when this browser already stored stack", async () => {
+    window.localStorage.setItem(CHART_MODE_KEY, "stack");
+    window.history.replaceState({}, "", "/?day=2026-08-21&unit=day");
+    stubPlant(200, snapshot);
+    render(<App />);
+    expect((await screen.findByRole("button", { name: "Stack" })).getAttribute("aria-pressed")).toBe(
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "Overlay" }).getAttribute("aria-pressed")).toBe(
+      "false",
+    );
   });
 });
