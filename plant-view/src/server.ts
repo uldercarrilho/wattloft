@@ -135,7 +135,14 @@ function isExecutedDirectly(): boolean {
   if (!entry) {
     return false;
   }
-  return fileURLToPath(import.meta.url) === resolve(entry);
+  try {
+    return (
+      resolve(fileURLToPath(import.meta.url)).toLowerCase() ===
+      resolve(entry).toLowerCase()
+    );
+  } catch {
+    return false;
+  }
 }
 
 export function start(): void {
