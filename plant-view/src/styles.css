@@ -1,0 +1,73 @@
+:root {
+  --paper:#E8EEF2; --ink:#1A2A3A; --pigment:#1E4F8C; --muted:#5A6B78;
+  --chip:#F7FAFC; --on-pigment:#F4F7FA;
+  --plant:#1A2A3A; --logger-a:#9B2C2C; --logger-b:#2A6B5A;
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 0 0 1.5rem; background: var(--paper); color: var(--ink);
+  font: 16px/1.4 "Source Sans 3", sans-serif; max-width: 100%; }
+main { padding: 0.75rem 1rem 1.5rem; max-width: 42rem; }
+h1 { font: 600 1.7rem/1.1 "Ibarra Real Nova", serif; margin: 0 0 0.75rem; }
+.logout { margin: 0 0 0.6rem; }
+.logout button { font: 500 0.9rem/1 "Source Sans 3", sans-serif; background: none;
+  border: 0; padding: 0; color: var(--muted); text-decoration: underline;
+  cursor: pointer; min-height: 2.4rem; }
+.kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem 1rem; margin: 0 0 0.9rem; }
+.kpis div { margin: 0; }
+.kpis dt { font-size: 0.72rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.kpis dd { margin: 0; font-family: "IBM Plex Mono", monospace; font-size: 1.05rem; }
+.login { max-width: 22rem; }
+.login label { display: block; font-size: 1rem; color: var(--ink); margin: 0 0 0.45rem; }
+.login input { display: block; width: 100%; max-width: 100%; font-size: 1rem;
+  padding: 0.65rem 0.75rem; border: 1px solid var(--ink); background: var(--chip); color: var(--ink); }
+.login button { margin-top: 0.8rem; min-height: 2.6rem; padding: 0.5rem 1.1rem;
+  font: 500 1rem/1 "Source Sans 3", sans-serif; border: 0; background: var(--pigment);
+  color: var(--on-pigment); cursor: pointer; }
+.empty { margin: 0; }
+ol.days { list-style: none; padding: 0; margin: 0 0 1rem; max-width: 100%; }
+ol.days a { display: block; box-sizing: border-box; max-width: 100%;
+  padding: 0.5rem 0.7rem; margin: 0.25rem 0; background: var(--pigment);
+  color: var(--on-pigment); text-decoration: none;
+  font-family: "IBM Plex Mono", monospace; font-size: 0.85rem; }
+svg, .series-toggles, .readout, dl, form { max-width: 100%; }
+svg { width: 100%; height: auto; display: block; }
+#curve { touch-action: none; color: var(--ink); }
+.axis, .grid { stroke: var(--ink); stroke-opacity: 0.18; }
+.tick { font: 8px "IBM Plex Mono", monospace; fill: var(--muted); }
+#curve .series-plant { stroke: var(--plant); }
+#curve .series-a { stroke: var(--logger-a); }
+#curve .series-b { stroke: var(--logger-b); }
+#curve circle.series-plant { fill: var(--plant); stroke: none; }
+#curve circle.series-a { fill: var(--logger-a); stroke: none; }
+#curve circle.series-b { fill: var(--logger-b); stroke: none; }
+#curve polyline.fail { stroke-dasharray: 3 3; stroke-opacity: 0.5; }
+:focus-visible { outline: 2px solid var(--pigment); outline-offset: 2px; }
+.series-toggles { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.65rem 0 0.2rem; }
+.series-toggle {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  min-height: 2.4rem; padding: 0.3rem 0.7rem;
+  border: 1px solid var(--ink); background: var(--chip); color: var(--ink);
+  font: 500 0.78rem/1.2 "IBM Plex Mono", monospace; cursor: pointer;
+}
+.series-toggle i { width: 0.7rem; height: 0.7rem; border-radius: 50%; flex: none; }
+.series-toggle.series-plant i { background: var(--plant); }
+.series-toggle.series-a i { background: var(--logger-a); }
+.series-toggle.series-b i { background: var(--logger-b); }
+.series-toggle.is-off { opacity: 0.4; border-style: dashed; }
+.series-toggle.is-off i { background: transparent; box-shadow: inset 0 0 0 2px currentColor; }
+.readout { display: grid; grid-template-columns: auto 1fr; gap: 0.1rem 1rem; margin: 0.6rem 0 0;
+  font-family: "IBM Plex Mono", monospace; font-size: 0.85rem; }
+.readout .when { font-weight: 500; }
+.readout .series-plant { font-weight: 500; color: var(--plant); }
+.readout .series-a, .readout .series-b { grid-column: 1 / -1; color: var(--muted); font-size: 0.75rem; }
+.hint { font-size: 0.78rem; color: var(--muted); margin: 0.7rem 0 0; max-width: 36rem; }
+.grain { display: flex; margin: 0 0 1rem; border: 1px solid var(--ink); padding: 0; }
+.grain a { flex: 1; text-align: center; padding: 0.45rem 0.2rem; font-size: 0.82rem;
+  color: var(--ink); text-decoration: none; border-right: 1px solid var(--ink); }
+.grain a:last-child { border-right: 0; }
+.grain a[aria-current="true"] { background: var(--pigment); color: var(--on-pigment); }
+.stepper { display: flex; align-items: center; justify-content: center; gap: 1rem;
+  margin: 0 0 0.75rem; font: 600 1.45rem/1 "Ibarra Real Nova", serif; }
+.stepper a, .stepper .dead { font: 500 1.6rem/1 "Source Sans 3", sans-serif;
+  text-decoration: none; color: var(--pigment); width: 2rem; text-align: center; }
+.stepper .dead { color: var(--muted); opacity: 0.35; }
