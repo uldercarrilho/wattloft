@@ -198,6 +198,7 @@ describe("Plant view", () => {
     render(<App />);
     await screen.findByText("2026-08-21 3.90 kWh");
     expect(document.querySelector("ol.days [data-series]")).toBeNull();
+    expect(screen.queryByRole("button", { name: "1000000001" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Stack" }));
     expect(document.querySelector("ol.days [data-series='1000000003']")).toBeTruthy();
     expect(document.querySelectorAll("ol.days [data-series='1000000001']").length).toBeGreaterThan(
@@ -212,5 +213,48 @@ describe("Plant view", () => {
     render(<App />);
     expect(await screen.findByText("2026-08-21 3.90 kWh")).toBeTruthy();
     expect(document.querySelector("ol.days [data-series]")).toBeNull();
+  });
+
+  it("hides a Logger across Stack Day bars when its toggle is off", async () => {
+    const withLoggers = {
+      ...snapshot,
+      local_day_bars: [
+        {
+          local_day: "2026-08-21",
+          today_energy_kwh: 3.9,
+          loggers: [
+            { name: "1000000001", today_energy_kwh: 2.1 },
+            { name: "1000000003", today_energy_kwh: 1.8 },
+          ],
+        },
+        {
+          local_day: "2026-08-22",
+          today_energy_kwh: 0.2,
+          loggers: [{ name: "1000000001", today_energy_kwh: 0.2 }],
+        },
+        { local_day: "2026-09-01", today_energy_kwh: 0.2 },
+      ],
+    };
+    window.localStorage.setItem(CHART_MODE_KEY, "stack");
+    window.history.replaceState({}, "", "/?day=2026-08-21&unit=day");
+    stubPlant(200, withLoggers);
+    render(<App />);
+    expect(await screen.findByText("2026-08-21 3.90 kWh")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "1000000003" }));
+    expect(screen.getByText("2026-08-21 2.10 kWh")).toBeTruthy();
+    expect(document.querySelector("ol.days [data-series='1000000003']")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Plant" })).toBeNull();
+  });
+
+  it("hides a Logger band on Time Stack and keeps Overlay Day free of Logger toggles", async () => {
+    window.history.replaceState({}, "", "/?day=2026-08-21&unit=time");
+    stubPlant(200, { ...snapshot, unit: "time" });
+    render(<App />);
+    await screen.findByRole("button", { name: "Plant" });
+    fireEvent.click(screen.getByRole("button", { name: "Stack" }));
+    expect(screen.queryByRole("button", { name: "Plant" })).toBeNull();
+    expect(document.querySelector('#curve [data-series="1000000001"]')).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "1000000001" }));
+    expect(document.querySelector('#curve [data-series="1000000001"]')).toBeNull();
   });
 });

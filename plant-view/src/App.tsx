@@ -102,13 +102,16 @@ function Chart({
   snapshot,
   unit,
   mode,
+  hidden,
 }: {
   snapshot: PlantSnapshot;
   unit: Grain;
   mode: ChartMode;
+  hidden: ReadonlySet<string>;
 }) {
   const names = stackLoggerNames(snapshot);
-  const visible = mode === "stack" ? new Set(names) : undefined;
+  const visible =
+    mode === "stack" ? new Set(names.filter((name) => !hidden.has(name))) : undefined;
   if (unit === "day") {
     return <EnergyList bars={dayEnergyBars(snapshot, snapshot.selected_day, visible)} names={names} />;
   }
@@ -135,6 +138,8 @@ function Plant({ payload }: { payload: Extract<PlantPayload, { empty: false }> }
   const unit = payload.unit;
   const snapshot = payload;
   const [mode, setMode] = useState<ChartMode>(() => readChartMode(window.localStorage));
+  const [hidden, setHidden] = useState<Set<string>>(() => new Set());
+  const names = stackLoggerNames(snapshot);
   const today =
     snapshot.today_energy_kwh === null ? "-" : formatKwh(snapshot.today_energy_kwh);
   const period = stepper(snapshot, snapshot.selected_day, unit);
@@ -142,6 +147,9 @@ function Plant({ payload }: { payload: Extract<PlantPayload, { empty: false }> }
     writeChartMode(window.localStorage, next);
     setMode(next);
   }
+  useEffect(() => {
+    setHidden(new Set());
+  }, [payload]);
   return (
     <main>
       <Logout />
@@ -214,7 +222,31 @@ function Plant({ payload }: { payload: Extract<PlantPayload, { empty: false }> }
           Stack
         </button>
       </nav>
-      <Chart snapshot={snapshot} unit={unit} mode={mode} />
+      <Chart snapshot={snapshot} unit={unit} mode={mode} hidden={hidden} />
+      {mode === "stack" && names.length > 0 ? (
+        <div className="series-toggles">
+          {names.map((name) => (
+            <button
+              key={name}
+              type="button"
+              className={`series-toggle ${loggerClass(name, names)}${hidden.has(name) ? " is-off" : ""}`}
+              data-series={name}
+              aria-pressed={hidden.has(name) ? "false" : "true"}
+              onClick={() => {
+                setHidden((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(name)) next.delete(name);
+                  else next.add(name);
+                  return next;
+                });
+              }}
+            >
+              <i />
+              {name}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </main>
   );
 }
