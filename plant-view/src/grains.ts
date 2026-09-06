@@ -1,11 +1,18 @@
 import type { Grain, LocalDayBar, PlantSnapshot } from "./types";
 
+export type EnergySegment = {
+  name: string;
+  kwh: number;
+  width: number;
+};
+
 export type EnergyBar = {
   href: string;
   label: string;
   kwh: number;
   current: boolean;
   width: number;
+  segments: EnergySegment[];
 };
 
 export type Stepper = {
@@ -80,13 +87,68 @@ export function formatWatts(watts: number): string {
   return `${watts} W`;
 }
 
+export function stackLoggerNames(snapshot: PlantSnapshot): string[] {
+  const names = new Set<string>();
+  for (const bar of snapshot.local_day_bars) {
+    for (const part of bar.loggers ?? []) {
+      names.add(part.name);
+    }
+  }
+  for (const series of snapshot.curve) {
+    if (series.name !== "Plant") {
+      names.add(series.name);
+    }
+  }
+  return [...names].sort();
+}
+
+type EnergyPart = { name: string; kwh: number };
+
+function roundedKwh(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function partsForBar(
+  bar: LocalDayBar,
+  visible?: ReadonlySet<string>,
+): { kwh: number; parts: EnergyPart[] } {
+  const loggers = bar.loggers;
+  if (visible === undefined || loggers === undefined || loggers.length === 0) {
+    return { kwh: bar.today_energy_kwh, parts: [] };
+  }
+  const parts = loggers
+    .filter((part) => visible.has(part.name))
+    .map((part) => ({ name: part.name, kwh: part.today_energy_kwh }));
+  return {
+    kwh: roundedKwh(parts.reduce((sum, part) => sum + part.kwh, 0)),
+    parts,
+  };
+}
+
 function withWidths(
-  rows: { href: string; label: string; kwh: number; current: boolean }[],
+  rows: {
+    href: string;
+    label: string;
+    kwh: number;
+    current: boolean;
+    parts: EnergyPart[];
+  }[],
 ): EnergyBar[] {
   const peak = Math.max(0, ...rows.map((row) => row.kwh));
   return rows.map((row) => ({
-    ...row,
+    href: row.href,
+    label: row.label,
+    kwh: row.kwh,
+    current: row.current,
     width: peak <= 0 ? 100 : Math.max(12, (row.kwh / peak) * 100),
+    segments:
+      row.kwh <= 0
+        ? []
+        : row.parts.map((part) => ({
+            name: part.name,
+            kwh: part.kwh,
+            width: (part.kwh / row.kwh) * 100,
+          })),
   }));
 }
 
@@ -128,6 +190,7 @@ function anchorInYear(
 export function dayEnergyBars(
   snapshot: PlantSnapshot,
   selectedDay: string,
+  visible?: ReadonlySet<string>,
 ): EnergyBar[] {
   const selected = parseIsoDate(selectedDay);
   const monthBars = snapshot.local_day_bars.filter((bar) => {
@@ -135,40 +198,75 @@ export function dayEnergyBars(
     return day.y === selected.y && day.m === selected.m;
   });
   return withWidths(
-    monthBars.map((bar) => ({
-      href: href(bar.local_day, "time"),
-      label: `${bar.local_day} ${formatKwh(bar.today_energy_kwh)}`,
-      kwh: bar.today_energy_kwh,
-      current: false,
-    })),
+    monthBars.map((bar) => {
+      const { kwh, parts } = partsForBar(bar, visible);
+      return {
+        href: href(bar.local_day, "time"),
+        label: `${bar.local_day} ${formatKwh(kwh)}`,
+        kwh,
+        current: false,
+        parts,
+      };
+    }),
   );
+}
+
+function mergeParts(
+  bars: LocalDayBar[],
+  visible: ReadonlySet<string> | undefined,
+  include: (day: Ymd) => boolean,
+): { kwh: number; parts: EnergyPart[] } {
+  const byName = new Map<string, number>();
+  let kwh = 0;
+  for (const bar of bars) {
+    if (!include(parseIsoDate(bar.local_day))) {
+      continue;
+    }
+    const row = partsForBar(bar, visible);
+    kwh += row.kwh;
+    for (const part of row.parts) {
+      byName.set(part.name, (byName.get(part.name) ?? 0) + part.kwh);
+    }
+  }
+  return {
+    kwh: roundedKwh(kwh),
+    parts: [...byName.entries()]
+      .sort(([a], [b]) => cmp(a, b))
+      .map(([name, partKwh]) => ({ name, kwh: roundedKwh(partKwh) })),
+  };
 }
 
 export function monthEnergyBars(
   snapshot: PlantSnapshot,
   selectedDay: string,
+  visible?: ReadonlySet<string>,
 ): EnergyBar[] {
   const selected = parseIsoDate(selectedDay);
-  const byMonth = new Map<string, number>();
+  const keys = new Set<string>();
   for (const bar of snapshot.local_day_bars) {
     const day = parseIsoDate(bar.local_day);
     if (day.y !== selected.y) {
       continue;
     }
-    const key = `${day.y}-${String(day.m).padStart(2, "0")}`;
-    byMonth.set(key, (byMonth.get(key) ?? 0) + bar.today_energy_kwh);
+    keys.add(`${day.y}-${String(day.m).padStart(2, "0")}`);
   }
-  const rows = [...byMonth.entries()]
-    .sort(([a], [b]) => cmp(a, b))
-    .map(([key, kwh]) => {
+  const rows = [...keys]
+    .sort(cmp)
+    .map((key) => {
       const [yearText, monthText] = key.split("-");
       const year = Number(yearText);
       const month = Number(monthText);
+      const { kwh, parts } = mergeParts(
+        snapshot.local_day_bars,
+        visible,
+        (day) => day.y === year && day.m === month,
+      );
       return {
         href: href(anchorInMonth(snapshot, year, month, selectedDay), "day"),
         label: `${key} ${formatKwh(kwh)}`,
         kwh,
         current: month === selected.m,
+        parts,
       };
     });
   return withWidths(rows);
@@ -177,21 +275,29 @@ export function monthEnergyBars(
 export function yearEnergyBars(
   snapshot: PlantSnapshot,
   selectedDay: string,
+  visible?: ReadonlySet<string>,
 ): EnergyBar[] {
   const selected = parseIsoDate(selectedDay);
-  const byYear = new Map<number, number>();
+  const years = new Set<number>();
   for (const bar of snapshot.local_day_bars) {
-    const year = parseIsoDate(bar.local_day).y;
-    byYear.set(year, (byYear.get(year) ?? 0) + bar.today_energy_kwh);
+    years.add(parseIsoDate(bar.local_day).y);
   }
-  const rows = [...byYear.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([year, kwh]) => ({
-      href: href(anchorInYear(snapshot, year, selectedDay), "month"),
-      label: `${year} ${formatKwh(kwh)}`,
-      kwh,
-      current: year === selected.y,
-    }));
+  const rows = [...years]
+    .sort((a, b) => a - b)
+    .map((year) => {
+      const { kwh, parts } = mergeParts(
+        snapshot.local_day_bars,
+        visible,
+        (day) => day.y === year,
+      );
+      return {
+        href: href(anchorInYear(snapshot, year, selectedDay), "month"),
+        label: `${year} ${formatKwh(kwh)}`,
+        kwh,
+        current: year === selected.y,
+        parts,
+      };
+    });
   return withWidths(rows);
 }
 

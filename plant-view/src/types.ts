@@ -11,9 +11,15 @@ export type CurveSeries = {
   points: CurvePoint[];
 };
 
+export type LoggerEnergy = {
+  name: string;
+  today_energy_kwh: number;
+};
+
 export type LocalDayBar = {
   local_day: string;
   today_energy_kwh: number;
+  loggers?: LoggerEnergy[];
 };
 
 export type PlantSnapshot = {
