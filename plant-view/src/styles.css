@@ -25,10 +25,15 @@ h1 { font: 600 1.7rem/1.1 "Ibarra Real Nova", serif; margin: 0 0 0.75rem; }
   color: var(--on-pigment); cursor: pointer; }
 .empty { margin: 0; }
 ol.days { list-style: none; padding: 0; margin: 0 0 1rem; max-width: 100%; }
-ol.days a { display: block; box-sizing: border-box; max-width: 100%;
+ol.days a { display: block; box-sizing: border-box; max-width: 100%; position: relative;
   padding: 0.5rem 0.7rem; margin: 0.25rem 0; background: var(--pigment);
   color: var(--on-pigment); text-decoration: none;
   font-family: "IBM Plex Mono", monospace; font-size: 0.85rem; }
+.day-stack { position: absolute; inset: 0; display: flex; z-index: 0; }
+.day-stack span { display: inline-block; height: 100%; }
+.day-stack .series-a { background: var(--logger-a); }
+.day-stack .series-b { background: var(--logger-b); }
+.day-label { position: relative; z-index: 1; }
 svg, .series-toggles, .readout, dl, form { max-width: 100%; }
 svg { width: 100%; height: auto; display: block; }
 #curve { touch-action: none; color: var(--ink); }
