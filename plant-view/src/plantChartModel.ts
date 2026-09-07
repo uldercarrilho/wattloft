@@ -278,9 +278,13 @@ export function buildPlantChartModel(
 }
 
 export function parkedMinute(model: TimeChartModel): number {
-  const tMin = model.minutes[0] ?? 0;
-  const tMax = model.minutes.at(-1) ?? 0;
-  return Math.min(Math.max(12 * 60, tMin), tMax);
+  let last: number | null = null;
+  for (let i = 0; i < model.minutes.length; i++) {
+    if (model.datasets.some((dataset) => dataset.values[i] != null)) {
+      last = model.minutes[i]!;
+    }
+  }
+  return last ?? model.minutes.at(-1) ?? 0;
 }
 
 export type Readout = { when: string; rows: { name: string; text: string }[] };
@@ -326,8 +330,9 @@ export function timeReadout(model: TimeChartModel, minute: number, mode: ChartMo
       text: index < 0 ? "—" : wattsText(valueAt(dataset, index)),
     });
   }
+  const dashed = rows.every((row) => row.text === "—");
   return {
-    when: `${pad2(Math.floor(t / 60))}:${pad2(t % 60)}`,
+    when: `${pad2(Math.floor(t / 60))}:${pad2(t % 60)}${dashed ? " gap" : ""}`,
     rows,
   };
 }
