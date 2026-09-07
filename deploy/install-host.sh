@@ -28,13 +28,18 @@ fi
 
 # shellcheck disable=SC1090
 set -a
+src=$(mktemp)
+trap 'rm -f "$src"' EXIT
+grep -vE '^OPERATOR_PASSKEY_CREDENTIAL=' "$ENV_FILE" > "$src" || true
 # shellcheck disable=SC1090
-source "$ENV_FILE"
+source "$src"
 if [[ -f "$DEPLOY_ENV_FILE" ]]; then
   # shellcheck disable=SC1090
   source "$DEPLOY_ENV_FILE"
 fi
 set +a
+rm -f "$src"
+trap - EXIT
 if [[ -z "${GHCR_PULL_TOKEN:-}" ]]; then
   echo "install-host: GHCR_PULL_TOKEN missing from ${ENV_FILE} / ${DEPLOY_ENV_FILE}" >&2
   exit 1

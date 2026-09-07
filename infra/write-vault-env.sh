@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# Write DATABASE_URL, OPERATOR_PASSWORD, GHCR pull token, and hostname to
-# one Vault secret named wattloft-env. GitHub Actions is the source.
+# Write DATABASE_URL, OPERATOR_PASSWORD, GHCR pull token, hostname, and the
+# optional Operator passkey to one Vault secret named wattloft-env.
+# GitHub Actions is the source for password and DB URL. OPERATOR_PASSKEY_CREDENTIAL
+# comes from the local env or is preserved from the current Vault version so a
+# deploy does not wipe a human-enrolled passkey.
 # WATTLOFT_IMAGE is not stored here: Always Free allows 20 active versions
 # per secret, and a new SHA every deploy would exhaust that. The host overlay
 # (deploy.env) pins the image.
@@ -22,13 +25,31 @@ KEY_ID="${OCI_KEY_OCID:-${WATTLOFT_KEY_OCID:?}}"
 HOSTNAME_VALUE="${WATTLOFT_HOSTNAME:-}"
 TOKEN="${GHCR_PULL_TOKEN:-}"
 
-body=$(printf 'DATABASE_URL=%s\nOPERATOR_PASSWORD=%s\nGHCR_PULL_TOKEN=%s\nGHCR_USERNAME=%s\nWATTLOFT_HOSTNAME=%s\n' \
-  "$DATABASE_URL" \
-  "$OPERATOR_PASSWORD" \
-  "$TOKEN" \
-  "${GHCR_USERNAME:-uldercarrilho}" \
-  "$HOSTNAME_VALUE")
-b64=$(printf '%s' "$body" | base64 | tr -d '\n')
+extract_env_key() {
+  local key=$1
+  local body=$2
+  local line
+  while IFS= read -r line || [[ -n "${line:-}" ]]; do
+    if [[ "$line" == "${key}="* ]]; then
+      printf '%s' "${line#"${key}"=}"
+      return 0
+    fi
+  done <<< "$body"
+  return 1
+}
+
+build_body() {
+  {
+    printf 'DATABASE_URL=%s\n' "$DATABASE_URL"
+    printf 'OPERATOR_PASSWORD=%s\n' "$OPERATOR_PASSWORD"
+    printf 'GHCR_PULL_TOKEN=%s\n' "$TOKEN"
+    printf 'GHCR_USERNAME=%s\n' "${GHCR_USERNAME:-uldercarrilho}"
+    printf 'WATTLOFT_HOSTNAME=%s\n' "$HOSTNAME_VALUE"
+    if [[ -n "${PASSKEY:-}" ]]; then
+      printf 'OPERATOR_PASSKEY_CREDENTIAL=%s\n' "$PASSKEY"
+    fi
+  }
+}
 
 # Always Free: 20 active versions + 20 pending deletion per secret. Only
 # DEPRECATED versions can be scheduled for deletion; the floor is one day.
@@ -83,6 +104,16 @@ SECRET_ID=$(ociq vault secret list --compartment-id "$COMP" \
   --all \
   --query "data[?\"lifecycle-state\"=='ACTIVE'].id | [0]" \
   --raw-output)
+
+PASSKEY="${OPERATOR_PASSKEY_CREDENTIAL:-}"
+if [[ -z "$PASSKEY" && -n "$SECRET_ID" && "$SECRET_ID" != "null" ]]; then
+  if current=$(current_secret_body "$SECRET_ID"); then
+    PASSKEY=$(extract_env_key OPERATOR_PASSKEY_CREDENTIAL "$current" || true)
+  fi
+fi
+
+body=$(build_body)
+b64=$(printf '%s' "$body" | base64 | tr -d '\n')
 
 if [[ -z "$SECRET_ID" || "$SECRET_ID" == "null" ]]; then
   ociq vault secret create-base64 \
