@@ -357,6 +357,9 @@ upsert_env WATTLOFT_KEY_OCID "$KEY_ID"
 upsert_env WATTLOFT_DB_OCID "$DB_ID"
 upsert_env DATABASE_URL "$DATABASE_URL"
 upsert_env OPERATOR_PASSWORD "$OPERATOR_PASSWORD"
+if [[ -n "${OPERATOR_PASSKEY_CREDENTIAL:-}" ]]; then
+  upsert_env OPERATOR_PASSKEY_CREDENTIAL "$OPERATOR_PASSKEY_CREDENTIAL"
+fi
 
 if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
   printf '%s' "$DATABASE_URL" | gh secret set DATABASE_URL

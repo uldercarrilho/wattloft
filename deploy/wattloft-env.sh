@@ -39,11 +39,14 @@ chmod 600 "$ENV_FILE"
 chown root:root "$ENV_FILE"
 
 if grep -q '^GHCR_PULL_TOKEN=.\+' "$ENV_FILE"; then
+  src=$(mktemp)
+  grep -vE '^OPERATOR_PASSKEY_CREDENTIAL=' "$ENV_FILE" > "$src" || true
   # shellcheck disable=SC1090
   set -a
   # shellcheck disable=SC1090
-  source "$ENV_FILE"
+  source "$src"
   set +a
+  rm -f "$src"
   if ! printf '%s' "$GHCR_PULL_TOKEN" | docker login ghcr.io -u "${GHCR_USERNAME:-uldercarrilho}" --password-stdin >/dev/null; then
     echo "wattloft-env: GHCR login failed; compose pull needs a live token (GHA GITHUB_TOKEN or GHCR_PULL_TOKEN)" >&2
   fi
