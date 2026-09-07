@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   type ChartMode,
   readChartMode,
@@ -173,7 +173,13 @@ function Chart({
   );
 }
 
-function Plant({ payload }: { payload: Extract<PlantPayload, { empty: false }> }) {
+function Plant({
+  payload,
+  busy,
+}: {
+  payload: Extract<PlantPayload, { empty: false }>;
+  busy: boolean;
+}) {
   const unit = payload.unit;
   const snapshot = payload;
   const [mode, setMode] = useState<ChartMode>(() => readChartMode(window.localStorage));
@@ -196,9 +202,9 @@ function Plant({ payload }: { payload: Extract<PlantPayload, { empty: false }> }
   }
   useEffect(() => {
     setHidden(new Set());
-  }, [payload]);
+  }, [payload.selected_day, payload.unit]);
   return (
-    <main>
+    <main aria-busy={busy ? true : undefined}>
       <Logout />
       <h1>Plant</h1>
       <dl className="kpis">
@@ -301,6 +307,9 @@ function Plant({ payload }: { payload: Extract<PlantPayload, { empty: false }> }
 export function App() {
   const [state, setState] = useState<ViewState>({ kind: "loading" });
   const [tick, setTick] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   useEffect(() => {
     const onPop = () => setTick((n) => n + 1);
@@ -326,39 +335,63 @@ export function App() {
 
   useEffect(() => {
     let cancelled = false;
-    setState({ kind: "loading" });
+    const hadPlant = stateRef.current.kind === "plant";
+    if (stateRef.current.kind === "loading") {
+      setBusy(false);
+    } else {
+      setBusy(true);
+    }
     void (async () => {
       const response = await fetch(apiPath());
       if (cancelled) return;
       if (response.status === 401) {
         setState({ kind: "login" });
+        setBusy(false);
         return;
       }
       if (response.status === 502) {
-        setState({ kind: "error" });
+        if (!hadPlant && stateRef.current.kind !== "plant") {
+          setState({ kind: "error" });
+        }
+        setBusy(false);
         return;
       }
       const body = (await response.json()) as PlantPayload;
+      if (cancelled) return;
       if (body.empty) {
         setState({ kind: "empty" });
+        setBusy(false);
         return;
       }
       setState({
         kind: "plant",
         payload: { ...body, unit: body.unit ?? currentUnit() },
       });
+      setBusy(false);
     })();
     return () => {
       cancelled = true;
     };
   }, [tick]);
 
+  useEffect(() => {
+    if (state.kind !== "plant" && state.kind !== "empty") {
+      return undefined;
+    }
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        setTick((n) => n + 1);
+      }
+    }, 20_000);
+    return () => window.clearInterval(id);
+  }, [state.kind]);
+
   if (state.kind === "login") {
     return <Login onGranted={() => setTick((n) => n + 1)} />;
   }
   if (state.kind === "empty") {
     return (
-      <main>
+      <main aria-busy={busy ? true : undefined}>
         <Logout />
         <h1>Plant</h1>
         <p className="empty">This Plant has no History yet.</p>
@@ -375,7 +408,7 @@ export function App() {
     );
   }
   if (state.kind === "plant") {
-    return <Plant payload={state.payload} />;
+    return <Plant payload={state.payload} busy={busy} />;
   }
   return <main />;
 }

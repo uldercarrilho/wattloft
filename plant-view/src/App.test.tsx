@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, act } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CHART_MODE_KEY } from "./chartMode";
 import type { PlantPayload } from "./types";
@@ -327,6 +327,54 @@ describe("Plant view", () => {
     await screen.findByRole("img", { name: "Energy bars" });
     chartState.instances[0]?.config.options?.onClick?.({}, [{ index: 0 }]);
     expect(push).toHaveBeenCalledWith({}, "", "/?day=2026-08-21&unit=time");
+  });
+
+  it("keeps KPIs while the next grain fetch is in flight", async () => {
+    let finishDay: ((value: Response) => void) | undefined;
+    const fetchMock = vi.fn(async (input: RequestInfo) => {
+      const url = String(input);
+      if (url.includes("unit=day")) {
+        return new Promise<Response>((resolve) => {
+          finishDay = resolve;
+        });
+      }
+      return new Response(JSON.stringify({ ...snapshot, unit: "time" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.replaceState({}, "", "/?day=2026-08-21&unit=time");
+    render(<App />);
+    expect(await screen.findByText("0.20 kWh")).toBeTruthy();
+    fireEvent.click(screen.getByRole("link", { name: "Day" }));
+    expect(screen.getByText("Today energy")).toBeTruthy();
+    expect(document.querySelector("main")?.getAttribute("aria-busy")).toBe("true");
+    finishDay?.(
+      new Response(JSON.stringify(snapshot), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    expect(await screen.findByRole("img", { name: "Energy bars" })).toBeTruthy();
+  });
+
+  it("polls /api/plant every 20 seconds while the tab is visible", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => "visible",
+    });
+    stubPlant(200, snapshot);
+    window.history.replaceState({}, "", "/?day=2026-08-21&unit=day");
+    render(<App />);
+    expect(await screen.findByText("0.20 kWh")).toBeTruthy();
+    const fetchMock = vi.mocked(fetch);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(2);
   });
 
   it("keeps KPIs when Chart.js cannot draw", async () => {
