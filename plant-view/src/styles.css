@@ -76,6 +76,29 @@ button.passkey { display: block; margin: 0.8rem 0 0; min-height: 2.6rem; padding
 .stepper a, .stepper .dead { font: 500 1.6rem/1 "Source Sans 3", sans-serif;
   text-decoration: none; color: var(--pigment); width: 2rem; text-align: center; }
 .stepper .dead { color: var(--muted); opacity: 0.35; }
+.glance { display: flex; flex-direction: column; align-items: center; gap: 0.6rem;
+  min-height: 0; flex: 1; }
+.glance-banner { margin: 0; width: 100%; padding: 0.55rem 0.75rem; border: 1px solid var(--logger-b);
+  background: var(--chip); font-size: 0.9rem; }
+.glance-sun { width: min(72vw, 16rem); height: auto; }
+.glance-sun .series-a { stroke: var(--logger-a); }
+.glance-sun .series-b { stroke: var(--logger-b); }
+.glance-glow { fill: var(--pigment); fill-opacity: 0.14; }
+.glance-core { fill: var(--pigment); fill-opacity: 0.28; }
+.glance-core.is-hollow { fill: none; stroke: var(--ink); stroke-opacity: 0.18; stroke-width: 1.5; }
+.glance-watts { margin: 0; font-family: "IBM Plex Mono", monospace; font-size: 1.45rem; font-weight: 600; }
+.glance-legend { display: flex; gap: 1rem; list-style: none; margin: 0; padding: 0; font-size: 0.9rem; }
+.glance-legend li::before { content: ""; display: inline-block; width: 0.55rem; height: 0.55rem;
+  border-radius: 50%; margin-right: 0.35rem; vertical-align: middle; }
+.glance-legend .series-a::before { background: var(--logger-a); }
+.glance-legend .series-b::before { background: var(--logger-b); }
+.glance-captions { margin: 0.4rem 0 0; text-align: center; }
+.glance-captions div { margin: 0 0 0.35rem; }
+.glance-captions dt { font-size: 0.72rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.glance-captions dd { margin: 0; font-family: "IBM Plex Mono", monospace; }
+@media (prefers-reduced-motion: reduce) {
+  .plant-mobile { scroll-behavior: auto; }
+}
 @media (min-width: 60rem) {
   main { max-width: 72rem; }
   .plant-chart { aspect-ratio: 400 / 214; }
