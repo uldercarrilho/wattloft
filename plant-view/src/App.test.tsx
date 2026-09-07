@@ -96,9 +96,38 @@ describe("Plant view", () => {
     render(<App />);
     expect(await screen.findByLabelText("Password")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Log in" })).toBeTruthy();
-    expect(screen.queryByText("Today energy")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Overlay" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Stack" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Wattloft" })).toBeTruthy();
+    expect(screen.getByText("This Plant")).toBeTruthy();
+    expect(screen.getByLabelText("Password").getAttribute("autocomplete")).toBe(
+      "current-password",
+    );
+    expect(screen.queryByText("Today so far")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Each" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "By Logger" })).toBeNull();
+  });
+
+  it("keeps the password and says when it is not accepted", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo) => {
+      const url = String(input);
+      if (url.startsWith("/api/plant")) {
+        return new Response(null, { status: 401 });
+      }
+      expect(url).toBe("/login");
+      return new Response(JSON.stringify({ error: "not-accepted" }), {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+    const field = await screen.findByLabelText("Password");
+    fireEvent.change(field, { target: { value: "wrong-password" } });
+    fireEvent.submit(field.closest("form")!);
+    expect((await screen.findByRole("alert")).textContent).toBe("Password not accepted.");
+    expect((screen.getByLabelText("Password") as HTMLInputElement).value).toBe(
+      "wrong-password",
+    );
+    expect(screen.getByLabelText("Password").getAttribute("aria-invalid")).toBe("true");
   });
 
   it("shows empty History without KPIs or a chart", async () => {
