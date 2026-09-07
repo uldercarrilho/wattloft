@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPlantChartModel, energyReadout, hourTickLabel, niceYMax, parkedMinute, timeReadout } from "./plantChartModel";
+import { buildPlantChartModel, energyReadout, hourTickLabel, niceYMax, parkedMinute, timeReadout, type ChartDataset, type TimeChartModel } from "./plantChartModel";
 import type { PlantSnapshot } from "./types";
 
 const loggerA = "3909309465";
@@ -156,7 +156,7 @@ describe("buildPlantChartModel Time Stack", () => {
     const at105 = model.minutes.indexOf(105);
     expect(model.datasets[0]?.values[at105]).toBe(150);
     expect(model.datasets[1]?.values[at105]).toBe(50);
-    expect(model.yMax).toBe(500);
+    expect(model.yMax).toBe(250);
   });
 
   it("omits a hidden Logger and a null minute instead of a 0 slab", () => {
@@ -272,7 +272,7 @@ describe("buildPlantChartModel energy Overlay", () => {
     expect(model.kind).toBe("energy");
     if (model.kind !== "energy") return;
     expect(model.tickLabels).toEqual(["Fri 21", "Sat 22"]);
-    expect(model.readoutLabels).toEqual(["2026-08-21 3.90 kWh", "2026-08-22 0.20 kWh"]);
+    expect(model.readoutLabels).toEqual(["21 Aug 3.90 kWh", "22 Aug 0.20 kWh"]);
     expect(model.hrefs).toEqual(["/?day=2026-08-21&unit=time", "/?day=2026-08-22&unit=time"]);
     expect(model.currentIndex).toBe(0);
     expect(model.yMax).toBe(5);
@@ -288,6 +288,7 @@ describe("buildPlantChartModel energy Overlay", () => {
     expect(month.kind).toBe("energy");
     if (month.kind !== "energy") return;
     expect(month.tickLabels).toEqual(["2026-08", "2026-09"]);
+    expect(month.readoutLabels).toEqual(["August 4.10 kWh", "September 0.20 kWh"]);
     expect(month.hrefs).toEqual(["/?day=2026-08-21&unit=day", "/?day=2026-09-01&unit=day"]);
     expect(month.currentIndex).toBe(0);
     const year = buildPlantChartModel(energySnapshot, "year", "overlay", new Set(["Plant"]));
@@ -322,8 +323,8 @@ describe("buildPlantChartModel energy Stack", () => {
     if (hidden.kind !== "energy") return;
     expect(hidden.datasets.map((d) => d.name)).toEqual([loggerA]);
     expect(hidden.datasets[0]?.values).toEqual([2.1, 0.2]);
-    expect(hidden.yMax).toBe(5);
-    expect(hidden.readoutLabels[0]).toBe("2026-08-21 2.10 kWh");
+    expect(hidden.yMax).toBe(2.5);
+    expect(hidden.readoutLabels[0]).toBe("21 Aug 2.10 kWh");
     const bare = snapshot([]);
     const missing = buildPlantChartModel(
       {
@@ -458,13 +459,70 @@ describe("timeReadout", () => {
   });
 });
 
+describe("parkedMinute", () => {
+  function series(
+    name: string,
+    role: ChartDataset["role"],
+    values: (number | null)[],
+  ): ChartDataset {
+    return {
+      name,
+      role,
+      stacked: role === "logger",
+      swatch: role === "plant" ? "plant" : "logger-a",
+      values,
+    };
+  }
+
+  function model(datasets: ChartDataset[]): TimeChartModel {
+    return {
+      kind: "time",
+      minutes: [100, 110, 120],
+      tickHours: [],
+      yMax: 1000,
+      yUnit: "W",
+      datasets,
+    };
+  }
+
+  it("parks on the last Plant minute, or any Logger when Plant is absent", () => {
+    const plant = series("Plant", "plant", [10, 20, null]);
+    const logger = series(loggerA, "logger", [10, 20, 30]);
+    expect(parkedMinute(model([plant, logger]))).toBe(110);
+    expect(parkedMinute(model([logger]))).toBe(120);
+  });
+});
+
+describe("timeReadout hold", () => {
+  it("keeps a Logger watt with a tilde when the hair is inside a short gap", () => {
+    const chart: TimeChartModel = {
+      kind: "time",
+      minutes: [0, 5, 10, 20],
+      tickHours: [],
+      yMax: 1000,
+      yUnit: "W",
+      datasets: [
+        {
+          name: loggerA,
+          role: "logger",
+          stacked: false,
+          swatch: "logger-a",
+          values: [754, null, null, null],
+        },
+      ],
+    };
+    expect(timeReadout(chart, 10, "overlay").rows[0]?.text).toBe("~754 W");
+    expect(timeReadout(chart, 20, "overlay").rows[0]?.text).toBe("—");
+  });
+});
+
 describe("energyReadout", () => {
   it("uses the period label and Stack per-Logger kWh", () => {
     const overlay = buildPlantChartModel(energySnapshot, "day", "overlay", new Set(["Plant"]));
     expect(overlay.kind).toBe("energy");
     if (overlay.kind !== "energy") return;
     expect(energyReadout(overlay, 0)).toEqual({
-      when: "2026-08-21 3.90 kWh",
+      when: "21 Aug 3.90 kWh",
       rows: [{ name: "Plant", text: "3.90 kWh" }],
     });
     const stacked = buildPlantChartModel(
@@ -476,7 +534,7 @@ describe("energyReadout", () => {
     expect(stacked.kind).toBe("energy");
     if (stacked.kind !== "energy") return;
     expect(energyReadout(stacked, 0)).toEqual({
-      when: "2026-08-21 3.90 kWh",
+      when: "21 Aug 3.90 kWh",
       rows: [
         { name: "Plant", text: "3.90 kWh" },
         { name: loggerA, text: "2.10 kWh" },
@@ -488,11 +546,12 @@ describe("energyReadout", () => {
 });
 
 describe("niceYMax and hour ticks", () => {
-  it("rounds peaks up to 1, 2, or 5 times a power of ten", () => {
+  it("rounds peaks onto a 1-2-2.5-5-10 ladder", () => {
     expect(niceYMax(0)).toBe(1);
     expect(niceYMax(1)).toBe(1);
     expect(niceYMax(3.9)).toBe(5);
-    expect(niceYMax(250)).toBe(500);
+    expect(niceYMax(250)).toBe(250);
+    expect(niceYMax(2168)).toBe(2500);
   });
 
   it("labels whole hours as HH:00", () => {

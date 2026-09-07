@@ -30,10 +30,10 @@ function snapshot(parts: {
 }
 
 describe("glanceModel", () => {
-  it("draws a filled sun with closed rings and no banner when both Loggers are fresh and producing", () => {
+  it("sums closed Logger watts even when Current Power is one Sample", () => {
     const view = glanceModel(
       snapshot({
-        current_power_w: 412,
+        current_power_w: 210,
         loggers_now: [
           logger(EAST, "East", "2026-09-07T16:03:00.000Z", 210),
           logger(WEST, "West", "2026-09-07T16:03:00.000Z", 202),
@@ -44,12 +44,12 @@ describe("glanceModel", () => {
     expect(view.wattsLabel).toBe("412 W");
     expect(view.hollow).toBe(false);
     expect(view.banner).toBeNull();
-    expect(view.rings.map((ring) => [ring.displayName, ring.closed])).toEqual([
-      ["East", true],
-      ["West", true],
+    expect(view.rings.map((ring) => [ring.displayName, ring.closed, ring.wattsLabel])).toEqual([
+      ["East", true, "210 W"],
+      ["West", true, "202 W"],
     ]);
     expect(view.todayLabel).toBe("3.90 kWh");
-    expect(view.lifetimeLabel).toBe("5635.4 kWh");
+    expect(view.lifetimeLabel).toBe("5,635.4 kWh");
   });
 
   it("banners a stale Logger while a sibling still produces", () => {
@@ -117,8 +117,8 @@ describe("glanceModel", () => {
     );
     expect(view.banner).toBeNull();
     expect(view.rings.every((ring) => ring.closed)).toBe(false);
-    expect(view.hollow).toBe(false);
-    expect(view.wattsLabel).toBe("50 W");
+    expect(view.hollow).toBe(true);
+    expect(view.wattsLabel).toBe("—");
   });
 
   it("does not invent a stall when loggers_now is missing", () => {

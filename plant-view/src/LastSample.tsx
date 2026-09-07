@@ -43,5 +43,5 @@ export function LastSample({ at }: { at: string }) {
 }
 
 export function lifetimeKwh(kwh: number): string {
-  return `${kwh.toFixed(1)} kWh`;
+  return `${new Intl.NumberFormat("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(kwh)} kWh`;
 }

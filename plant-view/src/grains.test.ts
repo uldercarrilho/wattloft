@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   displayNameOf,
   dayEnergyBars,
+  formatDayMonth,
   formatKwh,
+  formatMonthName,
   formatWatts,
   monthEnergyBars,
   parseUnit,
@@ -49,8 +51,10 @@ describe("grains", () => {
   it("formats energy and power the way Plant view did", () => {
     expect(formatKwh(3.9)).toBe("3.90 kWh");
     expect(formatKwh(0.2)).toBe("0.20 kWh");
+    expect(formatKwh(11319.5)).toBe("11,319.50 kWh");
     expect(formatWatts(50)).toBe("50 W");
     expect(formatWatts(0)).toBe("0 W");
+    expect(formatWatts(11319)).toBe("11,319 W");
   });
 
   it("treats unknown unit as time", () => {
@@ -102,14 +106,23 @@ describe("grains", () => {
     ]);
   });
 
-  it("labels the Time stepper with the ISO Local day and stops at History ends", () => {
-    const first = stepper(snapshot, "2026-08-21", "time");
+  it("labels Power as Today or a day-month and stops at History ends", () => {
+    const first = stepper(snapshot, "2026-08-21", "time", "2026-09-07");
+    const today = stepper(snapshot, "2026-08-21", "time", "2026-08-21");
     const last = stepper(snapshot, "2026-09-01", "time");
-    expect(first.label).toBe("2026-08-21");
+    expect(first.label).toBe("21 Aug");
+    expect(today.label).toBe("Today");
     expect(first.prevHref).toBe("");
     expect(first.nextHref).toBe("/?day=2026-08-22&unit=time");
     expect(last.nextHref).toBe("");
     expect(last.prevHref).toBe("/?day=2026-08-31&unit=time");
+  });
+
+  it("labels Day as the month name and Month as the year", () => {
+    expect(stepper(snapshot, "2026-08-21", "day").label).toBe("August");
+    expect(stepper(snapshot, "2026-08-21", "month").label).toBe("2026");
+    expect(formatDayMonth("2026-09-07")).toBe("7 Sep");
+    expect(formatMonthName("2026-09-07")).toBe("September");
   });
 
   it("Overlay Day bars keep Plant totals and empty segments", () => {
@@ -181,10 +194,10 @@ describe("grains", () => {
         {
           local_day: "2026-08-22",
           today_energy_kwh: 0.2,
-          loggers: [{ name: "3909309465", display_name: "Logger 1", today_energy_kwh: 0.2 }],
+          loggers: [{ name: "3909309465", display_name: "East", today_energy_kwh: 0.2 }],
         },
       ],
     };
-    expect(displayNameOf(late, "3909309465")).toBe("Logger 1");
+    expect(displayNameOf(late, "3909309465")).toBe("East");
   });
 });

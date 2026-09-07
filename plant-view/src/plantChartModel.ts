@@ -2,7 +2,9 @@ import type { ChartMode } from "./chartMode";
 import { curveWattsAt, type LoggerPoint } from "./curveWatts";
 import {
   dayEnergyBars,
+  formatDayMonth,
   formatKwh,
+  formatMonthName,
   formatWatts,
   monthEnergyBars,
   stackLoggerNames,
@@ -20,7 +22,7 @@ export function niceYMax(peak: number): number {
   const exp = Math.floor(Math.log10(peak));
   const base = 10 ** exp;
   const frac = peak / base;
-  const nice = frac <= 1 ? 1 : frac <= 2 ? 2 : frac <= 5 ? 5 : 10;
+  const nice = frac <= 1 ? 1 : frac <= 2 ? 2 : frac <= 2.5 ? 2.5 : frac <= 5 ? 5 : 10;
   return nice * base;
 }
 
@@ -266,7 +268,7 @@ function energyModel(
   return {
     kind: "energy",
     tickLabels: bars.map((bar) => tickLabel(unit, bar.label)),
-    readoutLabels: bars.map((bar) => bar.label),
+    readoutLabels: bars.map((bar) => formatEnergyWhen(unit, bar.label)),
     hrefs: bars.map((bar) => bar.href),
     currentIndex,
     yMax,
@@ -295,9 +297,11 @@ export function buildPlantChartModel(
 }
 
 export function parkedMinute(model: TimeChartModel): number {
+  const plant = model.datasets.find((dataset) => dataset.role === "plant");
+  const series = plant ? [plant] : model.datasets;
   let last: number | null = null;
   for (let i = 0; i < model.minutes.length; i++) {
-    if (model.datasets.some((dataset) => dataset.values[i] != null)) {
+    if (series.some((dataset) => dataset.values[i] != null)) {
       last = model.minutes[i]!;
     }
   }
@@ -313,6 +317,29 @@ function pad2(n: number): string {
 export function hourTickLabel(value: string | number): string {
   const n = Number(value);
   return n % 60 === 0 ? `${pad2(n / 60)}:00` : "";
+}
+
+function formatEnergyWhen(unit: Grain, label: string): string {
+  const [head, ...rest] = label.split(" ");
+  const tail = rest.join(" ");
+  if (!head) return label;
+  if (unit === "day") return `${formatDayMonth(head)} ${tail}`;
+  if (unit === "month" && /^\d{4}-\d{2}$/.test(head)) return `${formatMonthName(`${head}-01`)} ${tail}`;
+  return label;
+}
+
+function heldWattsText(dataset: ChartDataset, index: number, minutes: number[]): string {
+  if (index < 0) return "—";
+  const exact = valueAt(dataset, index);
+  if (exact != null) return wattsText(exact);
+  const t = minutes[index]!;
+  for (let i = index - 1; i >= 0; i--) {
+    const value = valueAt(dataset, i);
+    if (value == null) continue;
+    if (t - minutes[i]! <= GAP_MIN) return `~${formatWatts(value)}`;
+    return "—";
+  }
+  return "—";
 }
 
 function wattsText(value: number | null | undefined): string {
@@ -349,7 +376,7 @@ export function timeReadout(model: TimeChartModel, minute: number, mode: ChartMo
   for (const dataset of model.datasets) {
     rows.push({
       name: dataset.name,
-      text: index < 0 ? "—" : wattsText(valueAt(dataset, index)),
+      text: index < 0 ? "—" : heldWattsText(dataset, index, model.minutes),
     });
   }
   const dashed = rows.every((row) => row.text === "—");

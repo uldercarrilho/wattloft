@@ -54,14 +54,14 @@ def test_snapshot_payload_includes_display_name_and_history_start() -> None:
     body = _snapshot_payload(snapshot, date(2026, 8, 21))
     assert body["history_start"] == "2026-08-21"
     logger_one = next(series for series in body["curve"] if series["name"] == "3909309465")
-    assert logger_one["display_name"] == "Logger 1"
+    assert logger_one["display_name"] == "East"
     plant = next(series for series in body["curve"] if series["name"] == "Plant")
     assert "display_name" not in plant
     loggers = body["local_day_bars"][0]["loggers"]
     assert isinstance(loggers, list)
     by_name = {part["name"]: part for part in loggers}
-    assert by_name["3909309465"]["display_name"] == "Logger 1"
-    assert by_name["3913630013"]["display_name"] == "Logger 2"
+    assert by_name["3909309465"]["display_name"] == "East"
+    assert by_name["3913630013"]["display_name"] == "West"
     assert body["loggers_now"] == []
 
 
@@ -129,8 +129,8 @@ def test_snapshot_payload_serializes_loggers_now() -> None:
     rows = body["loggers_now"]
     assert isinstance(rows, list)
     by_name = {row["name"]: row for row in rows}
-    assert by_name["3909309465"]["display_name"] == "Logger 1"
+    assert by_name["3909309465"]["display_name"] == "East"
     assert by_name["3909309465"]["last_success_at"] == "2026-09-07T16:03:00+00:00"
     assert by_name["3909309465"]["power_w"] == 210.0
-    assert by_name["3913630013"]["display_name"] == "Logger 2"
+    assert by_name["3913630013"]["display_name"] == "West"
     assert by_name["3913630013"]["power_w"] == 0.0
