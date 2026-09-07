@@ -24,30 +24,39 @@ export type PasskeyAssertion = {
 
 const CHALLENGE_TTL_SECONDS = 5 * 60;
 
+function asPasskey(parsed: Record<string, unknown>): OperatorPasskey | null {
+  if (
+    typeof parsed.credentialId === "string" &&
+    typeof parsed.publicKey === "string" &&
+    typeof parsed.rpId === "string" &&
+    parsed.credentialId &&
+    parsed.publicKey &&
+    parsed.rpId
+  ) {
+    return {
+      credentialId: parsed.credentialId,
+      publicKey: parsed.publicKey,
+      rpId: parsed.rpId,
+    };
+  }
+  return null;
+}
+
 export function parsePasskeyCredential(raw: string | undefined): OperatorPasskey | null {
   if (!raw?.trim()) {
     return null;
   }
+  const trimmed = raw.trim().replace(/^'(.*)'$/s, "$1").replace(/^"(.*)"$/s, "$1");
   try {
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    if (
-      typeof parsed.credentialId === "string" &&
-      typeof parsed.publicKey === "string" &&
-      typeof parsed.rpId === "string" &&
-      parsed.credentialId &&
-      parsed.publicKey &&
-      parsed.rpId
-    ) {
-      return {
-        credentialId: parsed.credentialId,
-        publicKey: parsed.publicKey,
-        rpId: parsed.rpId,
-      };
-    }
+    return asPasskey(JSON.parse(trimmed) as Record<string, unknown>);
   } catch {
-    return null;
+    try {
+      const decoded = Buffer.from(trimmed, "base64").toString("utf8");
+      return asPasskey(JSON.parse(decoded) as Record<string, unknown>);
+    } catch {
+      return null;
+    }
   }
-  return null;
 }
 
 export function b64url(data: Buffer): string {
@@ -56,6 +65,16 @@ export function b64url(data: Buffer): string {
 
 export function fromB64url(value: string): Buffer {
   return Buffer.from(value, "base64url");
+}
+
+function webAuthnBytes(value: string): Buffer {
+  return Buffer.from(value.replace(/-/g, "+").replace(/_/g, "/"), "base64");
+}
+
+function sameWebAuthnBytes(left: string, right: string): boolean {
+  const a = webAuthnBytes(left);
+  const b = webAuthnBytes(right);
+  return a.length > 0 && a.length === b.length && timingSafeEqual(a, b);
 }
 
 export function issuePasskeyChallenge(password: string): { challenge: string; token: string } {
@@ -98,7 +117,7 @@ export function verifyPasskeyAssertion(
   challenge: string,
   origin: string,
 ): boolean {
-  if (assertion.id !== passkey.credentialId) {
+  if (!sameWebAuthnBytes(assertion.id, passkey.credentialId)) {
     return false;
   }
   let clientData: { type?: string; challenge?: string; origin?: string };
@@ -115,7 +134,7 @@ export function verifyPasskeyAssertion(
   if (clientData.type !== "webauthn.get") {
     return false;
   }
-  if (clientData.challenge !== challenge) {
+  if (typeof clientData.challenge !== "string" || !sameWebAuthnBytes(clientData.challenge, challenge)) {
     return false;
   }
   if (clientData.origin !== origin) {
@@ -142,12 +161,14 @@ export function verifyPasskeyAssertion(
       format: "der",
       type: "spki",
     });
-    return verify(
-      "sha256",
-      signed,
-      { key, dsaEncoding: "ieee-p1363" },
-      signature,
-    );
+    try {
+      if (verify("sha256", signed, { key, dsaEncoding: "ieee-p1363" }, signature)) {
+        return true;
+      }
+    } catch {
+      // Windows Hello and some authenticators emit DER instead of IEEE-P1363.
+    }
+    return verify("sha256", signed, { key, dsaEncoding: "der" }, signature);
   } catch {
     return false;
   }

@@ -138,6 +138,38 @@ describe("Plant view", () => {
     expect(screen.getByLabelText("Password").getAttribute("aria-invalid")).toBe("true");
   });
 
+  it("treats an opaque login redirect as granted", async () => {
+    let authed = false;
+    const fetchMock = vi.fn(async (input: RequestInfo) => {
+      const url = String(input);
+      if (url.startsWith("/login/passkey")) {
+        return new Response(JSON.stringify({ error: "unavailable" }), { status: 404 });
+      }
+      if (url === "/login") {
+        authed = true;
+        const opaque = new Response(null, { status: 204 });
+        Object.defineProperty(opaque, "status", { value: 0 });
+        Object.defineProperty(opaque, "ok", { value: false });
+        Object.defineProperty(opaque, "type", { value: "opaqueredirect" });
+        return opaque;
+      }
+      if (!authed) {
+        return new Response(null, { status: 401 });
+      }
+      return new Response(JSON.stringify({ empty: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+    const field = await screen.findByLabelText("Password");
+    fireEvent.change(field, { target: { value: "correct-horse" } });
+    fireEvent.submit(field.closest("form")!);
+    expect(await screen.findByText("This Plant has no History yet.")).toBeTruthy();
+    expect(screen.queryByText("Password not accepted.")).toBeNull();
+  });
+
   it("shows Use passkey when a credential is configured", async () => {
     vi.stubGlobal("PublicKeyCredential", class PublicKeyCredential {});
     const fetchMock = vi.fn(async (input: RequestInfo) => {
