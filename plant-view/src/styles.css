@@ -18,11 +18,12 @@ h1 { font: 600 1.7rem/1.1 "Ibarra Real Nova", serif; margin: 0 0 0.75rem; }
 .kpis dd { margin: 0; font-family: "IBM Plex Mono", monospace; font-size: 1.05rem; }
 .login { max-width: 22rem; }
 .login label { display: block; font-size: 1rem; color: var(--ink); margin: 0 0 0.45rem; }
-.login input { display: block; width: 100%; max-width: 100%; font-size: 1rem;
+.login input { display: block; width: 100%; max-width: 100%; font: inherit;
   padding: 0.65rem 0.75rem; border: 1px solid var(--ink); background: var(--chip); color: var(--ink); }
-.login button { margin-top: 0.8rem; min-height: 2.6rem; padding: 0.5rem 1.1rem;
+.login button { margin-top: 0.8rem; min-height: 2.6rem; padding: 0.5rem 1.1rem; width: 100%;
   font: 500 1rem/1 "Source Sans 3", sans-serif; border: 0; background: var(--pigment);
   color: var(--on-pigment); cursor: pointer; }
+.lede { margin: 0 0 0.75rem; color: var(--muted); }
 .empty { margin: 0; }
 .series-toggles, .readout, dl, form, .plant-chart { max-width: 100%; }
 .plant-chart { position: relative; width: 100%; aspect-ratio: 400 / 214; }

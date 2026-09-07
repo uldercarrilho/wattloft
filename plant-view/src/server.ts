@@ -114,6 +114,10 @@ export function createApp(opts: CreateAppOptions): Hono {
     const text = await c.req.text();
     const offered = new URLSearchParams(text).get("password") ?? "";
     if (!passwordsEqual(offered, opts.operatorPassword)) {
+      const accept = c.req.header("accept") ?? "";
+      if (accept.includes("application/json")) {
+        return c.json({ error: "not-accepted" }, 401);
+      }
       return c.html(opts.documentHtml, 401);
     }
     c.header("Set-Cookie", persistSession(opts.operatorPassword, opts.cookieSecure));

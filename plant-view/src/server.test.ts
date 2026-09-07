@@ -33,6 +33,17 @@ describe("Operator BFF", () => {
     expect(rejected.headers.getSetCookie().join()).not.toContain("wattloft=");
   });
 
+  it("rejects the wrong Operator password as JSON when asked", async () => {
+    const rejected = await app().request("/login", {
+      method: "POST",
+      headers: { Accept: "application/json" },
+      body: new URLSearchParams({ password: "not-the-password" }),
+    });
+    expect(rejected.status).toBe(401);
+    expect(await rejected.json()).toEqual({ error: "not-accepted" });
+    expect(rejected.headers.getSetCookie().join()).not.toContain("wattloft=");
+  });
+
   it("sets a session cookie and redirects after the correct password", async () => {
     const granted = await app().request("/login", {
       method: "POST",

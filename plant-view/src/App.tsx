@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   type ChartMode,
   readChartMode,
@@ -51,14 +51,49 @@ function Logout() {
   );
 }
 
-function Login() {
+function Login({ onGranted }: { onGranted: () => void }) {
+  const [rejected, setRejected] = useState(false);
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const password = new FormData(form).get("password");
+    const response = await fetch("/login", {
+      method: "POST",
+      credentials: "same-origin",
+      redirect: "manual",
+      headers: { Accept: "application/json" },
+      body: new URLSearchParams({
+        password: typeof password === "string" ? password : "",
+      }),
+    });
+    if (response.status === 303 || response.ok) {
+      setRejected(false);
+      onGranted();
+      return;
+    }
+    setRejected(true);
+  }
   return (
     <main>
-      <h1>Plant</h1>
-      <form className="login" method="post" action="/login">
+      <h1>Wattloft</h1>
+      <p className="lede">This Plant</p>
+      <form className="login" onSubmit={onSubmit}>
         <label>
-          Password <input type="password" name="password" required />
+          Password{" "}
+          <input
+            type="password"
+            name="password"
+            required
+            autoComplete="current-password"
+            aria-invalid={rejected ? true : undefined}
+            aria-describedby={rejected ? "login-error" : undefined}
+          />
         </label>
+        {rejected ? (
+          <p id="login-error" role="alert">
+            Password not accepted.
+          </p>
+        ) : null}
         <button type="submit">Log in</button>
       </form>
     </main>
@@ -319,7 +354,7 @@ export function App() {
   }, [tick]);
 
   if (state.kind === "login") {
-    return <Login />;
+    return <Login onGranted={() => setTick((n) => n + 1)} />;
   }
   if (state.kind === "empty") {
     return (
