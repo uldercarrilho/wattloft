@@ -8,6 +8,7 @@ import { Hono } from "hono";
 
 const COOKIE = "wattloft";
 const SESSION_PAYLOAD = "operator";
+const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 
 export type CreateAppOptions = {
   operatorPassword: string;
@@ -18,8 +19,14 @@ export type CreateAppOptions = {
   staticRoot?: string;
 };
 
-function sign(password: string): string {
-  return createHmac("sha256", password).update(SESSION_PAYLOAD).digest("hex");
+function sessionHmac(password: string, issuedAt: number): string {
+  return createHmac("sha256", password)
+    .update(`${SESSION_PAYLOAD}.${issuedAt}`)
+    .digest("hex");
+}
+
+function sign(password: string, issuedAt: number): string {
+  return `${issuedAt}.${sessionHmac(password, issuedAt)}`;
 }
 
 function passwordsEqual(offered: string, expected: string): boolean {
@@ -51,8 +58,22 @@ function hasSession(cookieHeader: string | undefined, password: string): boolean
   if (offered === null) {
     return false;
   }
-  const expected = Buffer.from(sign(password));
-  const got = Buffer.from(offered);
+  const separator = offered.indexOf(".");
+  if (separator <= 0) {
+    return false;
+  }
+  const issuedRaw = offered.slice(0, separator);
+  const offeredHmac = offered.slice(separator + 1);
+  const issuedAt = Number(issuedRaw);
+  if (!Number.isInteger(issuedAt) || issuedRaw !== String(issuedAt)) {
+    return false;
+  }
+  const ageSeconds = Math.floor(Date.now() / 1000) - issuedAt;
+  if (ageSeconds < 0 || ageSeconds > SESSION_TTL_SECONDS) {
+    return false;
+  }
+  const expected = Buffer.from(sessionHmac(password, issuedAt));
+  const got = Buffer.from(offeredHmac);
   if (got.length !== expected.length) {
     return false;
   }
@@ -68,6 +89,14 @@ function setCookie(value: string, cookieSecure: boolean, maxAge?: number): strin
     parts.push(`Max-Age=${maxAge}`);
   }
   return parts.join("; ");
+}
+
+function persistSession(password: string, cookieSecure: boolean): string {
+  return setCookie(
+    sign(password, Math.floor(Date.now() / 1000)),
+    cookieSecure,
+    SESSION_TTL_SECONDS,
+  );
 }
 
 function parseUnit(raw: string | undefined): string {
@@ -87,7 +116,7 @@ export function createApp(opts: CreateAppOptions): Hono {
     if (!passwordsEqual(offered, opts.operatorPassword)) {
       return c.html(opts.documentHtml, 401);
     }
-    c.header("Set-Cookie", setCookie(sign(opts.operatorPassword), opts.cookieSecure));
+    c.header("Set-Cookie", persistSession(opts.operatorPassword, opts.cookieSecure));
     return c.redirect("/", 303);
   });
 
@@ -103,6 +132,7 @@ export function createApp(opts: CreateAppOptions): Hono {
     if (!hasSession(c.req.header("cookie"), opts.operatorPassword)) {
       return c.body(null, 401);
     }
+    c.header("Set-Cookie", persistSession(opts.operatorPassword, opts.cookieSecure));
     const unit = parseUnit(c.req.query("unit"));
     const day = c.req.query("day");
     const snapshotUrl = new URL("/snapshot", opts.apiUrl.endsWith("/") ? opts.apiUrl : `${opts.apiUrl}/`);
