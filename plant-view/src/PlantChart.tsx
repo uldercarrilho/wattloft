@@ -13,6 +13,7 @@ import {
 import type { ActiveElement, ChartConfiguration, ChartEvent, Plugin } from "chart.js";
 import type { ChartMode } from "./chartMode";
 import {
+  hourTickLabel,
   parkedMinute,
   type ChartDataset,
   type EnergyChartModel,
@@ -30,12 +31,15 @@ Chart.register(
   CategoryScale,
   Filler,
 );
+if (Chart.defaults) {
+  Chart.defaults.locale = "en-US";
+}
 
 const FALLBACK: Record<ChartDataset["swatch"], [string, string]> = {
   plant: ["--plant", "#1A2A3A"],
   pigment: ["--pigment", "#1E4F8C"],
-  "logger-a": ["--logger-a", "#9B2C2C"],
-  "logger-b": ["--logger-b", "#2A6B5A"],
+  "logger-a": ["--logger-a", "#1E4F8C"],
+  "logger-b": ["--logger-b", "#C4841D"],
 };
 
 function cssColor(swatch: ChartDataset["swatch"]): string {
@@ -52,6 +56,21 @@ function inkColor(): string {
 function mutedColor(): string {
   if (typeof document === "undefined") return "#5A6B78";
   return getComputedStyle(document.documentElement).getPropertyValue("--muted").trim() || "#5A6B78";
+}
+
+function withAlpha(color: string, alpha: number): string {
+  const hex = color.trim();
+  if (hex.startsWith("#") && (hex.length === 7 || hex.length === 4)) {
+    const full =
+      hex.length === 4
+        ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`
+        : hex;
+    const r = Number.parseInt(full.slice(1, 3), 16);
+    const g = Number.parseInt(full.slice(3, 5), 16);
+    const b = Number.parseInt(full.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  return color;
 }
 
 export function PlantChart({
@@ -120,7 +139,7 @@ export function PlantChart({
             if (model.kind === "time") hairRef.current = value;
             else highlightRef.current = value;
             onPointerRef.current(value);
-            chartRef.current?.update("none");
+            chartRef.current?.update?.("none");
           },
           onBarNavigate: (href) => onBarNavigateRef.current(href),
           highlight: () => highlightRef.current,
@@ -151,7 +170,7 @@ export function PlantChart({
       const minute = Math.max(tMin, Math.min(tMax, Math.round(raw)));
       hairRef.current = minute;
       onPointerRef.current(minute);
-      chartRef.current?.update("none");
+      chartRef.current?.update?.("none");
     }
     function onDown(ev: PointerEvent): void {
       if (typeof plot.setPointerCapture === "function") {
@@ -172,16 +191,47 @@ export function PlantChart({
     };
   }, [model, failed]);
 
+  useEffect(() => {
+    const plot = canvasRef.current;
+    if (!plot || failed) return undefined;
+    function onKey(ev: KeyboardEvent): void {
+      if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
+      ev.preventDefault();
+      const delta = ev.key === "ArrowRight" ? 1 : -1;
+      if (model.kind === "time") {
+        const tMin = model.minutes[0] ?? 0;
+        const tMax = model.minutes.at(-1) ?? 0;
+        const next = Math.max(tMin, Math.min(tMax, hairRef.current + delta));
+        hairRef.current = next;
+        onPointerRef.current(next);
+      } else {
+        const next = Math.max(
+          0,
+          Math.min(model.tickLabels.length - 1, highlightRef.current + delta),
+        );
+        highlightRef.current = next;
+        onPointerRef.current(next);
+      }
+      chartRef.current?.update?.("none");
+    }
+    plot.addEventListener("keydown", onKey);
+    return () => plot.removeEventListener("keydown", onKey);
+  }, [model, failed]);
+
   if (failed) {
     return <p className="empty">Plant view cannot draw this chart.</p>;
   }
   const label = model.kind === "time" ? "Power curve" : "Energy bars";
   return (
-    <div className="plant-chart">
+    <div
+      className={model.kind === "energy" ? "plant-chart is-energy" : "plant-chart"}
+      id="plant-chart"
+    >
       <canvas
         ref={canvasRef}
         role="img"
         aria-label={label}
+        tabIndex={0}
         style={{ touchAction: "none" }}
       />
     </div>
@@ -201,6 +251,12 @@ function chartConfig(
   },
 ) {
   const stacked = model.datasets.some((dataset) => dataset.stacked);
+  const yTitle = {
+    display: true,
+    text: model.yUnit,
+    color: muted,
+    font: { family: '"IBM Plex Mono", monospace', size: 10 },
+  };
   if (model.kind === "time") {
     return {
       type: "line" as const,
@@ -225,8 +281,7 @@ function chartConfig(
               color: muted,
               font: { family: '"IBM Plex Mono", monospace', size: 10 },
               callback(value: string | number) {
-                const n = Number(value);
-                return n % 60 === 0 ? String(n / 60) : "";
+                return hourTickLabel(value);
               },
             },
             grid: { color: "rgba(26, 42, 58, 0.12)" },
@@ -235,6 +290,7 @@ function chartConfig(
             min: 0,
             max: model.yMax,
             stacked,
+            title: yTitle,
             ticks: {
               color: muted,
               font: { family: '"IBM Plex Mono", monospace', size: 10 },
@@ -256,7 +312,9 @@ function chartConfig(
         return {
           label: dataset.name,
           data: dataset.values,
-          backgroundColor: fill,
+          backgroundColor: model.partial.map((partial) =>
+            withAlpha(fill, partial ? 0.45 : 1),
+          ),
           borderColor: model.tickLabels.map((_, index) => (index === highlight ? ink : fill)),
           borderWidth: model.tickLabels.map((_, index) => (index === highlight ? 2 : 0)),
           stack: stacked ? "energy" : undefined,
@@ -296,6 +354,7 @@ function chartConfig(
           stacked,
           min: 0,
           max: model.yMax,
+          title: yTitle,
           ticks: {
             color: muted,
             font: { family: '"IBM Plex Mono", monospace', size: 10 },
@@ -308,6 +367,7 @@ function chartConfig(
 }
 
 function timeDatasets(model: TimeChartModel, stacked: boolean) {
+  const dashedLogger = model.datasets.find((dataset) => dataset.role === "logger")?.name;
   return model.datasets.flatMap((dataset) => {
     const stroke = cssColor(dataset.swatch);
     const style = {
@@ -318,6 +378,10 @@ function timeDatasets(model: TimeChartModel, stacked: boolean) {
       pointRadius: 0,
       tension: 0,
       spanGaps: false,
+      borderDash:
+        !stacked && dataset.role === "logger" && dataset.name === dashedLogger
+          ? [6, 4]
+          : undefined,
       stack: stacked ? "power" : undefined,
     };
     if (!stacked) {

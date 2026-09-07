@@ -20,6 +20,7 @@ vi.mock("chart.js", () => {
     return instance;
   }
   Chart.register = vi.fn();
+  Chart.defaults = { locale: "en-US" };
   return {
     Chart,
     LineController: class LineController {},
@@ -51,6 +52,7 @@ const snapshot: Extract<PlantPayload, { empty: false }> = {
   curve: [
     {
       name: "3909309465",
+      display_name: "East",
       points: [{ at: "2026-08-21T15:00:00", watts: 625, lifetime_kwh: 5635.4 }],
     },
     { name: "Plant", points: [{ at: "2026-08-21T15:00:00", watts: 625 }] },
@@ -62,6 +64,9 @@ function stubPlant(status: number, body?: unknown): void {
     "fetch",
     vi.fn(async (input: RequestInfo) => {
       const url = String(input);
+      if (url.startsWith("/login/passkey")) {
+        return new Response(JSON.stringify({ error: "unavailable" }), { status: 404 });
+      }
       expect(url.startsWith("/api/plant")).toBe(true);
       if (status === 401) {
         return new Response(null, { status: 401 });
@@ -112,6 +117,9 @@ describe("Plant view", () => {
       if (url.startsWith("/api/plant")) {
         return new Response(null, { status: 401 });
       }
+      if (url.startsWith("/login/passkey")) {
+        return new Response(JSON.stringify({ error: "unavailable" }), { status: 404 });
+      }
       expect(url).toBe("/login");
       return new Response(JSON.stringify({ error: "not-accepted" }), {
         status: 401,
@@ -130,6 +138,32 @@ describe("Plant view", () => {
     expect(screen.getByLabelText("Password").getAttribute("aria-invalid")).toBe("true");
   });
 
+  it("shows Use passkey when a credential is configured", async () => {
+    vi.stubGlobal("PublicKeyCredential", class PublicKeyCredential {});
+    const fetchMock = vi.fn(async (input: RequestInfo) => {
+      const url = String(input);
+      if (url.startsWith("/api/plant")) {
+        return new Response(null, { status: 401 });
+      }
+      if (url === "/login/passkey/options") {
+        return new Response(
+          JSON.stringify({
+            challenge: "abc",
+            rpId: "localhost",
+            timeout: 60_000,
+            userVerification: "preferred",
+            allowCredentials: [{ type: "public-key", id: "cred" }],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      throw new Error(url);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+    expect(await screen.findByRole("button", { name: "Use passkey" })).toBeTruthy();
+  });
+
   it("shows empty History without KPIs or a chart", async () => {
     stubPlant(200, { empty: true });
     render(<App />);
@@ -137,11 +171,11 @@ describe("Plant view", () => {
       await screen.findByText("This Plant has no History yet."),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Log out" })).toBeTruthy();
-    expect(screen.queryByText("Today energy")).toBeNull();
+    expect(screen.queryByText("Today so far")).toBeNull();
     expect(screen.queryByText("Current Power")).toBeNull();
     expect(document.querySelector("canvas")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Overlay" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Stack" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Each" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "By Logger" })).toBeNull();
   });
 
   it("shows a failure sentence when History cannot be reached", async () => {
@@ -152,8 +186,8 @@ describe("Plant view", () => {
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Log out" })).toBeTruthy();
     expect(screen.queryByText("This Plant has no History yet.")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Overlay" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Stack" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Each" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "By Logger" })).toBeNull();
   });
 
   it("renders KPIs, Day bars, and grain names from the snapshot", async () => {
@@ -164,10 +198,10 @@ describe("Plant view", () => {
     expect(screen.getByText("50 W")).toBeTruthy();
     expect(screen.getByText("5635.4 kWh")).toBeTruthy();
     expect(await screen.findByRole("img", { name: "Energy bars" })).toBeTruthy();
-    expect(screen.getByText("2026-08-21 3.90 kWh")).toBeTruthy();
+    expect(screen.getAllByText("2026-08-21 3.90 kWh").length).toBeGreaterThan(0);
     expect(screen.queryByText("2026-09-01 0.20 kWh")).toBeNull();
     expect(document.querySelector("ol.days")).toBeNull();
-    expect(screen.getByRole("link", { name: "Time" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Power curve for this Local day" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Day" }).getAttribute("aria-current")).toBe(
       "true",
     );
@@ -204,7 +238,7 @@ describe("Plant view", () => {
     stubPlant(200, { ...snapshot, unit: "time" });
     render(<App />);
     expect(await screen.findByRole("button", { name: "Plant" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Stack" }));
+    fireEvent.click(screen.getByRole("button", { name: "By Logger" }));
     expect(screen.queryByRole("button", { name: "Plant" })).toBeNull();
     expect(screen.getByRole("img", { name: "Power curve" })).toBeTruthy();
   });
@@ -213,8 +247,8 @@ describe("Plant view", () => {
     window.history.replaceState({}, "", "/?day=2026-08-21&unit=day");
     stubPlant(200, snapshot);
     render(<App />);
-    const overlay = await screen.findByRole("button", { name: "Overlay" });
-    const stack = screen.getByRole("button", { name: "Stack" });
+    const overlay = await screen.findByRole("button", { name: "Each" });
+    const stack = screen.getByRole("button", { name: "By Logger" });
     expect(overlay.getAttribute("aria-pressed")).toBe("true");
     expect(stack.getAttribute("aria-pressed")).toBe("false");
     fireEvent.click(stack);
@@ -228,10 +262,10 @@ describe("Plant view", () => {
     window.history.replaceState({}, "", "/?day=2026-08-21&unit=day");
     stubPlant(200, snapshot);
     render(<App />);
-    expect((await screen.findByRole("button", { name: "Stack" })).getAttribute("aria-pressed")).toBe(
+    expect((await screen.findByRole("button", { name: "By Logger" })).getAttribute("aria-pressed")).toBe(
       "true",
     );
-    expect(screen.getByRole("button", { name: "Overlay" }).getAttribute("aria-pressed")).toBe(
+    expect(screen.getByRole("button", { name: "Each" }).getAttribute("aria-pressed")).toBe(
       "false",
     );
   });
@@ -259,11 +293,17 @@ describe("Plant view", () => {
     window.history.replaceState({}, "", "/?day=2026-08-21&unit=day");
     stubPlant(200, withLoggers);
     render(<App />);
-    await screen.findByText("2026-08-21 3.90 kWh");
+    await screen.findAllByText("2026-08-21 3.90 kWh");
     expect(screen.queryByRole("button", { name: "3909309465" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Stack" }));
+    fireEvent.click(screen.getByRole("button", { name: "By Logger" }));
     expect(screen.getByRole("button", { name: "3909310155" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "3909309465" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "East" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "East" }).getAttribute("data-series")).toBe(
+      "3909309465",
+    );
+    expect(screen.getByRole("button", { name: "East" }).getAttribute("title")).toBe(
+      "3909309465",
+    );
     expect(screen.getByRole("img", { name: "Energy bars" })).toBeTruthy();
   });
 
@@ -272,7 +312,7 @@ describe("Plant view", () => {
     window.history.replaceState({}, "", "/?day=2026-08-21&unit=day");
     stubPlant(200, snapshot);
     render(<App />);
-    expect(await screen.findByText("2026-08-21 3.90 kWh")).toBeTruthy();
+    expect((await screen.findAllByText("2026-08-21 3.90 kWh")).length).toBeGreaterThan(0);
     expect(screen.getByRole("img", { name: "Energy bars" })).toBeTruthy();
   });
 
@@ -300,9 +340,9 @@ describe("Plant view", () => {
     window.history.replaceState({}, "", "/?day=2026-08-21&unit=day");
     stubPlant(200, withLoggers);
     render(<App />);
-    expect(await screen.findByText("2026-08-21 3.90 kWh")).toBeTruthy();
+    expect((await screen.findAllByText("2026-08-21 3.90 kWh")).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: "3909310155" }));
-    expect(screen.getByText("2026-08-21 2.10 kWh")).toBeTruthy();
+    expect(screen.getAllByText("2026-08-21 2.10 kWh").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Plant" })).toBeNull();
   });
 
@@ -311,12 +351,12 @@ describe("Plant view", () => {
     stubPlant(200, { ...snapshot, unit: "time" });
     render(<App />);
     await screen.findByRole("button", { name: "Plant" });
-    fireEvent.click(screen.getByRole("button", { name: "Stack" }));
+    fireEvent.click(screen.getByRole("button", { name: "By Logger" }));
     expect(screen.queryByRole("button", { name: "Plant" })).toBeNull();
     expect(screen.getByRole("img", { name: "Power curve" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "3909309465" }));
+    fireEvent.click(screen.getByRole("button", { name: "East" }));
     expect(screen.getByRole("img", { name: "Power curve" })).toBeTruthy();
-    expect(screen.queryByText("3909309465 625 W")).toBeNull();
+    expect(screen.queryByText("East 625 W")).toBeNull();
   });
 
   it("navigates from a Day column click", async () => {
@@ -333,6 +373,9 @@ describe("Plant view", () => {
     let finishDay: ((value: Response) => void) | undefined;
     const fetchMock = vi.fn(async (input: RequestInfo) => {
       const url = String(input);
+      if (url.startsWith("/login/passkey")) {
+        return new Response(JSON.stringify({ error: "unavailable" }), { status: 404 });
+      }
       if (url.includes("unit=day")) {
         return new Promise<Response>((resolve) => {
           finishDay = resolve;
@@ -348,7 +391,7 @@ describe("Plant view", () => {
     render(<App />);
     expect(await screen.findByText("0.20 kWh")).toBeTruthy();
     fireEvent.click(screen.getByRole("link", { name: "Day" }));
-    expect(screen.getByText("Today energy")).toBeTruthy();
+    expect(screen.getByText("Today so far")).toBeTruthy();
     expect(document.querySelector("main")?.getAttribute("aria-busy")).toBe("true");
     finishDay?.(
       new Response(JSON.stringify(snapshot), {
@@ -383,7 +426,59 @@ describe("Plant view", () => {
     stubPlant(200, snapshot);
     render(<App />);
     expect(await screen.findByText("Plant view cannot draw this chart.")).toBeTruthy();
-    expect(screen.getByText("Today energy")).toBeTruthy();
+    expect(screen.getByText("Today so far")).toBeTruthy();
     expect(screen.getByText("0.20 kWh")).toBeTruthy();
+  });
+
+  it("keeps Today so far as Plant-now and names the selected day's energy", async () => {
+    window.history.replaceState({}, "", "/?day=2026-08-21&unit=day");
+    stubPlant(200, { ...snapshot, history_start: "2026-08-21" });
+    render(<App />);
+    expect(await screen.findByText("Today so far")).toBeTruthy();
+    expect(screen.getAllByText("0.20 kWh").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("2026-08-21 3.90 kWh").length).toBeGreaterThan(0);
+    expect(screen.getByText("In progress")).toBeTruthy();
+  });
+
+  it("captions Month History since the first Sample", async () => {
+    window.history.replaceState({}, "", "/?day=2026-08-21&unit=month");
+    stubPlant(200, { ...snapshot, unit: "month", history_start: "2026-08-21" });
+    render(<App />);
+    expect(
+      await screen.findByText(
+        "History since 2026-08-21. Lifetime includes energy from before Wattloft.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("Partial History")).toBeTruthy();
+    expect(screen.getByText("Tap a month to open Day grain")).toBeTruthy();
+  });
+
+  it("omits Year chevrons when History is one span", async () => {
+    window.history.replaceState({}, "", "/?day=2026-08-21&unit=year");
+    stubPlant(200, { ...snapshot, unit: "year" });
+    render(<App />);
+    expect(await screen.findByText("2026")).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Previous" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Next" })).toBeNull();
+  });
+
+  it("exposes a skip link to the chart and keeps Log out off the heading", async () => {
+    window.history.replaceState({}, "", "/?day=2026-08-21&unit=day");
+    stubPlant(200, snapshot);
+    render(<App />);
+    const skip = await screen.findByRole("link", { name: "Skip to chart" });
+    expect(skip.getAttribute("href")).toBe("#plant-chart");
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Plant");
+  });
+
+  it("keeps Why gaps closed on Power", async () => {
+    window.history.replaceState({}, "", "/?day=2026-08-21&unit=time");
+    stubPlant(200, { ...snapshot, unit: "time" });
+    render(<App />);
+    const disclosure = await screen.findByText("Why gaps?");
+    expect(disclosure.closest("details")?.open).toBe(false);
+    expect(screen.getByRole("button", { name: "East" }).getAttribute("data-series")).toBe(
+      "3909309465",
+    );
   });
 });

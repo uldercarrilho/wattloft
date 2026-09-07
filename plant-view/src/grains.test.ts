@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  chipLabel,
   dayEnergyBars,
   formatKwh,
   formatWatts,
@@ -7,6 +8,7 @@ import {
   parseUnit,
   stackLoggerNames,
   stepper,
+  weekdayTick,
   yearEnergyBars,
 } from "./grains";
 import type { PlantSnapshot } from "./types";
@@ -155,5 +157,34 @@ describe("grains", () => {
       "3909310155",
       "3913630013",
     ]);
+  });
+
+  it("marks today's Local day bar in progress and incomplete History buckets as partial", () => {
+    const days = dayEnergyBars(snapshot, "2026-08-21");
+    expect(days.map((bar) => bar.partial)).toEqual([false, true]);
+    const months = monthEnergyBars(snapshot, "2026-08-21");
+    expect(months.find((bar) => bar.label.startsWith("2026-08 "))?.partial).toBe(true);
+    expect(months.find((bar) => bar.label.startsWith("2026-09 "))?.partial).toBe(false);
+    expect(yearEnergyBars(snapshot, "2026-08-21")[0]?.partial).toBe(true);
+  });
+
+  it("formats Day ticks as weekday and day without a comma", () => {
+    expect(weekdayTick("2026-08-21")).toBe("Fri 21");
+  });
+
+  it("labels a Logger chip with its alias and a late History start", () => {
+    const late = {
+      ...snapshot,
+      history_start: "2026-08-21",
+      local_day_bars: [
+        { local_day: "2026-08-21", today_energy_kwh: 3.9, loggers: [] },
+        {
+          local_day: "2026-08-22",
+          today_energy_kwh: 0.2,
+          loggers: [{ name: "3909309465", display_name: "East", today_energy_kwh: 0.2 }],
+        },
+      ],
+    };
+    expect(chipLabel(late, "3909309465")).toBe("East from 2026-08-22");
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   type ChartMode,
   readChartMode,
@@ -12,10 +12,15 @@ import {
 } from "./plantChartModel";
 import { PlantChart } from "./PlantChart";
 import {
+  chipLabel,
+  displayNameOf,
   formatKwh,
   formatWatts,
+  historyStartOf,
   href,
+  localDayOf,
   parseUnit,
+  selectedPeriodKwh,
   stackLoggerNames,
   stepper,
 } from "./grains";
@@ -28,6 +33,13 @@ type ViewState =
   | { kind: "empty" }
   | { kind: "error" }
   | { kind: "plant"; payload: Extract<PlantPayload, { empty: false }> };
+
+const GRAIN_LABEL: Record<Grain, string> = {
+  time: "Power",
+  day: "Day",
+  month: "Month",
+  year: "Year",
+};
 
 function apiPath(): string {
   const params = new URLSearchParams(window.location.search);
@@ -51,8 +63,50 @@ function Logout() {
   );
 }
 
+function PlantHeader() {
+  return (
+    <header className="plant-header">
+      <h1>Plant</h1>
+      <Logout />
+    </header>
+  );
+}
+
+function b64urlToBuffer(value: string): ArrayBuffer {
+  const padded = value.replace(/-/g, "+").replace(/_/g, "/");
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+function bufferToB64url(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/u, "");
+}
+
 function Login({ onGranted }: { onGranted: () => void }) {
   const [rejected, setRejected] = useState(false);
+  const [passkeyReady, setPasskeyReady] = useState(false);
+  const [passkeyRejected, setPasskeyRejected] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/login/passkey/options", { credentials: "same-origin" }).then((response) => {
+      const json = response.headers.get("content-type")?.includes("application/json");
+      if (!cancelled && response.ok && json && typeof PublicKeyCredential !== "undefined") {
+        setPasskeyReady(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
@@ -72,6 +126,62 @@ function Login({ onGranted }: { onGranted: () => void }) {
       return;
     }
     setRejected(true);
+  }
+  async function onPasskey() {
+    const optionsRes = await fetch("/login/passkey/options", { credentials: "same-origin" });
+    if (!optionsRes.ok) {
+      setPasskeyRejected(true);
+      return;
+    }
+    const options = (await optionsRes.json()) as {
+      challenge: string;
+      rpId: string;
+      timeout: number;
+      userVerification: UserVerificationRequirement;
+      allowCredentials: { type: "public-key"; id: string }[];
+    };
+    try {
+      const credential = await navigator.credentials.get({
+        publicKey: {
+          challenge: b64urlToBuffer(options.challenge),
+          rpId: options.rpId,
+          timeout: options.timeout,
+          userVerification: options.userVerification,
+          allowCredentials: options.allowCredentials.map((item) => ({
+            type: "public-key" as const,
+            id: b64urlToBuffer(item.id),
+          })),
+        },
+      });
+      if (!credential || credential.type !== "public-key") {
+        setPasskeyRejected(true);
+        return;
+      }
+      const assertion = credential as PublicKeyCredential;
+      const response = assertion.response as AuthenticatorAssertionResponse;
+      const granted = await fetch("/login/passkey", {
+        method: "POST",
+        credentials: "same-origin",
+        redirect: "manual",
+        headers: { "content-type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({
+          id: assertion.id,
+          response: {
+            clientDataJSON: bufferToB64url(response.clientDataJSON),
+            authenticatorData: bufferToB64url(response.authenticatorData),
+            signature: bufferToB64url(response.signature),
+          },
+        }),
+      });
+      if (granted.status === 303 || granted.ok) {
+        setPasskeyRejected(false);
+        onGranted();
+        return;
+      }
+      setPasskeyRejected(true);
+    } catch {
+      setPasskeyRejected(true);
+    }
   }
   return (
     <main>
@@ -96,6 +206,14 @@ function Login({ onGranted }: { onGranted: () => void }) {
         ) : null}
         <button type="submit">Log in</button>
       </form>
+      {passkeyReady ? (
+        <button type="button" className="passkey" onClick={() => void onPasskey()}>
+          Use passkey
+        </button>
+      ) : null}
+      {passkeyRejected ? (
+        <p role="alert">Passkey not accepted.</p>
+      ) : null}
     </main>
   );
 }
@@ -114,16 +232,25 @@ function overlayTimeNames(snapshot: PlantSnapshot): string[] {
   return ["Plant", ...loggers];
 }
 
+function drillHint(unit: Grain): string | null {
+  if (unit === "day") return "Tap a day to open its curve";
+  if (unit === "month") return "Tap a month to open Day grain";
+  if (unit === "year") return "Tap a year to open Month grain";
+  return null;
+}
+
 function Chart({
   snapshot,
   unit,
   mode,
   visible,
+  chips,
 }: {
   snapshot: PlantSnapshot;
   unit: Grain;
   mode: ChartMode;
   visible: ReadonlySet<string>;
+  chips: ReactNode;
 }) {
   const model = buildPlantChartModel(snapshot, unit, mode, visible);
   const [pointer, setPointer] = useState<number | null>(null);
@@ -137,39 +264,142 @@ function Chart({
     model.kind === "time"
       ? timeReadout(model, pointer ?? parkedMinute(model), mode)
       : energyReadout(model, pointer ?? model.currentIndex);
+  const nowDay = localDayOf(snapshot.current_power_at);
+  const showPeriod = snapshot.selected_day !== nowDay;
+  const periodKwh =
+    mode === "stack"
+      ? selectedPeriodKwh(snapshot, visible)
+      : selectedPeriodKwh(snapshot);
+  const partialCaption =
+    model.kind === "energy" && model.partial.some(Boolean)
+      ? unit === "day"
+        ? "In progress"
+        : "Partial History"
+      : null;
+  const historyCaption =
+    unit === "month" || unit === "year"
+      ? `History since ${historyStartOf(snapshot)}. Lifetime includes energy from before Wattloft.`
+      : null;
+  const tapHint = drillHint(unit);
   return (
-    <>
-      <PlantChart
-        model={model}
-        mode={mode}
-        onPointer={setPointer}
-        onBarNavigate={(href) => {
-          window.history.pushState({}, "", href);
-          window.dispatchEvent(new PopStateEvent("popstate"));
-        }}
-        onDrawError={() => undefined}
-      />
-      <div className="readout" aria-live="polite">
-        <span className="when">{readout.when}</span>
-        {readout.rows.map((row) => (
-          <p
-            key={row.name}
-            data-series={row.name}
-            className={row.name === "Plant" ? "series-plant" : ""}
-          >
-            {row.name} {row.text}
+    <div className="plant-stage">
+      <div className="plant-plot">
+        {showPeriod ? (
+          <p className="period">
+            {snapshot.selected_day} {formatKwh(periodKwh)}
           </p>
-        ))}
+        ) : null}
+        <PlantChart
+          model={model}
+          mode={mode}
+          onPointer={setPointer}
+          onBarNavigate={(target) => {
+            window.history.pushState({}, "", target);
+            window.dispatchEvent(new PopStateEvent("popstate"));
+          }}
+          onDrawError={() => undefined}
+        />
+        {chips}
       </div>
-      {unit === "time" ? (
-        <p className="hint">
-          Tap a name to show or hide its curve. A gap where Lifetime energy still rose
-          is interpolated as a smooth Power curve — that energy happened. Where Lifetime
-          barely moved, the line valleys: no Samples and no estimate, possible Logger
-          failure.
-        </p>
-      ) : null}
-    </>
+      <div className="plant-aside">
+        <div className="readout" aria-live="polite">
+          <span className="when">{readout.when}</span>
+          {readout.rows.map((row) => (
+            <p
+              key={row.name}
+              data-series={row.name}
+              className={row.name === "Plant" ? "series-plant" : ""}
+            >
+              {displayNameOf(snapshot, row.name)} {row.text}
+            </p>
+          ))}
+        </div>
+        {historyCaption ? <p className="hint">{historyCaption}</p> : null}
+        {partialCaption ? <p className="hint">{partialCaption}</p> : null}
+        {tapHint ? <p className="hint">{tapHint}</p> : null}
+        {unit === "time" ? (
+          <details className="hint gaps">
+            <summary>Why gaps?</summary>
+            <p>
+              Tap a name to show or hide its curve. A gap where Lifetime energy still rose
+              is interpolated as a smooth Power curve — that energy happened. Where Lifetime
+              barely moved, the line valleys: no Samples and no estimate, possible Logger
+              failure.
+            </p>
+          </details>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function SeriesChips({
+  snapshot,
+  names,
+  hidden,
+  onToggle,
+}: {
+  snapshot: PlantSnapshot;
+  names: string[];
+  hidden: ReadonlySet<string>;
+  onToggle: (name: string) => void;
+}) {
+  if (names.length === 0) {
+    return null;
+  }
+  return (
+    <div className="series-toggles">
+      {names.map((name) => (
+        <button
+          key={name}
+          type="button"
+          className={`series-toggle ${loggerClass(name, names)}${hidden.has(name) ? " is-off" : ""}`}
+          data-series={name}
+          title={name}
+          aria-pressed={hidden.has(name) ? "false" : "true"}
+          onClick={() => onToggle(name)}
+        >
+          <i />
+          {chipLabel(snapshot, name)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function PeriodStepper({
+  label,
+  prevHref,
+  nextHref,
+  hideChevrons,
+}: {
+  label: string;
+  prevHref: string;
+  nextHref: string;
+  hideChevrons: boolean;
+}) {
+  return (
+    <nav className="stepper" aria-label="Period">
+      {hideChevrons ? null : prevHref ? (
+        <a href={prevHref} aria-label="Previous">
+          ‹
+        </a>
+      ) : (
+        <span className="dead" aria-disabled="true">
+          ‹
+        </span>
+      )}
+      <span>{label}</span>
+      {hideChevrons ? null : nextHref ? (
+        <a href={nextHref} aria-label="Next">
+          ›
+        </a>
+      ) : (
+        <span className="dead" aria-disabled="true">
+          ›
+        </span>
+      )}
+    </nav>
   );
 }
 
@@ -205,11 +435,13 @@ function Plant({
   }, [payload.selected_day, payload.unit]);
   return (
     <main aria-busy={busy ? true : undefined}>
-      <Logout />
-      <h1>Plant</h1>
+      <a className="skip" href="#plant-chart">
+        Skip to chart
+      </a>
+      <PlantHeader />
       <dl className="kpis">
         <div>
-          <dt>Today energy</dt>
+          <dt>Today so far</dt>
           <dd>{today}</dd>
         </div>
         <div>
@@ -227,35 +459,23 @@ function Plant({
           </dd>
         </div>
       </dl>
-      <nav className="stepper" aria-label="Period">
-        {period.prevHref ? (
-          <a href={period.prevHref} aria-label="Previous">
-            ‹
-          </a>
-        ) : (
-          <span className="dead" aria-hidden="true">
-            ‹
-          </span>
-        )}
-        <span>{period.label}</span>
-        {period.nextHref ? (
-          <a href={period.nextHref} aria-label="Next">
-            ›
-          </a>
-        ) : (
-          <span className="dead" aria-hidden="true">
-            ›
-          </span>
-        )}
-      </nav>
+      <PeriodStepper
+        label={period.label}
+        prevHref={period.prevHref}
+        nextHref={period.nextHref}
+        hideChevrons={unit === "year" && !period.prevHref && !period.nextHref}
+      />
       <nav className="grain" aria-label="Grain">
         {(["time", "day", "month", "year"] as const).map((grain) => (
           <a
             key={grain}
             href={href(snapshot.selected_day, grain)}
             aria-current={grain === unit ? "true" : undefined}
+            aria-label={
+              grain === "time" ? "Power curve for this Local day" : undefined
+            }
           >
-            {grain[0]!.toUpperCase() + grain.slice(1)}
+            {GRAIN_LABEL[grain]}
           </a>
         ))}
       </nav>
@@ -265,41 +485,41 @@ function Plant({
           aria-pressed={mode === "overlay"}
           onClick={() => chooseMode("overlay")}
         >
-          Overlay
+          Each
         </button>
         <button
           type="button"
           aria-pressed={mode === "stack"}
           onClick={() => chooseMode("stack")}
         >
-          Stack
+          By Logger
         </button>
       </nav>
-      <Chart snapshot={snapshot} unit={unit} mode={mode} visible={visible} />
-      {names.length > 0 ? (
-        <div className="series-toggles">
-          {names.map((name) => (
-            <button
-              key={name}
-              type="button"
-              className={`series-toggle ${loggerClass(name, names)}${hidden.has(name) ? " is-off" : ""}`}
-              data-series={name}
-              aria-pressed={hidden.has(name) ? "false" : "true"}
-              onClick={() => {
-                setHidden((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(name)) next.delete(name);
-                  else next.add(name);
-                  return next;
-                });
-              }}
-            >
-              <i />
-              {name}
-            </button>
-          ))}
-        </div>
-      ) : null}
+      <p className="hint mode-hint">
+        Each: Plant and Loggers on top of each other. By Logger: Loggers stacked; Plant is
+        the height.
+      </p>
+      <Chart
+        snapshot={snapshot}
+        unit={unit}
+        mode={mode}
+        visible={visible}
+        chips={
+          <SeriesChips
+            snapshot={snapshot}
+            names={names}
+            hidden={hidden}
+            onToggle={(name) => {
+              setHidden((prev) => {
+                const next = new Set(prev);
+                if (next.has(name)) next.delete(name);
+                else next.add(name);
+                return next;
+              });
+            }}
+          />
+        }
+      />
     </main>
   );
 }
@@ -323,7 +543,9 @@ export function App() {
       if (!(target instanceof Element)) return;
       const link = target.closest("a");
       if (!link || link.origin !== window.location.origin) return;
-      if (link.getAttribute("href")?.startsWith("/?") || link.pathname === "/") {
+      const rawHref = link.getAttribute("href") ?? "";
+      if (rawHref.startsWith("#")) return;
+      if (rawHref.startsWith("/?") || link.pathname === "/") {
         event.preventDefault();
         window.history.pushState({}, "", link.href);
         setTick((n) => n + 1);
@@ -392,8 +614,7 @@ export function App() {
   if (state.kind === "empty") {
     return (
       <main aria-busy={busy ? true : undefined}>
-        <Logout />
-        <h1>Plant</h1>
+        <PlantHeader />
         <p className="empty">This Plant has no History yet.</p>
       </main>
     );
@@ -401,8 +622,7 @@ export function App() {
   if (state.kind === "error") {
     return (
       <main>
-        <Logout />
-        <h1>Plant</h1>
+        <PlantHeader />
         <p className="empty">Plant view cannot reach History.</p>
       </main>
     );
