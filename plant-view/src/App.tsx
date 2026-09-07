@@ -25,6 +25,7 @@ import {
 } from "./grains";
 import { LastSample, lifetimeKwh } from "./LastSample";
 import type { Grain, PlantPayload, PlantSnapshot } from "./types";
+import { useWideViewport } from "./useWideViewport";
 
 type ViewState =
   | { kind: "loading" }
@@ -531,6 +532,7 @@ function Plant({
 }
 
 export function App() {
+  const wide = useWideViewport();
   const [state, setState] = useState<ViewState>({ kind: "loading" });
   const [tick, setTick] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -634,7 +636,21 @@ export function App() {
     );
   }
   if (state.kind === "plant") {
-    return <Plant payload={state.payload} busy={busy} />;
+    return wide ? (
+      <Plant payload={state.payload} busy={busy} />
+    ) : (
+      <PlantMobile payload={state.payload} busy={busy} />
+    );
   }
   return <main />;
+}
+
+function PlantMobile({
+  payload,
+  busy,
+}: {
+  payload: Extract<PlantPayload, { empty: false }>;
+  busy: boolean;
+}) {
+  return <Plant payload={payload} busy={busy} />;
 }

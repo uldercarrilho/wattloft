@@ -82,10 +82,27 @@ function stubPlant(status: number, body?: unknown): void {
   );
 }
 
+function stubMatchMedia(wide: boolean): void {
+  vi.stubGlobal(
+    "matchMedia",
+    (query: string) => ({
+      matches: wide && query.includes("min-width: 60rem"),
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+      onchange: null,
+    }),
+  );
+}
+
 describe("Plant view", () => {
   beforeEach(() => {
     window.history.replaceState({}, "", "/");
     window.localStorage.clear();
+    stubMatchMedia(true);
   });
 
   afterEach(() => {
