@@ -551,4 +551,76 @@ describe("Plant view", () => {
       "1000000001",
     );
   });
+
+  it("shows the sun glance on a narrow viewport with no unit", async () => {
+    stubMatchMedia(false);
+    window.history.replaceState({}, "", "/?day=2026-08-21");
+    stubPlant(200, snapshot);
+    render(<App />);
+    expect(await screen.findByTestId("glance-sun")).toBeTruthy();
+    expect(screen.queryByRole("navigation", { name: "Grain" })).toBeNull();
+    expect(screen.getByText("50 W")).toBeTruthy();
+  });
+
+  it("opens the Day snap on a narrow viewport without a Grain switcher", async () => {
+    stubMatchMedia(false);
+    window.history.replaceState({}, "", "/?day=2026-08-21&unit=day");
+    stubPlant(200, snapshot);
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: "Day" })).toBeTruthy();
+    expect(screen.queryByTestId("glance-sun")).toBeNull();
+    expect(screen.queryByRole("navigation", { name: "Grain" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Each" })).toBeTruthy();
+  });
+
+  it("keeps day when moving from the glance to Power", async () => {
+    stubMatchMedia(false);
+    window.history.replaceState({}, "", "/?day=2026-08-21");
+    stubPlant(200, snapshot);
+    render(<App />);
+    await screen.findByTestId("glance-sun");
+    const push = vi.spyOn(window.history, "pushState");
+    fireEvent.click(screen.getByRole("link", { name: "Power" }));
+    const pushed = String(push.mock.calls[0]?.[2]);
+    expect(pushed).toContain("day=2026-08-21");
+    expect(pushed).toContain("unit=time");
+  });
+
+  it("keeps desktop Grain nav and no glance on a wide viewport", async () => {
+    window.history.replaceState({}, "", "/?day=2026-08-21&unit=day");
+    stubPlant(200, {
+      ...snapshot,
+      loggers_now: [
+        {
+          name: "1000000001",
+          display_name: "Logger 1",
+          last_success_at: "2026-08-22T13:00:00+00:00",
+          power_w: 50,
+        },
+      ],
+    });
+    render(<App />);
+    expect(await screen.findByRole("navigation", { name: "Grain" })).toBeTruthy();
+    expect(screen.queryByTestId("glance-sun")).toBeNull();
+    expect(screen.getByText("Today so far")).toBeTruthy();
+    expect(screen.getByText("50 W")).toBeTruthy();
+  });
+
+  it("does not show a sun on login, empty History, or 502", async () => {
+    stubMatchMedia(false);
+    stubPlant(401);
+    const { unmount } = render(<App />);
+    expect(await screen.findByLabelText("Password")).toBeTruthy();
+    expect(screen.queryByTestId("glance-sun")).toBeNull();
+    unmount();
+    stubPlant(200, { empty: true });
+    render(<App />);
+    expect(await screen.findByText("This Plant has no History yet.")).toBeTruthy();
+    expect(screen.queryByTestId("glance-sun")).toBeNull();
+    cleanup();
+    stubPlant(502);
+    render(<App />);
+    expect(await screen.findByText("Plant view cannot reach History.")).toBeTruthy();
+    expect(screen.queryByTestId("glance-sun")).toBeNull();
+  });
 });

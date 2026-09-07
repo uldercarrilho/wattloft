@@ -143,6 +143,11 @@ export function displayNameOf(snapshot: PlantSnapshot, serial: string): string {
       }
     }
   }
+  for (const row of snapshot.loggers_now ?? []) {
+    if (row.name === serial && row.display_name) {
+      return row.display_name;
+    }
+  }
   return serial;
 }
 
