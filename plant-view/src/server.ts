@@ -5,8 +5,17 @@ import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
+import {
+  issuePasskeyChallenge,
+  parsePasskeyCredential,
+  readPasskeyChallenge,
+  verifyPasskeyAssertion,
+  type OperatorPasskey,
+  type PasskeyAssertion,
+} from "./passkey";
 
 const COOKIE = "wattloft";
+const PASSKEY_COOKIE = "wattloft-pk";
 const SESSION_PAYLOAD = "operator";
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 
@@ -17,6 +26,7 @@ export type CreateAppOptions = {
   documentHtml: string;
   fetch?: typeof fetch;
   staticRoot?: string;
+  passkey?: OperatorPasskey | null;
 };
 
 function sessionHmac(password: string, issuedAt: number): string {
@@ -99,6 +109,23 @@ function persistSession(password: string, cookieSecure: boolean): string {
   );
 }
 
+function passkeyCookie(token: string, cookieSecure: boolean): string {
+  const parts = [`${PASSKEY_COOKIE}=${token}`, "Path=/", "HttpOnly", "SameSite=Lax", "Max-Age=300"];
+  if (cookieSecure) {
+    parts.push("Secure");
+  }
+  return parts.join("; ");
+}
+
+function requestOrigin(c: { req: { header: (name: string) => string | undefined } }, cookieSecure: boolean): string {
+  const origin = c.req.header("origin");
+  if (origin) {
+    return origin;
+  }
+  const host = c.req.header("host") ?? "localhost";
+  return `${cookieSecure ? "https" : "http"}://${host}`;
+}
+
 function parseUnit(raw: string | undefined): string {
   if (raw === "time" || raw === "day" || raw === "month" || raw === "year") {
     return raw;
@@ -119,6 +146,50 @@ export function createApp(opts: CreateAppOptions): Hono {
         return c.json({ error: "not-accepted" }, 401);
       }
       return c.html(opts.documentHtml, 401);
+    }
+    c.header("Set-Cookie", persistSession(opts.operatorPassword, opts.cookieSecure));
+    return c.redirect("/", 303);
+  });
+
+  app.get("/login/passkey/options", (c) => {
+    if (!opts.passkey) {
+      return c.json({ error: "unavailable" }, 404);
+    }
+    const { challenge, token } = issuePasskeyChallenge(opts.operatorPassword);
+    c.header("Set-Cookie", passkeyCookie(token, opts.cookieSecure));
+    return c.json({
+      challenge,
+      rpId: opts.passkey.rpId,
+      timeout: 60_000,
+      userVerification: "preferred",
+      allowCredentials: [{ type: "public-key", id: opts.passkey.credentialId }],
+    });
+  });
+
+  app.post("/login/passkey", async (c) => {
+    if (!opts.passkey) {
+      return c.json({ error: "unavailable" }, 404);
+    }
+    const challenge = readPasskeyChallenge(
+      opts.operatorPassword,
+      cookieValue(c.req.header("cookie"), PASSKEY_COOKIE),
+    );
+    let assertion: PasskeyAssertion;
+    try {
+      assertion = (await c.req.json()) as PasskeyAssertion;
+    } catch {
+      return c.json({ error: "not-accepted" }, 401);
+    }
+    const origin = requestOrigin(c, opts.cookieSecure);
+    if (
+      !challenge ||
+      typeof assertion?.id !== "string" ||
+      typeof assertion.response?.clientDataJSON !== "string" ||
+      typeof assertion.response.authenticatorData !== "string" ||
+      typeof assertion.response.signature !== "string" ||
+      !verifyPasskeyAssertion(opts.passkey, assertion, challenge, origin)
+    ) {
+      return c.json({ error: "not-accepted" }, 401);
     }
     c.header("Set-Cookie", persistSession(opts.operatorPassword, opts.cookieSecure));
     return c.redirect("/", 303);
@@ -195,13 +266,14 @@ export function start(): void {
   const indexPath = join(here, "client", "index.html");
   const documentHtml = existsSync(indexPath)
     ? readFileSync(indexPath, "utf8")
-    : "<!doctype html><title>Plant</title>";
+    : "<!doctype html><title>Plant · Wattloft</title>";
   const app = createApp({
     operatorPassword,
     apiUrl,
     cookieSecure: process.env.COOKIE_SECURE === "true",
     documentHtml,
     staticRoot: existsSync(join(here, "client")) ? join(here, "client") : undefined,
+    passkey: parsePasskeyCredential(process.env.OPERATOR_PASSKEY_CREDENTIAL),
   });
   const hostname = process.env.PLANT_VIEW_HOST ?? "127.0.0.1";
   const port = Number(process.env.PLANT_VIEW_PORT ?? "3000");

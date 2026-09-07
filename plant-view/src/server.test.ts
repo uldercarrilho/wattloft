@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHash, createHmac, generateKeyPairSync, sign } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { createApp } from "./server";
 
@@ -190,5 +190,109 @@ describe("Operator BFF", () => {
     expect(body.empty).toBe(false);
     expect(body.unit).toBe("time");
     expect(body.today_energy_kwh).toBe(0.2);
+  });
+});
+
+describe("passkey login", () => {
+  const { publicKey, privateKey } = generateKeyPairSync("ec", { namedCurve: "P-256" });
+  const credentialId = Buffer.from("operator-passkey").toString("base64url");
+  const passkey = {
+    credentialId,
+    publicKey: publicKey.export({ type: "spki", format: "der" }).toString("base64"),
+    rpId: "localhost",
+  };
+
+  function passkeyApp() {
+    return createApp({
+      operatorPassword: PASSWORD,
+      apiUrl: "http://127.0.0.1:9",
+      cookieSecure: false,
+      documentHtml: DOCUMENT,
+      passkey,
+    });
+  }
+
+  function assertionFor(challenge: string, origin: string) {
+    const clientDataJSON = Buffer.from(
+      JSON.stringify({ type: "webauthn.get", challenge, origin }),
+      "utf8",
+    );
+    const rpIdHash = createHash("sha256").update(passkey.rpId).digest();
+    const authenticatorData = Buffer.concat([
+      rpIdHash,
+      Buffer.from([0x01]),
+      Buffer.from([0, 0, 0, 1]),
+    ]);
+    const clientHash = createHash("sha256").update(clientDataJSON).digest();
+    const signature = sign("sha256", Buffer.concat([authenticatorData, clientHash]), {
+      key: privateKey,
+      dsaEncoding: "ieee-p1363",
+    });
+    return {
+      id: credentialId,
+      response: {
+        clientDataJSON: clientDataJSON.toString("base64url"),
+        authenticatorData: authenticatorData.toString("base64url"),
+        signature: signature.toString("base64url"),
+      },
+    };
+  }
+
+  it("hides passkey options when Vault has no credential", async () => {
+    const missing = await app().request("/login/passkey/options");
+    expect(missing.status).toBe(404);
+    const posted = await app().request("/login/passkey", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id: "nope" }),
+    });
+    expect(posted.status).toBe(404);
+  });
+
+  it("issues a challenge and grants a session for a valid assertion", async () => {
+    const client = passkeyApp();
+    const options = await client.request("/login/passkey/options");
+    expect(options.status).toBe(200);
+    const body = await options.json();
+    expect(body.rpId).toBe("localhost");
+    expect(body.allowCredentials).toEqual([{ type: "public-key", id: credentialId }]);
+    const cookie = options.headers.get("set-cookie") ?? "";
+    expect(cookie).toMatch(/wattloft-pk=/);
+    const granted = await client.request("/login/passkey", {
+      method: "POST",
+      headers: {
+        cookie,
+        origin: "http://localhost",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(assertionFor(body.challenge, "http://localhost")),
+    });
+    expect(granted.status).toBe(303);
+    expect(granted.headers.get("location")).toBe("/");
+    expect(granted.headers.getSetCookie().join("\n")).toMatch(/wattloft=/);
+  });
+
+  it("rejects a bad assertion", async () => {
+    const client = passkeyApp();
+    const options = await client.request("/login/passkey/options");
+    const cookie = options.headers.get("set-cookie") ?? "";
+    const rejected = await client.request("/login/passkey", {
+      method: "POST",
+      headers: {
+        cookie,
+        origin: "http://localhost",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        id: credentialId,
+        response: {
+          clientDataJSON: Buffer.from("{}").toString("base64url"),
+          authenticatorData: Buffer.alloc(37).toString("base64url"),
+          signature: Buffer.alloc(64).toString("base64url"),
+        },
+      }),
+    });
+    expect(rejected.status).toBe(401);
+    expect(await rejected.json()).toEqual({ error: "not-accepted" });
   });
 });

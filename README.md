@@ -12,7 +12,7 @@ On the shared hostname, the Operator sees:
 - Local-day production bars (`America/Sao_Paulo`)
 - That Local day’s Power curve (each Logger and the Plant)
 
-A password authenticates the Operator. Plant view is not served over HTTP.
+A password authenticates the Operator; a passkey may as well when Vault holds `OPERATOR_PASSKEY_CREDENTIAL`. Plant view is not served over HTTP.
 
 ## Ingest
 
@@ -53,6 +53,7 @@ wattloft
 ```bash
 cd plant-view
 export OPERATOR_PASSWORD=…
+# optional: export OPERATOR_PASSKEY_CREDENTIAL='{"credentialId":"…","publicKey":"…","rpId":"wattloft.dedyn.io"}'
 export WATTLOFT_API_URL=http://127.0.0.1:8000
 npm run dev
 ```
