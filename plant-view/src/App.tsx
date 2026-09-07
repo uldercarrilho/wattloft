@@ -76,6 +76,12 @@ function Login({ onGranted }: { onGranted: () => void }) {
   const [passkeyReady, setPasskeyReady] = useState(false);
   const [passkeyRejected, setPasskeyRejected] = useState(false);
   useEffect(() => {
+    document.title = "Log in · Wattloft";
+    return () => {
+      document.title = "Plant · Wattloft";
+    };
+  }, []);
+  useEffect(() => {
     let cancelled = false;
     void fetch("/login/passkey/options", { credentials: "same-origin" }).then((response) => {
       const json = response.headers.get("content-type")?.includes("application/json");
@@ -165,6 +171,9 @@ function Login({ onGranted }: { onGranted: () => void }) {
   }
   return (
     <main>
+      <svg className="login-mark" viewBox="0 0 200 200" aria-hidden="true">
+        <circle cx="100" cy="100" r="36" className="glance-core is-hollow" />
+      </svg>
       <h1>Wattloft</h1>
       <p className="lede">Watch this Plant.</p>
       {passkeyReady ? (

@@ -287,7 +287,7 @@ describe("buildPlantChartModel energy Overlay", () => {
     const month = buildPlantChartModel(energySnapshot, "month", "overlay", new Set(["Plant"]));
     expect(month.kind).toBe("energy");
     if (month.kind !== "energy") return;
-    expect(month.tickLabels).toEqual(["2026-08", "2026-09"]);
+    expect(month.tickLabels).toEqual(["Aug", "Sep"]);
     expect(month.readoutLabels).toEqual(["August 4.10 kWh", "September 0.20 kWh"]);
     expect(month.hrefs).toEqual(["/?day=2026-08-21&unit=day", "/?day=2026-09-01&unit=day"]);
     expect(month.currentIndex).toBe(0);
@@ -494,7 +494,7 @@ describe("parkedMinute", () => {
 });
 
 describe("timeReadout hold", () => {
-  it("keeps a Logger watt with a tilde when the hair is inside a short gap", () => {
+  it("keeps a Logger watt as est. when the hair is inside a short gap", () => {
     const chart: TimeChartModel = {
       kind: "time",
       minutes: [0, 5, 10, 20],
@@ -511,7 +511,7 @@ describe("timeReadout hold", () => {
         },
       ],
     };
-    expect(timeReadout(chart, 10, "overlay").rows[0]?.text).toBe("~754 W");
+    expect(timeReadout(chart, 10, "overlay").rows[0]?.text).toBe("est. 754 W");
     expect(timeReadout(chart, 20, "overlay").rows[0]?.text).toBe("—");
   });
 });

@@ -16,6 +16,7 @@ const healthy: GlanceView = {
   ],
   todayLabel: "3.90 kWh",
   lifetimeLabel: "5,635.4 kWh",
+  reportingLabel: "East and West reporting",
 };
 
 afterEach(() => cleanup());
@@ -32,6 +33,7 @@ describe("Glance", () => {
     expect(screen.getByText("5,635.4 kWh")).toBeTruthy();
     expect(screen.getByText("East 210 W")).toBeTruthy();
     expect(screen.getByText("West 202 W")).toBeTruthy();
+    expect(screen.getByText("East and West reporting")).toBeTruthy();
     expect(sun.getAttribute("data-hollow")).toBe("false");
     const closed = sun.querySelector("circle.series-a");
     const c = 2 * Math.PI * RING_R[0]!;
@@ -51,6 +53,7 @@ describe("Glance", () => {
             { name: "3909309465", displayName: "East", closed: true, wattsLabel: "210 W" },
             { name: "3913630013", displayName: "West", closed: false, wattsLabel: "0 W" },
           ],
+          reportingLabel: "East reporting",
         }}
         currentPowerAt="2026-09-07T16:03:00.000Z"
       />,
@@ -58,6 +61,7 @@ describe("Glance", () => {
     expect(screen.getByRole("status").textContent).toBe(
       "West silent · last Sample 41 minutes ago",
     );
+    expect(screen.getByText("East reporting")).toBeTruthy();
     expect(screen.getByTestId("glance-sun").getAttribute("data-hollow")).toBe("true");
   });
 });

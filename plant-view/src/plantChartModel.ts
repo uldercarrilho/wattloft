@@ -5,6 +5,7 @@ import {
   formatDayMonth,
   formatKwh,
   formatMonthName,
+  formatShortMonth,
   formatWatts,
   monthEnergyBars,
   stackLoggerNames,
@@ -221,6 +222,7 @@ function energyBars(snapshot: PlantSnapshot, unit: Grain, visible?: ReadonlySet<
 function tickLabel(unit: Grain, label: string): string {
   const head = label.split(" ")[0] ?? label;
   if (unit === "day") return weekdayTick(head);
+  if (unit === "month") return formatShortMonth(head);
   return head;
 }
 
@@ -336,7 +338,7 @@ function heldWattsText(dataset: ChartDataset, index: number, minutes: number[]):
   for (let i = index - 1; i >= 0; i--) {
     const value = valueAt(dataset, i);
     if (value == null) continue;
-    if (t - minutes[i]! <= GAP_MIN) return `~${formatWatts(value)}`;
+    if (t - minutes[i]! <= GAP_MIN) return `est. ${formatWatts(value)}`;
     return "—";
   }
   return "—";

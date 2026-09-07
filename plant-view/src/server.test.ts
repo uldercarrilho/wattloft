@@ -1,4 +1,7 @@
 import { createHash, createHmac, generateKeyPairSync, sign } from "node:crypto";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createApp } from "./server";
 
@@ -305,5 +308,22 @@ describe("passkey login", () => {
     });
     expect(rejected.status).toBe(401);
     expect(await rejected.json()).toEqual({ error: "not-accepted" });
+  });
+});
+
+describe("static Plant view files", () => {
+  it("serves the web app manifest from staticRoot instead of the HTML shell", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "wattloft-static-"));
+    await writeFile(join(dir, "manifest.webmanifest"), JSON.stringify({ name: "Wattloft" }));
+    const client = createApp({
+      operatorPassword: PASSWORD,
+      apiUrl: "http://127.0.0.1:9",
+      cookieSecure: false,
+      documentHtml: DOCUMENT,
+      staticRoot: dir,
+    });
+    const res = await client.request("/manifest.webmanifest");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ name: "Wattloft" });
   });
 });

@@ -227,17 +227,22 @@ export function PlantChart({
     return <p className="empty">Plant view cannot draw this chart.</p>;
   }
   const label = model.kind === "time" ? "Power curve" : "Energy bars";
+  const sparse = model.kind === "energy" && model.tickLabels.length < 6;
+  const chartClass = [
+    "plant-chart",
+    model.kind === "energy" ? "is-energy" : "",
+    sparse ? "is-sparse" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
   return (
-    <div
-      className={model.kind === "energy" ? "plant-chart is-energy" : "plant-chart"}
-      id="plant-chart"
-    >
+    <div className={chartClass} id="plant-chart">
       <canvas
         ref={canvasRef}
         role="img"
         aria-label={label}
         tabIndex={0}
-        style={{ touchAction: "none" }}
+        style={{ touchAction: model.kind === "energy" ? "pan-y" : "none" }}
       />
     </div>
   );
@@ -331,7 +336,7 @@ function chartConfig(
             withAlpha(fill, partial ? 0.45 : 1),
           ),
           borderColor: model.tickLabels.map((_, index) => (index === highlight ? ink : fill)),
-          borderWidth: model.tickLabels.map((_, index) => (index === highlight ? 2 : 0)),
+          borderWidth: model.tickLabels.map((_, index) => (index === highlight ? 3 : 0)),
           stack: stacked ? "energy" : undefined,
         };
       }),

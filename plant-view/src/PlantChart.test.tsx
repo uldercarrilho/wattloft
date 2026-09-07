@@ -76,6 +76,16 @@ describe("PlantChart", () => {
     const slot = canvas.closest(".plant-chart");
     expect(slot).toBeTruthy();
     expect(slot).not.toBe(canvas);
+    expect(slot?.className.split(" ")).toEqual(
+      expect.arrayContaining(["plant-chart", "is-energy", "is-sparse"]),
+    );
+    expect((canvas as HTMLCanvasElement).style.touchAction).toBe("pan-y");
+    const bars = (
+      chartState.instances.at(-1)?.config as {
+        data?: { datasets?: Array<{ borderWidth?: number[] }> };
+      }
+    ).data?.datasets?.[0]?.borderWidth;
+    expect(bars).toContain(3);
   });
 
   it("shows draw-failure copy when Chart.js cannot init", () => {

@@ -50,6 +50,7 @@ describe("glanceModel", () => {
     ]);
     expect(view.todayLabel).toBe("3.90 kWh");
     expect(view.lifetimeLabel).toBe("5,635.4 kWh");
+    expect(view.reportingLabel).toBe("East and West reporting");
   });
 
   it("banners a stale Logger while a sibling still produces", () => {
@@ -68,6 +69,7 @@ describe("glanceModel", () => {
     expect(view.rings.find((ring) => ring.name === EAST)?.closed).toBe(true);
     expect(view.hollow).toBe(false);
     expect(view.wattsLabel).toBe("210 W");
+    expect(view.reportingLabel).toBe("East reporting");
   });
 
   it("banners a fresh 0 W Logger while a sibling produces, with rings still closed", () => {
@@ -84,6 +86,7 @@ describe("glanceModel", () => {
     expect(view.banner).toBe("West silent · last Sample 1 minute ago");
     expect(view.rings.every((ring) => ring.closed)).toBe(true);
     expect(view.hollow).toBe(false);
+    expect(view.reportingLabel).toBe("East and West reporting");
   });
 
   it("uses a hollow sun and no banner when every Logger is fresh and Current Power is 0 W", () => {
@@ -119,6 +122,7 @@ describe("glanceModel", () => {
     expect(view.rings.every((ring) => ring.closed)).toBe(false);
     expect(view.hollow).toBe(true);
     expect(view.wattsLabel).toBe("—");
+    expect(view.reportingLabel).toBeNull();
   });
 
   it("does not invent a stall when loggers_now is missing", () => {
@@ -127,6 +131,7 @@ describe("glanceModel", () => {
     expect(view.banner).toBeNull();
     expect(view.hollow).toBe(false);
     expect(view.wattsLabel).toBe("412 W");
+    expect(view.reportingLabel).toBeNull();
   });
 
   it("dashes Current Power when it is absent and hollows the sun", () => {

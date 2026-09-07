@@ -244,7 +244,11 @@ export function createApp(opts: CreateAppOptions): Hono {
   });
 
   if (opts.staticRoot) {
-    app.use("/assets/*", serveStatic({ root: opts.staticRoot }));
+    const root = opts.staticRoot;
+    app.use("/assets/*", serveStatic({ root }));
+    app.use("/favicon.svg", serveStatic({ root }));
+    app.use("/manifest.webmanifest", serveStatic({ root }));
+    app.use("/apple-touch-icon.png", serveStatic({ root }));
   }
 
   app.get("*", (c) => c.html(opts.documentHtml));
