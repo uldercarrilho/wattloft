@@ -18,6 +18,7 @@ export type GlanceView = {
   rings: GlanceRing[];
   todayLabel: string;
   lifetimeLabel: string;
+  reportingLabel: string | null;
 };
 
 export type GlanceSnapshot = {
@@ -49,6 +50,7 @@ export function glanceModel(snapshot: GlanceSnapshot, now = new Date()): GlanceV
       rings: [],
       todayLabel,
       lifetimeLabel,
+      reportingLabel: null,
     };
   }
   const rings: GlanceRing[] = rows.map((row) => ({
@@ -74,6 +76,11 @@ export function glanceModel(snapshot: GlanceSnapshot, now = new Date()): GlanceV
     const names = silent.map((row) => row.display_name ?? row.name).join(", ");
     banner = `${names} silent · last Sample ${relativeAge(stalest.last_success_at, now)}`;
   }
+  const closedRings = rings.filter((ring) => ring.closed);
+  const reportingLabel =
+    closedRings.length === 0
+      ? null
+      : `${closedRings.map((ring) => ring.displayName).join(" and ")} reporting`;
   return {
     wattsLabel,
     hollow,
@@ -81,5 +88,6 @@ export function glanceModel(snapshot: GlanceSnapshot, now = new Date()): GlanceV
     rings,
     todayLabel,
     lifetimeLabel,
+    reportingLabel,
   };
 }

@@ -134,6 +134,15 @@ export function formatMonthName(isoDay: string): string {
   }).format(stamp);
 }
 
+export function formatShortMonth(isoYearMonth: string): string {
+  const isoDay = /^\d{4}-\d{2}$/.test(isoYearMonth) ? `${isoYearMonth}-01` : isoYearMonth;
+  const stamp = new Date(`${isoDay}T12:00:00-03:00`);
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Sao_Paulo",
+    month: "short",
+  }).format(stamp);
+}
+
 export function selectedPeriodKwh(
   snapshot: PlantSnapshot,
   visible?: ReadonlySet<string>,

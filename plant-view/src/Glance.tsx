@@ -65,6 +65,9 @@ export function Glance({
           </li>
         ))}
       </ul>
+      {view.reportingLabel ? (
+        <p className="glance-reporting">{view.reportingLabel}</p>
+      ) : null}
       <dl className="glance-captions">
         <div>
           <dt>Today so far</dt>

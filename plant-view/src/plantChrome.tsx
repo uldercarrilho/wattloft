@@ -15,6 +15,7 @@ import {
   localDayOf,
   selectedPeriodKwh,
 } from "./grains";
+import { lifetimeKwh } from "./LastSample";
 import type { Grain, PlantSnapshot } from "./types";
 
 export const GRAIN_LABEL: Record<Grain, string> = {
@@ -111,6 +112,12 @@ export function Chart({
             {formatDayMonth(snapshot.selected_day)} {formatKwh(periodKwh)}
           </p>
         ) : null}
+        {historyCaption ? <p className="grain-title">{historyCaption}</p> : null}
+        {unit === "year" ? (
+          <p className="hint">
+            Lifetime {lifetimeKwh(snapshot.lifetime_energy_kwh)} · before Wattloft
+          </p>
+        ) : null}
         <PlantChart
           model={model}
           mode={mode}
@@ -136,17 +143,15 @@ export function Chart({
             </p>
           ))}
         </div>
-        {historyCaption ? <p className="hint">{historyCaption}</p> : null}
         {partialCaption ? <p className="hint">{partialCaption}</p> : null}
         {tapHint ? <p className="hint">{tapHint}</p> : null}
         {unit === "time" ? (
           <details className="hint gaps">
             <summary>Why gaps?</summary>
             <p>
-              Tap a name to show or hide its curve. A gap where Lifetime energy still rose
-              is interpolated as a smooth Power curve — that energy happened. Where Lifetime
-              barely moved, the line valleys: no Samples and no estimate, possible Logger
-              failure.
+              A gap where Lifetime energy still rose is interpolated as a smooth Power
+              curve — that energy happened. Where Lifetime barely moved, the line valleys:
+              no Samples and no estimate, possible Logger failure.
             </p>
           </details>
         ) : null}

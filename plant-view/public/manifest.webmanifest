@@ -1,0 +1,20 @@
+{
+  "name": "Wattloft",
+  "short_name": "Wattloft",
+  "display": "standalone",
+  "start_url": "/",
+  "background_color": "#1E4F8C",
+  "theme_color": "#1E4F8C",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

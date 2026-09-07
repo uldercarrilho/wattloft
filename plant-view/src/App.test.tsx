@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { cleanup, fireEvent, render, screen, act, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, act, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CHART_MODE_KEY } from "./chartMode";
 import type { PlantPayload } from "./types";
@@ -120,6 +120,9 @@ describe("Plant view", () => {
     expect(screen.getByRole("button", { name: "Log in" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Wattloft" })).toBeTruthy();
     expect(screen.getByText("Watch this Plant.")).toBeTruthy();
+    await waitFor(() => expect(document.title).toBe("Log in · Wattloft"));
+    expect(document.querySelector(".login-mark")?.getAttribute("aria-hidden")).toBe("true");
+    expect(screen.queryByTestId("glance-sun")).toBeNull();
     expect(screen.getByLabelText("Password").getAttribute("autocomplete")).toBe(
       "current-password",
     );
@@ -520,6 +523,9 @@ describe("Plant view", () => {
     expect(
       await screen.findByText("Wattloft History · from 21 Aug"),
     ).toBeTruthy();
+    expect(document.querySelector(".grain-title")?.textContent).toBe(
+      "Wattloft History · from 21 Aug",
+    );
     expect(screen.getByText("This month is incomplete in Wattloft")).toBeTruthy();
     expect(screen.getByText("Tap a month to open the Day chart")).toBeTruthy();
   });
@@ -529,6 +535,10 @@ describe("Plant view", () => {
     stubPlant(200, { ...snapshot, unit: "year" });
     render(<App />);
     expect(await screen.findByText("This year is incomplete in Wattloft")).toBeTruthy();
+    expect(document.querySelector(".grain-title")?.textContent).toBe(
+      "Wattloft History · from 21 Aug",
+    );
+    expect(screen.getByText("Lifetime 5,635.4 kWh · before Wattloft")).toBeTruthy();
     expect(document.querySelector(".stepper span")?.textContent).toBe("2026");
     expect(screen.getByText("Tap a year to open the Month chart")).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Previous" })).toBeNull();
@@ -550,6 +560,9 @@ describe("Plant view", () => {
     render(<App />);
     const disclosure = await screen.findByText("Why gaps?");
     expect(disclosure.closest("details")?.open).toBe(false);
+    const body = disclosure.closest("details")?.querySelector("p")?.textContent ?? "";
+    expect(body).not.toContain("Tap a name");
+    expect(body).toContain("interpolated");
     expect(screen.getByRole("button", { name: "East" }).getAttribute("data-series")).toBe(
       "1000000001",
     );

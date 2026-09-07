@@ -5,6 +5,7 @@ import {
   formatDayMonth,
   formatKwh,
   formatMonthName,
+  formatShortMonth,
   formatWatts,
   monthEnergyBars,
   parseUnit,
@@ -123,6 +124,8 @@ describe("grains", () => {
     expect(stepper(snapshot, "2026-08-21", "month").label).toBe("2026");
     expect(formatDayMonth("2026-09-07")).toBe("7 Sep");
     expect(formatMonthName("2026-09-07")).toBe("September");
+    expect(formatShortMonth("2026-08")).toBe("Aug");
+    expect(formatShortMonth("2026-09")).toBe("Sep");
   });
 
   it("Overlay Day bars keep Plant totals and empty segments", () => {
