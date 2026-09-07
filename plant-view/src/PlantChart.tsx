@@ -90,6 +90,7 @@ export function PlantChart({
   const chartRef = useRef<Chart | null>(null);
   const hairRef = useRef(0);
   const highlightRef = useRef(0);
+  const domainRef = useRef("");
   const onPointerRef = useRef(onPointer);
   const onBarNavigateRef = useRef(onBarNavigate);
   const onDrawErrorRef = useRef(onDrawError);
@@ -103,12 +104,16 @@ export function PlantChart({
     if (!canvas || failed) return undefined;
     const ink = inkColor();
     const muted = mutedColor();
-    hairRef.current = model.kind === "time" ? parkedMinute(model) : model.currentIndex;
-    highlightRef.current = model.kind === "energy" ? model.currentIndex : 0;
-    if (model.kind === "time") {
-      onPointerRef.current(hairRef.current);
-    } else {
-      onPointerRef.current(model.currentIndex);
+    const domain = pointerDomain(model, mode);
+    if (domainRef.current !== domain) {
+      domainRef.current = domain;
+      hairRef.current = model.kind === "time" ? parkedMinute(model) : model.currentIndex;
+      highlightRef.current = model.kind === "energy" ? model.currentIndex : 0;
+      if (model.kind === "time") {
+        onPointerRef.current(hairRef.current);
+      } else {
+        onPointerRef.current(model.currentIndex);
+      }
     }
     const hairPlugin: Plugin = {
       id: "wattloft-hair",
@@ -236,6 +241,16 @@ export function PlantChart({
       />
     </div>
   );
+}
+
+function pointerDomain(
+  model: TimeChartModel | EnergyChartModel,
+  mode: ChartMode,
+): string {
+  if (model.kind === "time") {
+    return `time:${mode}:${model.minutes[0] ?? 0}:${model.minutes.at(-1) ?? 0}`;
+  }
+  return `energy:${mode}:${model.tickLabels.join("\0")}`;
 }
 
 function chartConfig(

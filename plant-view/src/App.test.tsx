@@ -275,6 +275,27 @@ describe("Plant view", () => {
     expect(screen.getByRole("img", { name: "Power curve" })).toBeTruthy();
   });
 
+  it("keeps the Time readout at the clicked minute", async () => {
+    window.history.replaceState({}, "", "/?day=2026-08-21&unit=time");
+    stubPlant(200, { ...snapshot, unit: "time" });
+    render(<App />);
+    const canvas = await screen.findByRole("img", { name: "Power curve" });
+    expect(document.querySelector(".when")?.textContent).toBe("15:00");
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      bottom: 40,
+      right: 120,
+      width: 120,
+      height: 40,
+      toJSON: () => ({}),
+    });
+    fireEvent.pointerDown(canvas, { clientX: 0, clientY: 10, pointerId: 1, buttons: 1 });
+    expect(document.querySelector(".when")?.textContent).toBe("14:00 gap");
+  });
+
   it("shows Overlay pressed by default and remembers Stack in this browser", async () => {
     window.history.replaceState({}, "", "/?day=2026-08-21&unit=day");
     stubPlant(200, snapshot);
