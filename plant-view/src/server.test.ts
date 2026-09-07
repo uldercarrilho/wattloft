@@ -59,6 +59,17 @@ describe("Operator BFF", () => {
     expect(cookie).not.toMatch(/Secure/i);
   });
 
+  it("returns JSON ok when the SPA asks for JSON after the correct password", async () => {
+    const granted = await app().request("/login", {
+      method: "POST",
+      headers: { Accept: "application/json" },
+      body: new URLSearchParams({ password: PASSWORD }),
+    });
+    expect(granted.status).toBe(200);
+    expect(await granted.json()).toEqual({ ok: true });
+    expect(granted.headers.getSetCookie().join("\n")).toMatch(/wattloft=/);
+  });
+
   it("clears the session on logout", async () => {
     const client = app();
     const granted = await client.request("/login", {

@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
+import type { Context } from "hono";
 import {
   issuePasskeyChallenge,
   parsePasskeyCredential,
@@ -133,6 +134,17 @@ function parseUnit(raw: string | undefined): string {
   return "time";
 }
 
+function grantLogin(
+  c: Context,
+  opts: Pick<CreateAppOptions, "operatorPassword" | "cookieSecure">,
+): Response {
+  c.header("Set-Cookie", persistSession(opts.operatorPassword, opts.cookieSecure));
+  if ((c.req.header("accept") ?? "").includes("application/json")) {
+    return c.json({ ok: true });
+  }
+  return c.redirect("/", 303);
+}
+
 export function createApp(opts: CreateAppOptions): Hono {
   const fetchImpl = opts.fetch ?? fetch;
   const app = new Hono();
@@ -147,8 +159,7 @@ export function createApp(opts: CreateAppOptions): Hono {
       }
       return c.html(opts.documentHtml, 401);
     }
-    c.header("Set-Cookie", persistSession(opts.operatorPassword, opts.cookieSecure));
-    return c.redirect("/", 303);
+    return grantLogin(c, opts);
   });
 
   app.get("/login/passkey/options", (c) => {
@@ -191,8 +202,7 @@ export function createApp(opts: CreateAppOptions): Hono {
     ) {
       return c.json({ error: "not-accepted" }, 401);
     }
-    c.header("Set-Cookie", persistSession(opts.operatorPassword, opts.cookieSecure));
-    return c.redirect("/", 303);
+    return grantLogin(c, opts);
   });
 
   app.post("/logout", (c) => {

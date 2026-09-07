@@ -91,6 +91,10 @@ function bufferToB64url(buffer: ArrayBuffer): string {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/u, "");
 }
 
+function loginGranted(response: Response): boolean {
+  return response.ok || response.status === 303 || response.type === "opaqueredirect";
+}
+
 function Login({ onGranted }: { onGranted: () => void }) {
   const [rejected, setRejected] = useState(false);
   const [passkeyReady, setPasskeyReady] = useState(false);
@@ -120,7 +124,7 @@ function Login({ onGranted }: { onGranted: () => void }) {
         password: typeof password === "string" ? password : "",
       }),
     });
-    if (response.status === 303 || response.ok) {
+    if (loginGranted(response)) {
       setRejected(false);
       onGranted();
       return;
@@ -173,7 +177,7 @@ function Login({ onGranted }: { onGranted: () => void }) {
           },
         }),
       });
-      if (granted.status === 303 || granted.ok) {
+      if (loginGranted(granted)) {
         setPasskeyRejected(false);
         onGranted();
         return;
