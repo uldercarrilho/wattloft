@@ -1,8 +1,16 @@
+import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { createApp } from "./server";
 
 const DOCUMENT = "<!doctype html><title>Plant</title>";
 const PASSWORD = "correct-horse";
+
+function operatorSessionCookie(issuedAt: number): string {
+  const hmac = createHmac("sha256", PASSWORD)
+    .update(`operator.${issuedAt}`)
+    .digest("hex");
+  return `wattloft=${issuedAt}.${hmac}`;
+}
 
 function app(fetchImpl?: typeof fetch) {
   return createApp({
@@ -36,6 +44,7 @@ describe("Operator BFF", () => {
     expect(cookie).toMatch(/wattloft=/);
     expect(cookie).toMatch(/HttpOnly/i);
     expect(cookie).toMatch(/SameSite=Lax/i);
+    expect(cookie).toMatch(/Max-Age=2592000/i);
     expect(cookie).not.toMatch(/Secure/i);
   });
 
@@ -58,6 +67,56 @@ describe("Operator BFF", () => {
 
   it("denies plant data without a session", async () => {
     const denied = await app().request("/api/plant");
+    expect(denied.status).toBe(401);
+  });
+
+  it("admits a recently issued Operator session to plant data", async () => {
+    const fetchImpl: typeof fetch = async () =>
+      new Response("", { status: 404 });
+    const issuedAt = Math.floor(Date.now() / 1000);
+    const plant = await app(fetchImpl).request("/api/plant", {
+      headers: { cookie: operatorSessionCookie(issuedAt) },
+    });
+    expect(plant.status).toBe(200);
+  });
+
+  it("denies an Operator session issued more than 30 days ago", async () => {
+    const issuedAt = Math.floor(Date.now() / 1000) - 31 * 24 * 60 * 60;
+    const denied = await app().request("/api/plant", {
+      headers: { cookie: operatorSessionCookie(issuedAt) },
+    });
+    expect(denied.status).toBe(401);
+  });
+
+  it("refreshes the Operator session cookie when plant data is fetched", async () => {
+    const fetchImpl: typeof fetch = async () =>
+      new Response("", { status: 404 });
+    const issuedAt = Math.floor(Date.now() / 1000) - 24 * 60 * 60;
+    const plant = await app(fetchImpl).request("/api/plant", {
+      headers: { cookie: operatorSessionCookie(issuedAt) },
+    });
+    expect(plant.status).toBe(200);
+    const cookie = plant.headers.getSetCookie().join("\n");
+    expect(cookie).toMatch(/wattloft=/);
+    expect(cookie).toMatch(/Max-Age=2592000/i);
+    expect(cookie).not.toContain(`${issuedAt}.`);
+  });
+
+  it("denies a legacy Operator session cookie without an issued time", async () => {
+    const legacy = createHmac("sha256", PASSWORD).update("operator").digest("hex");
+    const denied = await app().request("/api/plant", {
+      headers: { cookie: `wattloft=${legacy}` },
+    });
+    expect(denied.status).toBe(401);
+  });
+
+  it("denies an Operator session whose issued time does not match the signature", async () => {
+    const issuedAt = Math.floor(Date.now() / 1000);
+    const [, hmac] = operatorSessionCookie(issuedAt).slice("wattloft=".length).split(".");
+    const tampered = issuedAt - 60;
+    const denied = await app().request("/api/plant", {
+      headers: { cookie: `wattloft=${tampered}.${hmac}` },
+    });
     expect(denied.status).toBe(401);
   });
 
