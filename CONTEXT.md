@@ -17,7 +17,7 @@ The Wi-Fi stick attached to one Microinverter. It is the thing that reports. Wat
 _Avoid_: inverter, dongle, stick (as the key), IP, inverter serial (as the key)
 
 **Admitted Logger**:
-A Logger whose serial is on this Plant’s admit list. Only Admitted Loggers may create Samples. An unknown serial is refused: connection closed, no ACK, no write. The Operator changes the list by shipping config through the git deploy pipeline before that Logger is pointed at Wattloft. The list is not edited on a live VM, is not a Plant view surface, and a Logger cannot admit itself by connecting.
+A Logger whose serial is on this Plant’s admit list. Only Admitted Loggers may create Samples. An unknown serial is refused: connection closed, no ACK, no write. The Operator changes the list by shipping config through the git deploy pipeline before that Logger is pointed at Wattloft. Display names (East, West) ship in that same config beside the admit list; serial stays identity. The list is not edited on a live VM, is not a Plant view surface, and a Logger cannot admit itself by connecting.
 _Avoid_: registered device, paired stick, IP allow-list, any Logger that parses, registration phase
 
 **Sample**:
@@ -41,15 +41,15 @@ The single person allowed to see the Plant in Wattloft. v1 proves it with a pass
 _Avoid_: user, admin, customer, viewer, SSO, Cognito
 
 **Plant view**:
-What the Operator sees over HTTPS on a hostname: Today energy, Current Power, Lifetime energy, Last sample as the relative age of Current Power’s Sample, a period stepper, Time, Day, Month, and Year grains, and Overlay or Stack as one chart mode for every grain. Time Overlay is that Local day’s Power curve (each Logger and the Plant); Time Stack is stacked curve watts (Loggers only; Plant is the height). Day, Month, and Year Overlay are Plant-total bars of that Local-day production: per Local day in the stepper’s month, summed per month in the stepper’s year, and summed per year in History; Stack splits those bars by Logger. Login, empty History, and Plant view share one Azulejo look. Nothing else is a v1 surface.
+What the Operator sees over HTTPS on a hostname: Today so far (Today energy), Current Power, Lifetime energy, Last sample as the relative age of Current Power’s Sample, a period stepper, Power (Time grain), Day, Month, and Year grains, and Each (Overlay) or By Logger (Stack) as one chart mode for every grain. Power Each is that Local day’s Power curve (each Logger and the Plant); Power By Logger is stacked curve watts (Loggers only; Plant is the height). Day, Month, and Year Each are Plant-total bars of that Local-day production: per Local day in the stepper’s month, summed per month in the stepper’s year, and summed per year in History; By Logger splits those bars by Logger. When the stepper is not this Local day, the chart shows that period’s energy next to Plant-now KPIs. Month and Year caption History since the first Sample; Lifetime includes energy from before Wattloft. Login, empty History, and Plant view share one Azulejo look. Nothing else is a v1 surface.
 _Avoid_: report, dashboard, equipment data, live view, efficiency, HTTP (plaintext)
 
 **Overlay**:
-Plant view’s default chart drawing: Time is the Power curve of each Logger and the Plant; Day, Month, and Year are Plant-total energy bars.
+Plant view’s default chart drawing, labelled Each: Time/Power is the Power curve of each Logger and the Plant; Day, Month, and Year are Plant-total energy bars.
 _Avoid_: combined, lines, current chart (as a label)
 
 **Stack**:
-Plant view’s composition drawing: Loggers only; Plant is the stack height. Time is stacked curve watts; Day, Month, and Year are stacked energy bars. One mode with Overlay for every grain.
+Plant view’s composition drawing, labelled By Logger: Loggers only; Plant is the stack height. Time/Power is stacked curve watts; Day, Month, and Year are stacked energy bars. One mode with Overlay for every grain.
 _Avoid_: 100% stack, device breakdown, grouped bars
 
 **Today energy**:

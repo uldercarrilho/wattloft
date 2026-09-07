@@ -11,7 +11,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
-from wattloft.config import ADMITTED_LOGGER_SERIALS, now_utc
+from wattloft.config import ADMITTED_LOGGER_SERIALS, LOGGER_DISPLAY_NAMES, now_utc
 from wattloft.history import CurvePoint, CurveSeries, PlantSnapshot, plant_snapshot
 from wattloft.ingest import start_ingest
 
@@ -57,17 +57,26 @@ def _point_payload(point: CurvePoint) -> dict[str, object]:
     return payload
 
 
+def _named_payload(name: str) -> dict[str, object]:
+    payload: dict[str, object] = {"name": name}
+    label = LOGGER_DISPLAY_NAMES.get(name)
+    if label:
+        payload["display_name"] = label
+    return payload
+
+
 def _series_payload(series: CurveSeries) -> dict[str, object]:
-    return {
-        "name": series.name,
-        "points": [_point_payload(point) for point in series.points],
-    }
+    payload = _named_payload(series.name)
+    payload["points"] = [_point_payload(point) for point in series.points]
+    return payload
 
 
 def _snapshot_payload(snapshot: PlantSnapshot, selected_day: date) -> dict[str, object]:
     current_power_at: datetime = snapshot.current_power_at
+    first, _last = _history_span(snapshot)
     return {
         "selected_day": selected_day.isoformat(),
+        "history_start": first.isoformat(),
         "today_energy_kwh": snapshot.today_energy_kwh,
         "current_power_w": snapshot.current_power_w,
         "lifetime_energy_kwh": snapshot.lifetime_energy_kwh,
@@ -78,7 +87,7 @@ def _snapshot_payload(snapshot: PlantSnapshot, selected_day: date) -> dict[str, 
                 "today_energy_kwh": bar.today_energy_kwh,
                 "loggers": [
                     {
-                        "name": part.name,
+                        **_named_payload(part.name),
                         "today_energy_kwh": part.today_energy_kwh,
                     }
                     for part in bar.loggers

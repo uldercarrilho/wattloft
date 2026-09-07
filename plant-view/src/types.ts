@@ -8,11 +8,13 @@ export type CurvePoint = {
 
 export type CurveSeries = {
   name: string;
+  display_name?: string;
   points: CurvePoint[];
 };
 
 export type LoggerEnergy = {
   name: string;
+  display_name?: string;
   today_energy_kwh: number;
 };
 
@@ -24,6 +26,7 @@ export type LocalDayBar = {
 
 export type PlantSnapshot = {
   selected_day: string;
+  history_start?: string;
   today_energy_kwh: number | null;
   current_power_w: number;
   lifetime_energy_kwh: number;
