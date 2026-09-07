@@ -96,6 +96,14 @@ def _snapshot_payload(snapshot: PlantSnapshot, selected_day: date) -> dict[str, 
             for bar in snapshot.local_day_bars
         ],
         "curve": [_series_payload(series) for series in snapshot.curve],
+        "loggers_now": [
+            {
+                **_named_payload(row.name),
+                "last_success_at": row.last_success_at.isoformat(),
+                "power_w": row.power_w,
+            }
+            for row in snapshot.loggers_now
+        ],
     }
 
 
