@@ -8,6 +8,7 @@ from wattloft.history._snapshot import (
     CurveSeries,
     LocalDayBar,
     LoggerEnergy,
+    LoggerNow,
     PlantSnapshot,
 )
 
@@ -61,6 +62,7 @@ def test_snapshot_payload_includes_display_name_and_history_start() -> None:
     by_name = {part["name"]: part for part in loggers}
     assert by_name["1000000001"]["display_name"] == "Logger 1"
     assert by_name["1000000002"]["display_name"] == "Logger 2"
+    assert body["loggers_now"] == []
 
 
 def test_snapshot_payload_omits_display_name_for_unknown_serial() -> None:
@@ -88,3 +90,47 @@ def test_snapshot_payload_omits_display_name_for_unknown_serial() -> None:
     assert series["name"] == "9999999999"
     assert "display_name" not in series
     assert "display_name" not in body["local_day_bars"][0]["loggers"][0]
+    assert body["loggers_now"] == []
+
+
+def test_snapshot_payload_serializes_loggers_now() -> None:
+    snapshot = PlantSnapshot(
+        today_energy_kwh=0.2,
+        current_power_w=412.0,
+        lifetime_energy_kwh=5635.4,
+        current_power_at=datetime(2026, 9, 7, 16, 3, tzinfo=timezone.utc),
+        local_day_bars=(
+            LocalDayBar(
+                local_day=date(2026, 9, 7),
+                today_energy_kwh=0.2,
+                loggers=(LoggerEnergy(name="1000000001", today_energy_kwh=0.2),),
+            ),
+        ),
+        curve=(
+            CurveSeries(
+                name="1000000001",
+                points=(CurvePoint(at=datetime(2026, 9, 7, 13, 0), watts=210.0),),
+            ),
+        ),
+        loggers_now=(
+            LoggerNow(
+                name="1000000001",
+                last_success_at=datetime(2026, 9, 7, 16, 3, tzinfo=timezone.utc),
+                power_w=210.0,
+            ),
+            LoggerNow(
+                name="1000000002",
+                last_success_at=datetime(2026, 9, 7, 16, 3, tzinfo=timezone.utc),
+                power_w=0.0,
+            ),
+        ),
+    )
+    body = _snapshot_payload(snapshot, date(2026, 9, 7))
+    rows = body["loggers_now"]
+    assert isinstance(rows, list)
+    by_name = {row["name"]: row for row in rows}
+    assert by_name["1000000001"]["display_name"] == "Logger 1"
+    assert by_name["1000000001"]["last_success_at"] == "2026-09-07T16:03:00+00:00"
+    assert by_name["1000000001"]["power_w"] == 210.0
+    assert by_name["1000000002"]["display_name"] == "Logger 2"
+    assert by_name["1000000002"]["power_w"] == 0.0
