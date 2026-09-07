@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPlantChartModel, energyReadout, timeReadout } from "./plantChartModel";
+import { buildPlantChartModel, energyReadout, parkedMinute, timeReadout } from "./plantChartModel";
 import type { PlantSnapshot } from "./types";
 
 const loggerA = "3909309465";
@@ -340,6 +340,50 @@ describe("buildPlantChartModel energy Stack", () => {
     expect(missing.datasets).toEqual([
       { name: "Plant", role: "plant", stacked: false, swatch: "pigment", values: [3.9, 0.2] },
     ]);
+  });
+});
+
+describe("parkedMinute", () => {
+  it("parks on the last minute with curve watts, not a trailing hole", () => {
+    const model = buildPlantChartModel(
+      snapshot([
+        {
+          name: loggerA,
+          points: [{ at: "2026-08-21T10:00:00", watts: 400, lifetime_kwh: 1 }],
+        },
+      ]),
+      "time",
+      "overlay",
+      new Set(["Plant", loggerA]),
+    );
+    expect(model.kind).toBe("time");
+    if (model.kind !== "time") return;
+    expect(model.minutes.at(-1)!).toBeGreaterThan(10 * 60);
+    expect(parkedMinute(model)).toBe(10 * 60);
+    const readout = timeReadout(model, parkedMinute(model), "overlay");
+    expect(readout.when).toBe("10:00");
+    expect(readout.rows.find((row) => row.name === loggerA)?.text).toBe("400 W");
+  });
+
+  it("labels a scrubbed hole as gap", () => {
+    const model = buildPlantChartModel(
+      snapshot([
+        {
+          name: loggerA,
+          points: [{ at: "2026-08-21T10:00:00", watts: 400, lifetime_kwh: 1 }],
+        },
+      ]),
+      "time",
+      "overlay",
+      new Set(["Plant", loggerA]),
+    );
+    expect(model.kind).toBe("time");
+    if (model.kind !== "time") return;
+    const hole = model.minutes.at(-1)!;
+    expect(hole).not.toBe(10 * 60);
+    const readout = timeReadout(model, hole, "overlay");
+    expect(readout.when.endsWith(" gap")).toBe(true);
+    expect(readout.rows.every((row) => row.text === "—")).toBe(true);
   });
 });
 
