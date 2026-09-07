@@ -96,6 +96,17 @@ button.passkey { display: block; margin: 0.8rem 0 0; min-height: 2.6rem; padding
 .glance-captions div { margin: 0 0 0.35rem; }
 .glance-captions dt { font-size: 0.72rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
 .glance-captions dd { margin: 0; font-family: "IBM Plex Mono", monospace; }
+.plant-mobile { display: flex; flex-direction: column; min-height: 100dvh; max-width: none;
+  padding-bottom: 0; }
+.plant-mobile-body { flex: 1; min-height: 0; overflow: auto; }
+.grain-title { font: 600 1.35rem/1.1 "Ibarra Real Nova", serif; margin: 0 0 0.5rem; text-align: center; }
+.page-dots { display: flex; justify-content: center; align-items: center; gap: 0.5rem;
+  padding: 0.7rem 0 1.1rem; }
+.page-dots a { width: 0.55rem; height: 0.55rem; border-radius: 50%; background: var(--ink);
+  opacity: 0.18; overflow: hidden; white-space: nowrap; text-indent: 1.2rem;
+  text-decoration: none; }
+.page-dots a[aria-current="true"] { background: var(--pigment); opacity: 1;
+  width: 0.7rem; height: 0.7rem; }
 @media (prefers-reduced-motion: reduce) {
   .plant-mobile { scroll-behavior: auto; }
 }
