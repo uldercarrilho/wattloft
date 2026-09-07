@@ -12,7 +12,6 @@ import {
 } from "./plantChartModel";
 import { PlantChart } from "./PlantChart";
 import {
-  chipLabel,
   displayNameOf,
   formatKwh,
   formatWatts,
@@ -367,7 +366,7 @@ function SeriesChips({
           onClick={() => onToggle(name)}
         >
           <i />
-          {chipLabel(snapshot, name)}
+          {displayNameOf(snapshot, name)}
         </button>
       ))}
     </div>

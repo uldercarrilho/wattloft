@@ -17,7 +17,7 @@ The Wi-Fi stick attached to one Microinverter. It is the thing that reports. Wat
 _Avoid_: inverter, dongle, stick (as the key), IP, inverter serial (as the key)
 
 **Admitted Logger**:
-A Logger whose serial is on this Plant’s admit list. Only Admitted Loggers may create Samples. An unknown serial is refused: connection closed, no ACK, no write. The Operator changes the list by shipping config through the git deploy pipeline before that Logger is pointed at Wattloft. Display names (East, West) ship in that same config beside the admit list; serial stays identity. The list is not edited on a live VM, is not a Plant view surface, and a Logger cannot admit itself by connecting.
+A Logger whose serial is on this Plant’s admit list. Only Admitted Loggers may create Samples. An unknown serial is refused: connection closed, no ACK, no write. The Operator changes the list by shipping config through the git deploy pipeline before that Logger is pointed at Wattloft. Display names (Logger 1, Logger 2) ship in that same config beside the admit list; serial stays identity. The list is not edited on a live VM, is not a Plant view surface, and a Logger cannot admit itself by connecting.
 _Avoid_: registered device, paired stick, IP allow-list, any Logger that parses, registration phase
 
 **Sample**:

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  chipLabel,
+  displayNameOf,
   dayEnergyBars,
   formatKwh,
   formatWatts,
@@ -172,7 +172,7 @@ describe("grains", () => {
     expect(weekdayTick("2026-08-21")).toBe("Fri 21");
   });
 
-  it("labels a Logger chip with its alias and a late History start", () => {
+  it("labels a late-start Logger with its alias only", () => {
     const late = {
       ...snapshot,
       history_start: "2026-08-21",
@@ -181,10 +181,10 @@ describe("grains", () => {
         {
           local_day: "2026-08-22",
           today_energy_kwh: 0.2,
-          loggers: [{ name: "3909309465", display_name: "East", today_energy_kwh: 0.2 }],
+          loggers: [{ name: "3909309465", display_name: "Logger 1", today_energy_kwh: 0.2 }],
         },
       ],
     };
-    expect(chipLabel(late, "3909309465")).toBe("East from 2026-08-22");
+    expect(displayNameOf(late, "3909309465")).toBe("Logger 1");
   });
 });

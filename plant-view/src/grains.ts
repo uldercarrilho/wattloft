@@ -146,28 +146,6 @@ export function displayNameOf(snapshot: PlantSnapshot, serial: string): string {
   return serial;
 }
 
-export function loggerFirstDay(snapshot: PlantSnapshot, serial: string): string | null {
-  for (const bar of snapshot.local_day_bars) {
-    if (bar.loggers?.some((part) => part.name === serial)) {
-      return bar.local_day;
-    }
-  }
-  return null;
-}
-
-export function chipLabel(snapshot: PlantSnapshot, serial: string): string {
-  const name = displayNameOf(snapshot, serial);
-  if (serial === "Plant") {
-    return name;
-  }
-  const first = loggerFirstDay(snapshot, serial);
-  const start = historyStartOf(snapshot);
-  if (first && first > start) {
-    return `${name} from ${first}`;
-  }
-  return name;
-}
-
 export function stackLoggerNames(snapshot: PlantSnapshot): string[] {
   const names = new Set<string>();
   for (const bar of snapshot.local_day_bars) {
