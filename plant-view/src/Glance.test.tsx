@@ -4,16 +4,18 @@ import { afterEach, describe, expect, it } from "vitest";
 import { Glance } from "./Glance";
 import type { GlanceView } from "./glanceModel";
 
+const RING_R = [88, 72];
+
 const healthy: GlanceView = {
   wattsLabel: "412 W",
   hollow: false,
   banner: null,
   rings: [
-    { name: "1000000001", displayName: "East", closed: true },
-    { name: "1000000002", displayName: "West", closed: true },
+    { name: "1000000001", displayName: "East", closed: true, wattsLabel: "210 W" },
+    { name: "1000000002", displayName: "West", closed: true, wattsLabel: "202 W" },
   ],
   todayLabel: "3.90 kWh",
-  lifetimeLabel: "5635.4 kWh",
+  lifetimeLabel: "5,635.4 kWh",
 };
 
 afterEach(() => cleanup());
@@ -21,14 +23,19 @@ afterEach(() => cleanup());
 describe("Glance", () => {
   it("shows Current Power, captions, and Logger names", () => {
     render(<Glance view={healthy} currentPowerAt="2026-09-07T16:03:00.000Z" />);
-    expect(screen.getByText("412 W")).toBeTruthy();
+    const sun = screen.getByTestId("glance-sun");
+    expect(sun.querySelector("text")?.textContent).toBe("412 W");
+    expect(document.querySelector(".glance-watts")?.textContent).toBe("412 W");
     expect(screen.getByText("Today so far")).toBeTruthy();
     expect(screen.getByText("3.90 kWh")).toBeTruthy();
     expect(screen.getByText("Lifetime energy")).toBeTruthy();
-    expect(screen.getByText("5635.4 kWh")).toBeTruthy();
-    expect(screen.getByText("East")).toBeTruthy();
-    expect(screen.getByText("West")).toBeTruthy();
-    expect(screen.getByTestId("glance-sun").getAttribute("data-hollow")).toBe("false");
+    expect(screen.getByText("5,635.4 kWh")).toBeTruthy();
+    expect(screen.getByText("East 210 W")).toBeTruthy();
+    expect(screen.getByText("West 202 W")).toBeTruthy();
+    expect(sun.getAttribute("data-hollow")).toBe("false");
+    const closed = sun.querySelector("circle.series-a");
+    const c = 2 * Math.PI * RING_R[0]!;
+    expect(closed?.getAttribute("stroke-dasharray")).toBe(`${c} ${c}`);
     expect(screen.queryByRole("status")).toBeNull();
   });
 
@@ -41,8 +48,8 @@ describe("Glance", () => {
           hollow: true,
           banner: "West silent · last Sample 41 minutes ago",
           rings: [
-            { name: "1000000001", displayName: "East", closed: true },
-            { name: "1000000002", displayName: "West", closed: false },
+            { name: "1000000001", displayName: "East", closed: true, wattsLabel: "210 W" },
+            { name: "1000000002", displayName: "West", closed: false, wattsLabel: "0 W" },
           ],
         }}
         currentPowerAt="2026-09-07T16:03:00.000Z"

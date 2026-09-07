@@ -106,14 +106,32 @@ export function parseUnit(raw: string | null | undefined): Grain {
 }
 
 export function formatKwh(kwh: number): string {
-  return `${kwh.toFixed(2)} kWh`;
+  return `${new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(kwh)} kWh`;
 }
 
 export function formatWatts(watts: number): string {
-  if (watts === Math.trunc(watts)) {
-    return `${Math.trunc(watts)} W`;
-  }
-  return `${watts} W`;
+  const value = watts === Math.trunc(watts) ? Math.trunc(watts) : watts;
+  return `${new Intl.NumberFormat("en-US").format(value)} W`;
+}
+
+export function formatDayMonth(isoDay: string): string {
+  const stamp = new Date(`${isoDay}T12:00:00-03:00`);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Sao_Paulo",
+    day: "numeric",
+    month: "short",
+  }).formatToParts(stamp);
+  const day = parts.find((part) => part.type === "day")?.value ?? "";
+  const month = parts.find((part) => part.type === "month")?.value ?? "";
+  return `${day} ${month}`;
+}
+
+export function formatMonthName(isoDay: string): string {
+  const stamp = new Date(`${isoDay}T12:00:00-03:00`);
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Sao_Paulo",
+    month: "long",
+  }).format(stamp);
 }
 
 export function selectedPeriodKwh(
@@ -379,6 +397,7 @@ export function stepper(
   snapshot: PlantSnapshot,
   selectedDay: string,
   unit: Grain,
+  today?: string,
 ): Stepper {
   const [first, last] = historySpan(snapshot.local_day_bars);
   const selected = parseIsoDate(selectedDay);
@@ -398,7 +417,7 @@ export function stepper(
         ? href(nextMonth > last ? last : nextMonth, "day")
         : "";
     return {
-      label: `${selected.y}-${String(selected.m).padStart(2, "0")}`,
+      label: formatMonthName(isoDate(selected.y, selected.m, 1)),
       prevHref,
       nextHref,
     };
@@ -426,7 +445,7 @@ export function stepper(
   const prevDay = addDays(selectedDay, -1);
   const nextDay = addDays(selectedDay, 1);
   return {
-    label: selectedDay,
+    label: today && selectedDay === today ? "Today" : formatDayMonth(selectedDay),
     prevHref: prevDay >= first ? href(prevDay, "time") : "",
     nextHref: nextDay <= last ? href(nextDay, "time") : "",
   };

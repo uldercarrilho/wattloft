@@ -5,8 +5,8 @@ Wattloft still observes one household Plant. This spec adds a **layout fork**: a
 ## Goal
 
 - Below `60rem`, the populated Plant surface is five full-viewport pages, swiped **horizontally**: glance → Power → Day → Month → Year.
-- The glance is Plant-now: Current Power as a sun, Logger rings for cadence, Today so far, quieter Lifetime energy, Last sample, and a stall banner when production sense says so.
-- Chart snaps keep today’s `PlantChart`, period stepper, Each/By Logger, chips, and readout. The grain segmented control is gone on the phone; the pager *is* the grain switcher.
+- The glance is Plant-now: the sun’s watts are the sum of fresh Logger Power from `loggers_now`, Logger rings for cadence, Today so far, quieter Lifetime energy, Last sample, and a stall banner when production sense says so.
+- Chart snaps keep today’s `PlantChart`, period stepper, Each/By Logger, chips, and readout. The grain segmented control is gone on the phone; labeled tabs Glance / Power / Day / Month / Year *are* the grain switcher.
 - At `60rem` and above, Plant view is unchanged.
 - One hostname, one session, one `/api/plant`. Snapshot grows `loggers_now` so the glance is not inferred from the selected-day curve.
 
@@ -68,10 +68,11 @@ Fetch: when the URL has no `unit`, the client may still request `/api/plant` wit
 
 First full-screen page. Header **Plant** and log out, same as desktop. No chart, stepper, or Each/By Logger.
 
-- **Sun (inner glow):** Current Power. Center copy is `formatWatts` or `—` if Current Power is absent. Fill tracks that number. It is not a gauge against nameplate (Wattloft has none).
-- **Rings:** one per `loggers_now` row, serial order, colors `--logger-a` / `--logger-b` (same as charts). Legend uses snapshot display names. Completeness is **cadence**, not that Logger’s share of watts: **closed** iff `last_success_at` is within **15 minutes** of local now. Open (gap, dimmed) otherwise.
+- **Sun (inner glow):** Plant-now watts. When `loggers_now` is present and non-empty, center copy is the sum of `power_w` for **closed** rings (`last_success_at` within 15 minutes), `formatWatts`, or `—` if no ring is closed. When `loggers_now` is missing or empty, center copy is Current Power (or `—` if Current Power is absent). Fill tracks that number. It is not a gauge against nameplate (Wattloft has none). Watts sit in the sun core.
+- **Rings:** one per `loggers_now` row, serial order, colors `--logger-a` / `--logger-b` (same as charts). Legend uses snapshot display names plus that Logger’s watts. Completeness is **cadence**, not that Logger’s share of watts: **closed** iff `last_success_at` is within **15 minutes** of local now (full circumference). Open (short arc, dimmed) otherwise.
 - **Today so far** under the sun (secondary). **Lifetime energy** a quieter caption under that (`lifetimeKwh` as today). **Last sample** is the relative age of Plant `current_power_at`, ticking, as today.
-- **Page dots** at the bottom (five). The current dot is pigment. Dots are **controls** (not decoration): activating one goes to that snap, so the pager is not swipe-only. Horizontal swipe still changes page. Honor `prefers-reduced-motion` (no slide).
+- **Labeled tabs** at the bottom: Glance / Power / Day / Month / Year. The current tab is pigment. Tabs are **controls** (not decoration): activating one goes to that snap, so the pager is not swipe-only. Horizontal swipe still changes page except when it starts on the chart, stepper, mode bar, chips, or readout. Honor `prefers-reduced-motion` (no slide).
+- **Landscape** (`max-height: 31.25rem`): glance is a row — sun `min(40dvh, 16rem)`, captions to the right, pager stays pinned. Portrait stack is unchanged.
 
 ## Health
 
@@ -79,17 +80,17 @@ A pure `glanceModel` (no DOM) maps `loggers_now` + Plant KPIs + now (`America/Sa
 
 A failed parse is not a Sample and never becomes 0 W. A missing Logger is omitted from Plant Power, not coerced to 0 W. Night-time 0 W with a successful parse is valid.
 
-**Banner** iff at least one Logger has `power_w` > 0 and a closed ring **and** another is **stale** (ring open) **or** has `power_w` == 0 with a closed ring (and this is not a valid night zero). Copy uses display names and relative age: `West silent · last Sample 41 min ago`. Several silent Loggers: one banner, names joined with commas, age of the stalest. The sun **stays pigment**; center watts stay Plant Current Power (truth).
+**Banner** iff at least one Logger has `power_w` > 0 and a closed ring **and** another is **stale** (ring open) **or** has `power_w` == 0 with a closed ring (and this is not a valid night zero). Copy uses display names and relative age: `West silent · last Sample 41 min ago`. Several silent Loggers: one banner, names joined with commas, age of the stalest. The sun **stays pigment**; center watts stay the closed-ring sum (do not re-sum for the banner). Desktop Current Power is unchanged.
 
-**Night zero (hollow sun, no banner):** every Logger in `loggers_now` is fresh **and** Plant Current Power is 0 W (or absent). Glow empties; rings stay closed. No civil dusk table.
+**Night zero (hollow sun, no banner):** every Logger in `loggers_now` is fresh **and** the closed-ring sum is 0 W. Glow empties; rings stay closed. No civil dusk table.
 
-**Whole Plant stale:** every `loggers_now` ring is open (or `loggers_now` is missing/empty). No stall banner. Center still shows Current Power and Last sample age (may be hours), or `—` if Current Power is absent. Hollow glow if watts are 0 or absent.
+**Whole Plant stale:** every `loggers_now` ring is open (or `loggers_now` is missing/empty). No stall banner. Center is `—` when every ring is open; if `loggers_now` is missing/empty, center still shows Current Power and Last sample age (may be hours), or `—` if Current Power is absent. Hollow glow if watts are 0 or absent.
 
 **Daytime 0 W, sibling producing, both fresh:** rings stay closed (cadence is fine). Banner still shows for the 0 W Logger. That is production sense, not cadence.
 
 ## Chart snaps
 
-Each grain is one full-viewport page: grain title (Power / Day / Month / Year), period stepper, `PlantChart`, pointer readout, series chips, Each / By Logger. Same Overlay/Stack semantics and `localStorage` key as desktop. The sun does not ride along. Vertical scroll is only for overflow, not for changing page.
+Each grain is one full-viewport page: labeled tab (Power / Day / Month / Year), period stepper, `PlantChart`, pointer readout, series chips, Each / By Logger. Same Overlay/Stack semantics and `localStorage` key as desktop. The sun does not ride along. Vertical scroll is only for overflow, not for changing page.
 
 Login, empty History (“This Plant has no History yet.”), and 502 (“Plant view cannot reach History.”) stay current Azulejo pages on every viewport. They are not pager pages and they do not show a sun. After login on a phone, land on the glance (`/` with no `unit`).
 
@@ -123,7 +124,7 @@ Rules:
 - `last_success_at` is that Logger’s last successful Sample receive time (not the selected-day curve, not an in-frame clock).
 - `power_w` is AC Power from that Sample. **0 W is kept.** A Sample with no Power does not count as 0 W: walk back to that Logger’s last successful Power. A trailing zero does not wipe an earlier successful Power **unless** that zero is itself a successful Power (night 0 is real).
 - A Logger with no successful Sample in History is **omitted**, not a row of zeros.
-- Plant `current_power_w` / `current_power_at` stay Plant aggregates as today. The glance does not re-sum `loggers_now` for the center number.
+- Plant `current_power_w` / `current_power_at` stay Plant aggregates as today. Desktop Current Power uses those fields. The glance hero is the sum of closed `loggers_now` watts when that list is present and non-empty.
 
 If `loggers_now` is missing (older Python during deploy): draw the sun from Plant KPIs only; rings omitted; **never invent a stall banner**.
 
@@ -154,7 +155,7 @@ Desktop ignores `loggers_now`. BFF `/api/plant` does not reshape it.
 
 ## CONTEXT.md
 
-Implementation updates the **Plant view** paragraph: below `60rem` the Operator sees the glance (sun, rings, stall banner, Today, Lifetime, Last sample) then Power / Day / Month / Year as horizontal snaps; at `60rem` and above the current KPI + grain + chart surface stays. Do not call the glance a dashboard. Cadence on the glance is Last sample plus per-Logger ring/banner from `loggers_now`, not a new domain noun.
+Implementation updates the **Plant view** paragraph: below `60rem` the Operator sees the glance (sun watts as the sum of fresh `loggers_now`, rings, stall banner, Today, Lifetime, Last sample) then Power / Day / Month / Year as horizontal snaps with labeled tabs; at `60rem` and above the current KPI + grain + chart surface stays, including Current Power as the last successful Plant Power Sample. Do not call the glance a dashboard. Cadence on the glance is Last sample plus per-Logger ring/banner from `loggers_now`, not a new domain noun.
 
 ## Out of scope (later specs)
 

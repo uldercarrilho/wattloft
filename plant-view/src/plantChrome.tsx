@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { type ChartMode, writeChartMode } from "./chartMode";
+import { type ChartMode, readModeHintSeen, writeChartMode, writeModeHintSeen } from "./chartMode";
 import {
   energyReadout,
   buildPlantChartModel,
@@ -9,6 +9,7 @@ import {
 import { PlantChart } from "./PlantChart";
 import {
   displayNameOf,
+  formatDayMonth,
   formatKwh,
   historyStartOf,
   localDayOf,
@@ -49,9 +50,9 @@ function loggerClass(name: string, names: string[]): string {
 }
 
 function drillHint(unit: Grain): string | null {
-  if (unit === "day") return "Tap a day to open its curve";
-  if (unit === "month") return "Tap a month to open Day grain";
-  if (unit === "year") return "Tap a year to open Month grain";
+  if (unit === "day") return "Tap a day to open its Power chart";
+  if (unit === "month") return "Tap a month to open the Day chart";
+  if (unit === "year") return "Tap a year to open the Month chart";
   return null;
 }
 
@@ -93,11 +94,13 @@ export function Chart({
     model.kind === "energy" && model.partial.some(Boolean)
       ? unit === "day"
         ? "In progress"
-        : "Partial History"
+        : unit === "year"
+          ? "This year is incomplete in Wattloft"
+          : "This month is incomplete in Wattloft"
       : null;
   const historyCaption =
     unit === "month" || unit === "year"
-      ? `History since ${historyStartOf(snapshot)}. Lifetime includes energy from before Wattloft.`
+      ? `Wattloft History · from ${formatDayMonth(historyStartOf(snapshot))}`
       : null;
   const tapHint = drillHint(unit);
   return (
@@ -105,7 +108,7 @@ export function Chart({
       <div className="plant-plot">
         {showPeriod ? (
           <p className="period">
-            {snapshot.selected_day} {formatKwh(periodKwh)}
+            {formatDayMonth(snapshot.selected_day)} {formatKwh(periodKwh)}
           </p>
         ) : null}
         <PlantChart
@@ -229,20 +232,39 @@ export function ChartModeBar({
   mode: ChartMode;
   onChoose: (next: ChartMode) => void;
 }) {
+  const [hint, setHint] = useState(() => !readModeHintSeen(window.localStorage));
   return (
     <>
       <nav className="grain chart-mode" aria-label="Chart mode">
-        <button type="button" aria-pressed={mode === "overlay"} onClick={() => onChoose("overlay")}>
+        <button
+          type="button"
+          aria-pressed={mode === "overlay"}
+          onClick={() => {
+            onChoose("overlay");
+            writeModeHintSeen(window.localStorage);
+            setHint(false);
+          }}
+        >
           Each
         </button>
-        <button type="button" aria-pressed={mode === "stack"} onClick={() => onChoose("stack")}>
+        <button
+          type="button"
+          aria-pressed={mode === "stack"}
+          onClick={() => {
+            onChoose("stack");
+            writeModeHintSeen(window.localStorage);
+            setHint(false);
+          }}
+        >
           By Logger
         </button>
       </nav>
-      <p className="hint mode-hint">
-        Each: Plant and Loggers on top of each other. By Logger: Loggers stacked; Plant is
-        the height.
-      </p>
+      {hint ? (
+        <p className="hint mode-hint">
+          Each: Plant and Loggers on top of each other. By Logger: Loggers stacked; Plant is
+          the height.
+        </p>
+      ) : null}
     </>
   );
 }

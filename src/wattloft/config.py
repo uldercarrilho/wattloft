@@ -6,8 +6,8 @@ from pathlib import Path
 
 ADMITTED_LOGGER_SERIALS = frozenset({"1000000001", "1000000002"})
 LOGGER_DISPLAY_NAMES = {
-    "1000000001": "Logger 1",
-    "1000000002": "Logger 2",
+    "1000000001": "East",
+    "1000000002": "West",
 }
 
 

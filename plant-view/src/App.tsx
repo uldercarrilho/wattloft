@@ -10,6 +10,7 @@ import {
   parseUnit,
   stackLoggerNames,
   stepper,
+  localDayOf,
 } from "./grains";
 import { LastSample, lifetimeKwh } from "./LastSample";
 import { PlantMobile } from "./PlantMobile";
@@ -165,7 +166,14 @@ function Login({ onGranted }: { onGranted: () => void }) {
   return (
     <main>
       <h1>Wattloft</h1>
-      <p className="lede">This Plant</p>
+      <p className="lede">Watch this Plant.</p>
+      {passkeyReady ? (
+        <div className="login">
+          <button type="button" onClick={() => void onPasskey()}>
+            Use passkey
+          </button>
+        </div>
+      ) : null}
       <form className="login" onSubmit={onSubmit}>
         <label>
           Password{" "}
@@ -183,13 +191,10 @@ function Login({ onGranted }: { onGranted: () => void }) {
             Password not accepted.
           </p>
         ) : null}
-        <button type="submit">Log in</button>
-      </form>
-      {passkeyReady ? (
-        <button type="button" className="passkey" onClick={() => void onPasskey()}>
-          Use passkey
+        <button type="submit" className={passkeyReady ? "passkey" : undefined}>
+          {passkeyReady ? "Use password" : "Log in"}
         </button>
-      ) : null}
+      </form>
       {passkeyRejected ? (
         <p role="alert">Passkey not accepted.</p>
       ) : null}
@@ -219,7 +224,7 @@ function Plant({
   const visible = new Set(names.filter((name) => !hidden.has(name)));
   const today =
     snapshot.today_energy_kwh === null ? "-" : formatKwh(snapshot.today_energy_kwh);
-  const period = stepper(snapshot, snapshot.selected_day, unit);
+  const period = stepper(snapshot, snapshot.selected_day, unit, localDayOf(new Date().toISOString()));
   useEffect(() => {
     setHidden(new Set());
   }, [payload.selected_day, payload.unit]);

@@ -28,7 +28,7 @@ export function Glance({
         {view.rings.map((ring, index) => {
           const r = RING_R[index] ?? RING_R[RING_R.length - 1]!;
           const c = RING_C[index] ?? RING_C[RING_C.length - 1]!;
-          const dash = ring.closed ? c * 0.92 : c * 0.14;
+          const dash = ring.closed ? c : c * 0.14;
           return (
             <circle
               key={ring.name}
@@ -53,12 +53,15 @@ export function Glance({
             <circle cx="100" cy="100" r="36" className="glance-core" />
           </>
         )}
+        <text className="glance-sun-watts" x="100" y="100" textAnchor="middle" dominantBaseline="central">
+          {view.wattsLabel}
+        </text>
       </svg>
       <p className="glance-watts">{view.wattsLabel}</p>
       <ul className="glance-legend">
         {view.rings.map((ring, index) => (
           <li key={ring.name} className={index % 2 === 0 ? "series-a" : "series-b"}>
-            {ring.displayName}
+            {ring.displayName} {ring.wattsLabel}
           </li>
         ))}
       </ul>

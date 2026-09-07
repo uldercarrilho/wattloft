@@ -2,11 +2,10 @@ import { useEffect, useRef, useState, type TouchEvent } from "react";
 import { type ChartMode, readChartMode } from "./chartMode";
 import { Glance } from "./Glance";
 import { glanceModel } from "./glanceModel";
-import { stackLoggerNames, stepper } from "./grains";
+import { stackLoggerNames, stepper, localDayOf } from "./grains";
 import {
   Chart,
   ChartModeBar,
-  GRAIN_LABEL,
   PeriodStepper,
   PlantHeader,
   SeriesChips,
@@ -18,6 +17,7 @@ import {
   adjacentMobilePage,
   mobileHref,
   mobilePageOf,
+  pagerSwipeIgnored,
   type MobilePage,
 } from "./mobilePage";
 import type { Grain, PlantPayload } from "./types";
@@ -43,6 +43,7 @@ export function PlantMobile({
   const [mode, setMode] = useState<ChartMode>(() => readChartMode(window.localStorage));
   const [hidden, setHidden] = useState<Set<string>>(() => new Set());
   const touchX = useRef<number | null>(null);
+  const ignoreSwipe = useRef(false);
   const names =
     page === "glance"
       ? []
@@ -54,18 +55,22 @@ export function PlantMobile({
             ? overlayTimeNames(snapshot)
             : [];
   const visible = new Set(names.filter((name) => !hidden.has(name)));
-  const period = stepper(snapshot, snapshot.selected_day, unit);
+  const period = stepper(snapshot, snapshot.selected_day, unit, localDayOf(new Date().toISOString()));
   const view = glanceModel(snapshot, new Date());
   useEffect(() => {
     setHidden(new Set());
   }, [payload.selected_day, unit]);
 
   function onTouchStart(event: TouchEvent<HTMLElement>) {
+    ignoreSwipe.current = pagerSwipeIgnored(event.target);
     touchX.current = event.changedTouches[0]?.clientX ?? null;
   }
   function onTouchEnd(event: TouchEvent<HTMLElement>) {
     const start = touchX.current;
+    const ignored = ignoreSwipe.current;
     touchX.current = null;
+    ignoreSwipe.current = false;
+    if (ignored) return;
     const end = event.changedTouches[0]?.clientX;
     if (start === null || end === undefined) return;
     const delta = end - start;
@@ -92,7 +97,6 @@ export function PlantMobile({
           />
         ) : (
           <>
-            <h2 className="grain-title">{GRAIN_LABEL[page]}</h2>
             <PeriodStepper
               label={period.label}
               prevHref={period.prevHref}

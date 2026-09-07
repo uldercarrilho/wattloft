@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { cleanup, fireEvent, render, screen, act } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, act, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CHART_MODE_KEY } from "./chartMode";
 import type { PlantPayload } from "./types";
@@ -52,7 +52,7 @@ const snapshot: Extract<PlantPayload, { empty: false }> = {
   curve: [
     {
       name: "1000000001",
-      display_name: "Logger 1",
+      display_name: "East",
       points: [{ at: "2026-08-21T15:00:00", watts: 625, lifetime_kwh: 5635.4 }],
     },
     { name: "Plant", points: [{ at: "2026-08-21T15:00:00", watts: 625 }] },
@@ -119,7 +119,7 @@ describe("Plant view", () => {
     expect(await screen.findByLabelText("Password")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Log in" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Wattloft" })).toBeTruthy();
-    expect(screen.getByText("This Plant")).toBeTruthy();
+    expect(screen.getByText("Watch this Plant.")).toBeTruthy();
     expect(screen.getByLabelText("Password").getAttribute("autocomplete")).toBe(
       "current-password",
     );
@@ -210,7 +210,10 @@ describe("Plant view", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     render(<App />);
-    expect(await screen.findByRole("button", { name: "Use passkey" })).toBeTruthy();
+    const passkey = await screen.findByRole("button", { name: "Use passkey" });
+    const buttons = within(screen.getByRole("main")).getAllByRole("button");
+    expect(buttons[0]).toBe(passkey);
+    expect(screen.getByRole("button", { name: "Use password" })).toBeTruthy();
   });
 
   it("shows empty History without KPIs or a chart", async () => {
@@ -245,9 +248,9 @@ describe("Plant view", () => {
     render(<App />);
     expect(await screen.findByText("0.20 kWh")).toBeTruthy();
     expect(screen.getByText("50 W")).toBeTruthy();
-    expect(screen.getByText("5635.4 kWh")).toBeTruthy();
+    expect(screen.getByText("5,635.4 kWh")).toBeTruthy();
     expect(await screen.findByRole("img", { name: "Energy bars" })).toBeTruthy();
-    expect(screen.getAllByText("2026-08-21 3.90 kWh").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("21 Aug 3.90 kWh").length).toBeGreaterThan(0);
     expect(screen.queryByText("2026-09-01 0.20 kWh")).toBeNull();
     expect(document.querySelector("ol.days")).toBeNull();
     expect(screen.getByRole("link", { name: "Power curve for this Local day" })).toBeTruthy();
@@ -363,15 +366,15 @@ describe("Plant view", () => {
     window.history.replaceState({}, "", "/?day=2026-08-21&unit=day");
     stubPlant(200, withLoggers);
     render(<App />);
-    await screen.findAllByText("2026-08-21 3.90 kWh");
+    await screen.findAllByText("21 Aug 3.90 kWh");
     expect(screen.queryByRole("button", { name: "1000000001" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "By Logger" }));
     expect(screen.getByRole("button", { name: "1000000003" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Logger 1" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Logger 1" }).getAttribute("data-series")).toBe(
+    expect(screen.getByRole("button", { name: "East" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "East" }).getAttribute("data-series")).toBe(
       "1000000001",
     );
-    expect(screen.getByRole("button", { name: "Logger 1" }).getAttribute("title")).toBe(
+    expect(screen.getByRole("button", { name: "East" }).getAttribute("title")).toBe(
       "1000000001",
     );
     expect(screen.getByRole("img", { name: "Energy bars" })).toBeTruthy();
@@ -382,7 +385,7 @@ describe("Plant view", () => {
     window.history.replaceState({}, "", "/?day=2026-08-21&unit=day");
     stubPlant(200, snapshot);
     render(<App />);
-    expect((await screen.findAllByText("2026-08-21 3.90 kWh")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("21 Aug 3.90 kWh")).length).toBeGreaterThan(0);
     expect(screen.getByRole("img", { name: "Energy bars" })).toBeTruthy();
   });
 
@@ -410,9 +413,9 @@ describe("Plant view", () => {
     window.history.replaceState({}, "", "/?day=2026-08-21&unit=day");
     stubPlant(200, withLoggers);
     render(<App />);
-    expect((await screen.findAllByText("2026-08-21 3.90 kWh")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("21 Aug 3.90 kWh")).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: "1000000003" }));
-    expect(screen.getAllByText("2026-08-21 2.10 kWh").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("21 Aug 2.10 kWh").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Plant" })).toBeNull();
   });
 
@@ -424,9 +427,9 @@ describe("Plant view", () => {
     fireEvent.click(screen.getByRole("button", { name: "By Logger" }));
     expect(screen.queryByRole("button", { name: "Plant" })).toBeNull();
     expect(screen.getByRole("img", { name: "Power curve" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Logger 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "East" }));
     expect(screen.getByRole("img", { name: "Power curve" })).toBeTruthy();
-    expect(screen.queryByText("Logger 1 625 W")).toBeNull();
+    expect(screen.queryByText("East 625 W")).toBeNull();
   });
 
   it("navigates from a Day column click", async () => {
@@ -506,7 +509,7 @@ describe("Plant view", () => {
     render(<App />);
     expect(await screen.findByText("Today so far")).toBeTruthy();
     expect(screen.getAllByText("0.20 kWh").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("2026-08-21 3.90 kWh").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("21 Aug 3.90 kWh").length).toBeGreaterThan(0);
     expect(screen.getByText("In progress")).toBeTruthy();
   });
 
@@ -515,19 +518,19 @@ describe("Plant view", () => {
     stubPlant(200, { ...snapshot, unit: "month", history_start: "2026-08-21" });
     render(<App />);
     expect(
-      await screen.findByText(
-        "History since 2026-08-21. Lifetime includes energy from before Wattloft.",
-      ),
+      await screen.findByText("Wattloft History · from 21 Aug"),
     ).toBeTruthy();
-    expect(screen.getByText("Partial History")).toBeTruthy();
-    expect(screen.getByText("Tap a month to open Day grain")).toBeTruthy();
+    expect(screen.getByText("This month is incomplete in Wattloft")).toBeTruthy();
+    expect(screen.getByText("Tap a month to open the Day chart")).toBeTruthy();
   });
 
   it("omits Year chevrons when History is one span", async () => {
     window.history.replaceState({}, "", "/?day=2026-08-21&unit=year");
     stubPlant(200, { ...snapshot, unit: "year" });
     render(<App />);
-    expect(await screen.findByText("2026")).toBeTruthy();
+    expect(await screen.findByText("This year is incomplete in Wattloft")).toBeTruthy();
+    expect(document.querySelector(".stepper span")?.textContent).toBe("2026");
+    expect(screen.getByText("Tap a year to open the Month chart")).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Previous" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Next" })).toBeNull();
   });
@@ -547,7 +550,7 @@ describe("Plant view", () => {
     render(<App />);
     const disclosure = await screen.findByText("Why gaps?");
     expect(disclosure.closest("details")?.open).toBe(false);
-    expect(screen.getByRole("button", { name: "Logger 1" }).getAttribute("data-series")).toBe(
+    expect(screen.getByRole("button", { name: "East" }).getAttribute("data-series")).toBe(
       "1000000001",
     );
   });
@@ -558,8 +561,16 @@ describe("Plant view", () => {
     stubPlant(200, snapshot);
     render(<App />);
     expect(await screen.findByTestId("glance-sun")).toBeTruthy();
+    expect(screen.getByRole("navigation", { name: "Pages" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Glance" }).getAttribute("aria-current")).toBe(
+      "true",
+    );
+    expect(screen.getByRole("link", { name: "Power" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Day" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Month" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Year" })).toBeTruthy();
     expect(screen.queryByRole("navigation", { name: "Grain" })).toBeNull();
-    expect(screen.getByText("50 W")).toBeTruthy();
+    expect(document.querySelector(".glance-sun-watts")?.textContent).toBe("50 W");
   });
 
   it("opens the Day snap on a narrow viewport without a Grain switcher", async () => {
@@ -567,7 +578,9 @@ describe("Plant view", () => {
     window.history.replaceState({}, "", "/?day=2026-08-21&unit=day");
     stubPlant(200, snapshot);
     render(<App />);
-    expect(await screen.findByRole("heading", { name: "Day" })).toBeTruthy();
+    expect(await screen.findByRole("link", { name: "Day" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Day" }).getAttribute("aria-current")).toBe("true");
+    expect(screen.queryByRole("heading", { name: "Day" })).toBeNull();
     expect(screen.queryByTestId("glance-sun")).toBeNull();
     expect(screen.queryByRole("navigation", { name: "Grain" })).toBeNull();
     expect(screen.getByRole("button", { name: "Each" })).toBeTruthy();
@@ -593,7 +606,7 @@ describe("Plant view", () => {
       loggers_now: [
         {
           name: "1000000001",
-          display_name: "Logger 1",
+          display_name: "East",
           last_success_at: "2026-08-22T13:00:00+00:00",
           power_w: 50,
         },

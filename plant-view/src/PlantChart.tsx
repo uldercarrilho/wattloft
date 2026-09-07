@@ -270,7 +270,7 @@ function chartConfig(
     display: true,
     text: model.yUnit,
     color: muted,
-    font: { family: '"IBM Plex Mono", monospace', size: 10 },
+    font: { family: '"IBM Plex Mono", monospace', size: 12 },
   };
   if (model.kind === "time") {
     return {
@@ -294,7 +294,7 @@ function chartConfig(
             max: model.minutes.at(-1),
             ticks: {
               color: muted,
-              font: { family: '"IBM Plex Mono", monospace', size: 10 },
+              font: { family: '"IBM Plex Mono", monospace', size: 12 },
               callback(value: string | number) {
                 return hourTickLabel(value);
               },
@@ -308,7 +308,7 @@ function chartConfig(
             title: yTitle,
             ticks: {
               color: muted,
-              font: { family: '"IBM Plex Mono", monospace', size: 10 },
+              font: { family: '"IBM Plex Mono", monospace', size: 12 },
             },
             grid: { color: "rgba(26, 42, 58, 0.12)" },
           },
@@ -361,7 +361,7 @@ function chartConfig(
           stacked,
           ticks: {
             color: muted,
-            font: { family: '"IBM Plex Mono", monospace', size: 10 },
+            font: { family: '"IBM Plex Mono", monospace', size: 12 },
           },
           grid: { display: false },
         },
@@ -372,7 +372,7 @@ function chartConfig(
           title: yTitle,
           ticks: {
             color: muted,
-            font: { family: '"IBM Plex Mono", monospace', size: 10 },
+            font: { family: '"IBM Plex Mono", monospace', size: 12 },
           },
           grid: { color: "rgba(26, 42, 58, 0.12)" },
         },

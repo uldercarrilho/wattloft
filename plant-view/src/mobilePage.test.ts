@@ -1,5 +1,6 @@
+/** @vitest-environment jsdom */
 import { describe, expect, it } from "vitest";
-import { adjacentMobilePage, mobileHref, mobilePageOf } from "./mobilePage";
+import { adjacentMobilePage, mobileHref, mobilePageOf, pagerSwipeIgnored } from "./mobilePage";
 
 describe("mobilePageOf", () => {
   it("treats a missing unit as the glance", () => {
@@ -37,5 +38,18 @@ describe("adjacentMobilePage", () => {
     expect(adjacentMobilePage("year", 1)).toBeNull();
     expect(adjacentMobilePage("glance", -1)).toBeNull();
     expect(adjacentMobilePage("day", -1)).toBe("time");
+  });
+});
+
+describe("pagerSwipeIgnored", () => {
+  it("ignores swipes that start on the chart, stepper, mode bar, chips, or readout", () => {
+    document.body.innerHTML =
+      '<div class="plant-chart"><canvas></canvas></div><nav class="stepper"><a>‹</a></nav><nav class="chart-mode"><button>Each</button></nav><div class="series-toggles"><button>East</button></div><div class="readout"><span class="when">15:00</span></div>';
+    expect(pagerSwipeIgnored(document.querySelector("canvas"))).toBe(true);
+    expect(pagerSwipeIgnored(document.querySelector(".stepper a"))).toBe(true);
+    expect(pagerSwipeIgnored(document.querySelector(".chart-mode button"))).toBe(true);
+    expect(pagerSwipeIgnored(document.querySelector(".series-toggles button"))).toBe(true);
+    expect(pagerSwipeIgnored(document.querySelector(".readout .when"))).toBe(true);
+    expect(pagerSwipeIgnored(document.body)).toBe(false);
   });
 });
