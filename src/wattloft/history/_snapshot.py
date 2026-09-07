@@ -31,6 +31,13 @@ class LoggerEnergy:
 
 
 @dataclass(frozen=True)
+class LoggerNow:
+    name: str
+    last_success_at: datetime
+    power_w: float
+
+
+@dataclass(frozen=True)
 class LocalDayBar:
     local_day: date
     today_energy_kwh: float
@@ -45,6 +52,7 @@ class PlantSnapshot:
     current_power_at: datetime
     local_day_bars: tuple[LocalDayBar, ...]
     curve: tuple[CurveSeries, ...]
+    loggers_now: tuple[LoggerNow, ...] = ()
 
 
 def _local(value: datetime) -> datetime:
@@ -131,11 +139,16 @@ def build_plant_snapshot(
     bar_life: dict[tuple[date, str], float] = {}
     bar_today: dict[tuple[date, str], float] = {}
     curve_last: dict[tuple[str, datetime], tuple[float, float | None]] = {}
+    now_success_at: dict[str, datetime] = {}
+    now_power: dict[str, float] = {}
 
     for sample in samples:
         local_stamp = _local(sample.received_at)
         sample_day = local_stamp.date()
         serial = sample.logger_serial
+        now_success_at[serial] = sample.received_at
+        if sample.ac_power_w is not None:
+            now_power[serial] = sample.ac_power_w
         if sample.today_energy_kwh is not None:
             key = (sample_day, serial)
             if sample.today_energy_kwh or key not in bar_today:
@@ -193,6 +206,14 @@ def build_plant_snapshot(
             for day, parts in sorted(by_bar_day.items())
         ),
         curve=_curve_series(curve_points),
+        loggers_now=tuple(
+            LoggerNow(
+                name=serial,
+                last_success_at=now_success_at[serial],
+                power_w=now_power[serial],
+            )
+            for serial in sorted(now_power)
+        ),
     )
 
 
