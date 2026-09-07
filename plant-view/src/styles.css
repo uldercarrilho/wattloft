@@ -1,17 +1,23 @@
 :root {
   --paper:#E8EEF2; --ink:#1A2A3A; --pigment:#1E4F8C; --muted:#5A6B78;
   --chip:#F7FAFC; --on-pigment:#F4F7FA;
-  --plant:#1A2A3A; --logger-a:#9B2C2C; --logger-b:#2A6B5A;
+  --plant:#1A2A3A; --logger-a:#1E4F8C; --logger-b:#C4841D;
 }
 * { box-sizing: border-box; }
 body { margin: 0; padding: 0 0 1.5rem; background: var(--paper); color: var(--ink);
   font: 16px/1.4 "Source Sans 3", sans-serif; max-width: 100%; }
 main { padding: 0.75rem 1rem 1.5rem; max-width: 42rem; }
-h1 { font: 600 1.7rem/1.1 "Ibarra Real Nova", serif; margin: 0 0 0.75rem; }
-.logout { margin: 0 0 0.6rem; }
+h1 { font: 600 1.7rem/1.1 "Ibarra Real Nova", serif; margin: 0; }
+.plant-header { display: flex; align-items: baseline; justify-content: space-between;
+  gap: 1rem; margin: 0 0 0.75rem; }
+.logout { margin: 0; }
 .logout button { font: 500 0.9rem/1 "Source Sans 3", sans-serif; background: none;
   border: 0; padding: 0; color: var(--muted); text-decoration: underline;
   cursor: pointer; min-height: 2.4rem; }
+.skip { position: absolute; left: -999px; top: 0.75rem; z-index: 2;
+  background: var(--pigment); color: var(--on-pigment); padding: 0.4rem 0.7rem;
+  text-decoration: none; }
+.skip:focus { left: 1rem; }
 .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem 1rem; margin: 0 0 0.9rem; }
 .kpis div { margin: 0; }
 .kpis dt { font-size: 0.72rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
@@ -23,11 +29,16 @@ h1 { font: 600 1.7rem/1.1 "Ibarra Real Nova", serif; margin: 0 0 0.75rem; }
 .login button { margin-top: 0.8rem; min-height: 2.6rem; padding: 0.5rem 1.1rem; width: 100%;
   font: 500 1rem/1 "Source Sans 3", sans-serif; border: 0; background: var(--pigment);
   color: var(--on-pigment); cursor: pointer; }
+button.passkey { display: block; margin: 0.8rem 0 0; min-height: 2.6rem; padding: 0.5rem 1.1rem;
+  width: 100%; max-width: 22rem; font: 500 1rem/1 "Source Sans 3", sans-serif;
+  border: 1px solid var(--pigment); background: none; color: var(--pigment); cursor: pointer; }
 .lede { margin: 0 0 0.75rem; color: var(--muted); }
 .empty { margin: 0; }
 .series-toggles, .readout, dl, form, .plant-chart { max-width: 100%; }
-.plant-chart { position: relative; width: 100%; aspect-ratio: 400 / 214; }
+.plant-chart { position: relative; width: 100%; aspect-ratio: 400 / 280; }
 .plant-chart canvas { display: block; width: 100%; height: 100%; }
+.plant-chart.is-energy canvas { cursor: pointer; }
+.period { margin: 0 0 0.4rem; font-family: "IBM Plex Mono", monospace; font-size: 0.95rem; }
 :focus-visible { outline: 2px solid var(--pigment); outline-offset: 2px; }
 .series-toggles { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.65rem 0 0.2rem; }
 .series-toggle {
@@ -48,6 +59,10 @@ h1 { font: 600 1.7rem/1.1 "Ibarra Real Nova", serif; margin: 0 0 0.75rem; }
 .readout .series-plant { font-weight: 500; color: var(--plant); }
 .readout .series-a, .readout .series-b { grid-column: 1 / -1; color: var(--muted); font-size: 0.75rem; }
 .hint { font-size: 0.78rem; color: var(--muted); margin: 0.7rem 0 0; max-width: 36rem; }
+.mode-hint { margin: 0 0 0.85rem; }
+.gaps { max-width: 36rem; }
+.gaps summary { cursor: pointer; }
+.gaps p { margin: 0.4rem 0 0; }
 .grain { display: flex; margin: 0 0 1rem; border: 1px solid var(--ink); padding: 0; }
 .chart-mode { max-width: 14rem; }
 .grain a, .grain button { flex: 1; text-align: center; padding: 0.45rem 0.2rem; font-size: 0.82rem;
@@ -61,3 +76,9 @@ h1 { font: 600 1.7rem/1.1 "Ibarra Real Nova", serif; margin: 0 0 0.75rem; }
 .stepper a, .stepper .dead { font: 500 1.6rem/1 "Source Sans 3", sans-serif;
   text-decoration: none; color: var(--pigment); width: 2rem; text-align: center; }
 .stepper .dead { color: var(--muted); opacity: 0.35; }
+@media (min-width: 60rem) {
+  main { max-width: 72rem; }
+  .plant-chart { aspect-ratio: 400 / 214; }
+  .plant-stage { display: grid; grid-template-columns: minmax(0, 1fr) minmax(12rem, 18rem);
+    gap: 1rem 1.25rem; align-items: start; }
+}

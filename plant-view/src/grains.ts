@@ -11,6 +11,7 @@ export type EnergyBar = {
   label: string;
   kwh: number;
   current: boolean;
+  partial: boolean;
   width: number;
   segments: EnergySegment[];
 };
@@ -65,6 +66,34 @@ function historySpan(bars: LocalDayBar[]): [string, string] {
   return [bars[0]!.local_day, bars[bars.length - 1]!.local_day];
 }
 
+export function localDayOf(iso: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(iso));
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+export function weekdayTick(isoDay: string): string {
+  const stamp = new Date(`${isoDay}T12:00:00-03:00`);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Sao_Paulo",
+    weekday: "short",
+    day: "numeric",
+  }).formatToParts(stamp);
+  const weekday = parts.find((part) => part.type === "weekday")?.value ?? "";
+  const day = parts.find((part) => part.type === "day")?.value ?? "";
+  return `${weekday} ${day}`;
+}
+
+export function historyStartOf(snapshot: PlantSnapshot): string {
+  return snapshot.history_start ?? historySpan(snapshot.local_day_bars)[0];
+}
+
 export function href(day: string, unit: Grain): string {
   return `/?day=${day}&unit=${unit}`;
 }
@@ -85,6 +114,58 @@ export function formatWatts(watts: number): string {
     return `${Math.trunc(watts)} W`;
   }
   return `${watts} W`;
+}
+
+export function selectedPeriodKwh(
+  snapshot: PlantSnapshot,
+  visible?: ReadonlySet<string>,
+): number {
+  const bar = snapshot.local_day_bars.find((row) => row.local_day === snapshot.selected_day);
+  if (!bar) {
+    return 0;
+  }
+  return partsForBar(bar, visible).kwh;
+}
+
+export function displayNameOf(snapshot: PlantSnapshot, serial: string): string {
+  if (serial === "Plant") {
+    return "Plant";
+  }
+  for (const series of snapshot.curve) {
+    if (series.name === serial && series.display_name) {
+      return series.display_name;
+    }
+  }
+  for (const bar of snapshot.local_day_bars) {
+    for (const logger of bar.loggers ?? []) {
+      if (logger.name === serial && logger.display_name) {
+        return logger.display_name;
+      }
+    }
+  }
+  return serial;
+}
+
+export function loggerFirstDay(snapshot: PlantSnapshot, serial: string): string | null {
+  for (const bar of snapshot.local_day_bars) {
+    if (bar.loggers?.some((part) => part.name === serial)) {
+      return bar.local_day;
+    }
+  }
+  return null;
+}
+
+export function chipLabel(snapshot: PlantSnapshot, serial: string): string {
+  const name = displayNameOf(snapshot, serial);
+  if (serial === "Plant") {
+    return name;
+  }
+  const first = loggerFirstDay(snapshot, serial);
+  const start = historyStartOf(snapshot);
+  if (first && first > start) {
+    return `${name} from ${first}`;
+  }
+  return name;
 }
 
 export function stackLoggerNames(snapshot: PlantSnapshot): string[] {
@@ -131,6 +212,7 @@ function withWidths(
     label: string;
     kwh: number;
     current: boolean;
+    partial: boolean;
     parts: EnergyPart[];
   }[],
 ): EnergyBar[] {
@@ -140,6 +222,7 @@ function withWidths(
     label: row.label,
     kwh: row.kwh,
     current: row.current,
+    partial: row.partial,
     width: peak <= 0 ? 100 : Math.max(12, (row.kwh / peak) * 100),
     segments:
       row.kwh <= 0
@@ -200,11 +283,13 @@ export function dayEnergyBars(
   return withWidths(
     monthBars.map((bar) => {
       const { kwh, parts } = partsForBar(bar, visible);
+      const nowDay = localDayOf(snapshot.current_power_at);
       return {
         href: href(bar.local_day, "time"),
         label: `${bar.local_day} ${formatKwh(kwh)}`,
         kwh,
         current: false,
+        partial: bar.local_day === nowDay,
         parts,
       };
     }),
@@ -261,11 +346,14 @@ export function monthEnergyBars(
         visible,
         (day) => day.y === year && day.m === month,
       );
+      const start = parseIsoDate(historyStartOf(snapshot));
+      const partial = start.y === year && start.m === month && start.d > 1;
       return {
         href: href(anchorInMonth(snapshot, year, month, selectedDay), "day"),
         label: `${key} ${formatKwh(kwh)}`,
         kwh,
         current: month === selected.m,
+        partial,
         parts,
       };
     });
@@ -290,11 +378,14 @@ export function yearEnergyBars(
         visible,
         (day) => day.y === year,
       );
+      const start = parseIsoDate(historyStartOf(snapshot));
+      const partial = start.y === year && (start.m > 1 || start.d > 1);
       return {
         href: href(anchorInYear(snapshot, year, selectedDay), "month"),
         label: `${year} ${formatKwh(kwh)}`,
         kwh,
         current: year === selected.y,
+        partial,
         parts,
       };
     });

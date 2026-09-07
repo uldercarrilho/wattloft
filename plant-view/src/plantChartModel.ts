@@ -6,6 +6,7 @@ import {
   formatWatts,
   monthEnergyBars,
   stackLoggerNames,
+  weekdayTick,
   yearEnergyBars,
   type EnergyBar,
 } from "./grains";
@@ -13,6 +14,15 @@ import type { CurveSeries, Grain, PlantSnapshot } from "./types";
 
 export const GAP_MIN = 15;
 const POWER_FLOOR = 1.0;
+
+export function niceYMax(peak: number): number {
+  if (!(peak > 0) || peak <= 1) return 1;
+  const exp = Math.floor(Math.log10(peak));
+  const base = 10 ** exp;
+  const frac = peak / base;
+  const nice = frac <= 1 ? 1 : frac <= 2 ? 2 : frac <= 5 ? 5 : 10;
+  return nice * base;
+}
 
 export type ChartDataset = {
   name: string;
@@ -27,6 +37,7 @@ export type TimeChartModel = {
   minutes: number[];
   tickHours: number[];
   yMax: number;
+  yUnit: "W" | "kWh";
   datasets: ChartDataset[];
 };
 
@@ -37,6 +48,8 @@ export type EnergyChartModel = {
   hrefs: string[];
   currentIndex: number;
   yMax: number;
+  yUnit: "W" | "kWh";
+  partial: boolean[];
   datasets: ChartDataset[];
 };
 
@@ -150,7 +163,8 @@ function timeOverlay(snapshot: PlantSnapshot, visible: ReadonlySet<string>): Tim
     kind: "time",
     minutes,
     tickHours: hourTicks(tMin, tMax),
-    yMax: peakVisible(datasets),
+    yMax: niceYMax(peakVisible(datasets)),
+    yUnit: "W",
     datasets,
   };
 }
@@ -190,7 +204,8 @@ function timeStack(snapshot: PlantSnapshot, visible: ReadonlySet<string>): TimeC
     kind: "time",
     minutes,
     tickHours: hourTicks(tMin, tMax),
-    yMax: peakStacked(datasets, minutes),
+    yMax: niceYMax(peakStacked(datasets, minutes)),
+    yUnit: "W",
     datasets,
   };
 }
@@ -203,7 +218,7 @@ function energyBars(snapshot: PlantSnapshot, unit: Grain, visible?: ReadonlySet<
 
 function tickLabel(unit: Grain, label: string): string {
   const head = label.split(" ")[0] ?? label;
-  if (unit === "day") return head.slice(-2);
+  if (unit === "day") return weekdayTick(head);
   return head;
 }
 
@@ -222,7 +237,7 @@ function energyModel(
           bars.findIndex((bar) => bar.href.includes(`day=${snapshot.selected_day}`)),
         )
       : Math.max(0, bars.findIndex((bar) => bar.current));
-  const yMax = Math.max(1, ...bars.map((bar) => bar.kwh));
+  const yMax = niceYMax(Math.max(1, ...bars.map((bar) => bar.kwh)));
   const useStack = stacked && bars.some((bar) => bar.segments.length > 0);
   const ordered = stackLoggerNames(snapshot);
   const datasets: ChartDataset[] = useStack
@@ -255,6 +270,8 @@ function energyModel(
     hrefs: bars.map((bar) => bar.href),
     currentIndex,
     yMax,
+    yUnit: "kWh",
+    partial: bars.map((bar) => bar.partial),
     datasets,
   };
 }
@@ -291,6 +308,11 @@ export type Readout = { when: string; rows: { name: string; text: string }[] };
 
 function pad2(n: number): string {
   return String(n).padStart(2, "0");
+}
+
+export function hourTickLabel(value: string | number): string {
+  const n = Number(value);
+  return n % 60 === 0 ? `${pad2(n / 60)}:00` : "";
 }
 
 function wattsText(value: number | null | undefined): string {

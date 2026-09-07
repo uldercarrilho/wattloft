@@ -20,6 +20,7 @@ vi.mock("chart.js", () => {
     return instance;
   }
   Chart.register = vi.fn();
+  Chart.defaults = { locale: "en-US" };
   return {
     Chart,
     LineController: class LineController {},
@@ -151,5 +152,38 @@ describe("PlantChart", () => {
       clientY: 10,
     });
     expect(onPointer).toHaveBeenCalled();
+  });
+
+  it("moves the hair with arrow keys", () => {
+    const model = buildPlantChartModel(
+      {
+        ...energySnapshot,
+        curve: [
+          {
+            name: loggerA,
+            points: [{ at: "2026-08-21T12:00:00", watts: 100, lifetime_kwh: 10 }],
+          },
+        ],
+      },
+      "time",
+      "overlay",
+      new Set(["Plant", loggerA]),
+    );
+    expect(model.kind).toBe("time");
+    if (model.kind !== "time") return;
+    const onPointer = vi.fn();
+    render(
+      <PlantChart
+        model={model}
+        mode="overlay"
+        onPointer={onPointer}
+        onBarNavigate={vi.fn()}
+        onDrawError={vi.fn()}
+      />,
+    );
+    const canvas = screen.getByRole("img", { name: "Power curve" });
+    expect(canvas.getAttribute("tabindex")).toBe("0");
+    fireEvent.keyDown(canvas, { key: "ArrowRight" });
+    expect(onPointer).toHaveBeenCalledWith(12 * 60 + 1);
   });
 });
