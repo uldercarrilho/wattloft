@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   type ChartMode,
   readChartMode,
@@ -256,7 +256,10 @@ function Chart({
   visible: ReadonlySet<string>;
   chips: ReactNode;
 }) {
-  const model = buildPlantChartModel(snapshot, unit, mode, visible);
+  const model = useMemo(
+    () => buildPlantChartModel(snapshot, unit, mode, visible),
+    [snapshot, unit, mode, visible],
+  );
   const [pointer, setPointer] = useState<number | null>(null);
   useEffect(() => {
     setPointer(null);

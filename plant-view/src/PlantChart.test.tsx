@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildPlantChartModel } from "./plantChartModel";
 import type { PlantSnapshot } from "./types";
@@ -152,6 +153,58 @@ describe("PlantChart", () => {
       clientY: 10,
     });
     expect(onPointer).toHaveBeenCalled();
+  });
+
+  it("keeps the Time hair at the clicked minute after the parent rebuilds the model", () => {
+    const snapshot: PlantSnapshot = {
+      ...energySnapshot,
+      curve: [
+        {
+          name: loggerA,
+          points: [{ at: "2026-08-21T12:00:00", watts: 100, lifetime_kwh: 10 }],
+        },
+      ],
+    };
+    const onPointer = vi.fn();
+    function Harness() {
+      const [, setPointer] = useState<number | null>(null);
+      const model = buildPlantChartModel(
+        snapshot,
+        "time",
+        "overlay",
+        new Set(["Plant", loggerA]),
+      );
+      if (model.kind !== "time") {
+        throw new Error("expected time model");
+      }
+      return (
+        <PlantChart
+          model={model}
+          mode="overlay"
+          onPointer={(value) => {
+            onPointer(value);
+            setPointer(value);
+          }}
+          onBarNavigate={vi.fn()}
+          onDrawError={vi.fn()}
+        />
+      );
+    }
+    render(<Harness />);
+    const canvas = screen.getByRole("img", { name: "Power curve" });
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      bottom: 40,
+      right: 120,
+      width: 120,
+      height: 40,
+      toJSON: () => ({}),
+    });
+    fireEvent.pointerDown(canvas, { clientX: 0, clientY: 10, pointerId: 1, buttons: 1 });
+    expect(onPointer).toHaveBeenLastCalledWith(11 * 60);
   });
 
   it("moves the hair with arrow keys", () => {
