@@ -52,15 +52,15 @@ def test_snapshot_payload_includes_display_name_and_history_start() -> None:
     )
     body = _snapshot_payload(snapshot, date(2026, 8, 21))
     assert body["history_start"] == "2026-08-21"
-    east = next(series for series in body["curve"] if series["name"] == "1000000001")
-    assert east["display_name"] == "East"
+    logger_one = next(series for series in body["curve"] if series["name"] == "1000000001")
+    assert logger_one["display_name"] == "Logger 1"
     plant = next(series for series in body["curve"] if series["name"] == "Plant")
     assert "display_name" not in plant
     loggers = body["local_day_bars"][0]["loggers"]
     assert isinstance(loggers, list)
     by_name = {part["name"]: part for part in loggers}
-    assert by_name["1000000001"]["display_name"] == "East"
-    assert by_name["1000000002"]["display_name"] == "West"
+    assert by_name["1000000001"]["display_name"] == "Logger 1"
+    assert by_name["1000000002"]["display_name"] == "Logger 2"
 
 
 def test_snapshot_payload_omits_display_name_for_unknown_serial() -> None:

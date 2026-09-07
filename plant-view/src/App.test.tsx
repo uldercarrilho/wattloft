@@ -52,7 +52,7 @@ const snapshot: Extract<PlantPayload, { empty: false }> = {
   curve: [
     {
       name: "1000000001",
-      display_name: "East",
+      display_name: "Logger 1",
       points: [{ at: "2026-08-21T15:00:00", watts: 625, lifetime_kwh: 5635.4 }],
     },
     { name: "Plant", points: [{ at: "2026-08-21T15:00:00", watts: 625 }] },
@@ -350,11 +350,11 @@ describe("Plant view", () => {
     expect(screen.queryByRole("button", { name: "1000000001" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "By Logger" }));
     expect(screen.getByRole("button", { name: "1000000003" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "East" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "East" }).getAttribute("data-series")).toBe(
+    expect(screen.getByRole("button", { name: "Logger 1" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Logger 1" }).getAttribute("data-series")).toBe(
       "1000000001",
     );
-    expect(screen.getByRole("button", { name: "East" }).getAttribute("title")).toBe(
+    expect(screen.getByRole("button", { name: "Logger 1" }).getAttribute("title")).toBe(
       "1000000001",
     );
     expect(screen.getByRole("img", { name: "Energy bars" })).toBeTruthy();
@@ -407,9 +407,9 @@ describe("Plant view", () => {
     fireEvent.click(screen.getByRole("button", { name: "By Logger" }));
     expect(screen.queryByRole("button", { name: "Plant" })).toBeNull();
     expect(screen.getByRole("img", { name: "Power curve" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "East" }));
+    fireEvent.click(screen.getByRole("button", { name: "Logger 1" }));
     expect(screen.getByRole("img", { name: "Power curve" })).toBeTruthy();
-    expect(screen.queryByText("East 625 W")).toBeNull();
+    expect(screen.queryByText("Logger 1 625 W")).toBeNull();
   });
 
   it("navigates from a Day column click", async () => {
@@ -530,7 +530,7 @@ describe("Plant view", () => {
     render(<App />);
     const disclosure = await screen.findByText("Why gaps?");
     expect(disclosure.closest("details")?.open).toBe(false);
-    expect(screen.getByRole("button", { name: "East" }).getAttribute("data-series")).toBe(
+    expect(screen.getByRole("button", { name: "Logger 1" }).getAttribute("data-series")).toBe(
       "1000000001",
     );
   });
