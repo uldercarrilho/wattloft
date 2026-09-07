@@ -24,6 +24,13 @@ export type LocalDayBar = {
   loggers?: LoggerEnergy[];
 };
 
+export type LoggerNow = {
+  name: string;
+  display_name?: string;
+  last_success_at: string;
+  power_w: number;
+};
+
 export type PlantSnapshot = {
   selected_day: string;
   history_start?: string;
@@ -33,6 +40,7 @@ export type PlantSnapshot = {
   current_power_at: string;
   local_day_bars: LocalDayBar[];
   curve: CurveSeries[];
+  loggers_now?: LoggerNow[];
 };
 
 export type EmptyPlant = { empty: true };
