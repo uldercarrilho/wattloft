@@ -178,8 +178,10 @@ export function PlantChart({
       chartRef.current?.update?.("none");
     }
     function onDown(ev: PointerEvent): void {
-      if (typeof plot.setPointerCapture === "function") {
+      try {
         plot.setPointerCapture(ev.pointerId);
+      } catch {
+        // jsdom (and some engines) throw when the pointer id is not active.
       }
       report(ev);
     }

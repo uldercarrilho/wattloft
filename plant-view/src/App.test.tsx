@@ -302,7 +302,8 @@ describe("Plant view", () => {
     window.history.replaceState({}, "", "/?day=2026-08-21&unit=time");
     stubPlant(200, { ...snapshot, unit: "time" });
     render(<App />);
-    const canvas = await screen.findByRole("img", { name: "Power curve" });
+    await waitFor(() => expect(chartState.instances.length).toBeGreaterThan(0));
+    const canvas = screen.getByRole("img", { name: "Power curve" });
     expect(document.querySelector(".when")?.textContent).toBe("15:00");
     vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
       x: 0,
@@ -316,7 +317,9 @@ describe("Plant view", () => {
       toJSON: () => ({}),
     });
     fireEvent.pointerDown(canvas, { clientX: 0, clientY: 10, pointerId: 1, buttons: 1 });
-    expect(document.querySelector(".when")?.textContent).toBe("14:00 gap");
+    await waitFor(() => {
+      expect(document.querySelector(".when")?.textContent).toBe("14:00 gap");
+    });
   });
 
   it("shows Overlay pressed by default and remembers Stack in this browser", async () => {
