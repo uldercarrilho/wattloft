@@ -81,30 +81,33 @@ button.passkey { display: block; margin: 0.8rem 0 0; min-height: 44px; padding: 
   min-width: 44px; min-height: 44px; width: auto; font: 500 1.6rem/1 "Source Sans 3", sans-serif;
   text-decoration: none; color: var(--pigment); text-align: center; }
 .stepper .dead { color: var(--muted); opacity: 0.35; }
-.glance { display: flex; flex-direction: column; align-items: center; gap: 0.6rem;
-  min-height: 0; flex: 1; position: relative; }
+.glance { display: flex; flex-direction: column; align-items: stretch; gap: 0.85rem;
+  min-height: 0; flex: 1; position: relative; width: 100%; }
 .glance-banner { margin: 0; width: 100%; padding: 0.55rem 0.75rem; border: 1px solid var(--logger-b);
   background: var(--chip); font-size: 0.9rem; }
-.glance-sun { width: min(72vw, 16rem); height: auto; }
-.glance-sun .series-a { stroke: var(--logger-a); }
-.glance-sun .series-b { stroke: var(--logger-b); }
-.glance-glow { fill: var(--pigment); fill-opacity: 0.14; }
 .glance-core { fill: var(--pigment); fill-opacity: 0.28; }
 .glance-core.is-hollow { fill: none; stroke: var(--ink); stroke-opacity: 0.18; stroke-width: 1.5; }
-.glance-sun-watts { fill: var(--ink); font-family: "IBM Plex Mono", monospace; font-size: 18px;
-  font-weight: 600; }
-.glance-watts { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0);
-  white-space: nowrap; margin: -1px; padding: 0; border: 0; }
-.glance-legend { display: flex; gap: 1rem; list-style: none; margin: 0; padding: 0; font-size: 0.9rem; }
-.glance-legend li::before { content: ""; display: inline-block; width: 0.55rem; height: 0.55rem;
-  border-radius: 50%; margin-right: 0.35rem; vertical-align: middle; }
-.glance-legend .series-a::before { background: var(--logger-a); }
-.glance-legend .series-b::before { background: var(--logger-b); }
-.glance-reporting { margin: 0; font-size: 0.9rem; color: var(--muted); }
-.glance-captions { margin: 0.4rem 0 0; text-align: center; }
-.glance-captions div { margin: 0 0 0.35rem; }
+.glance-now { margin: 0; }
+.glance-now-label, .glance-loggers-label, .glance-as-of { margin: 0; font-size: 0.72rem;
+  letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.glance-as-of { text-transform: none; letter-spacing: 0; font-size: 0.85rem; margin: 0.15rem 0 0; }
+.glance-watts { margin: 0; font-family: "IBM Plex Mono", monospace; font-size: 1.6rem; font-weight: 600; }
+.glance-captions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem 1rem; margin: 0;
+  text-align: left; }
+.glance-captions div { margin: 0; }
 .glance-captions dt { font-size: 0.72rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
 .glance-captions dd { margin: 0; font-family: "IBM Plex Mono", monospace; }
+.glance-loggers { margin: 0; width: 100%; }
+.glance-loggers ul { list-style: none; margin: 0; padding: 0; }
+.glance-loggers li { display: grid; grid-template-columns: 0.55rem 1fr auto; column-gap: 0.5rem;
+  row-gap: 0.15rem; padding: 0.6rem 0; font-size: 0.95rem; }
+.glance-loggers li::before { content: ""; width: 0.55rem; height: 0.55rem; margin-top: 0.35rem;
+  grid-column: 1; grid-row: 1 / span 2; }
+.glance-loggers .series-a::before { background: var(--logger-a); }
+.glance-loggers .series-b::before { background: var(--logger-b); }
+.glance-logger-name { grid-column: 2; }
+.glance-logger-watts { grid-column: 3; font-family: "IBM Plex Mono", monospace; }
+.glance-logger-cadence { grid-column: 2 / -1; font-size: 0.85rem; color: var(--muted); }
 .plant-mobile { display: flex; flex-direction: column; height: 100dvh; max-height: 100dvh;
   overflow: hidden; max-width: none; padding-bottom: 0; }
 .plant-mobile-body { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; }
@@ -123,10 +126,10 @@ button.passkey { display: block; margin: 0.8rem 0 0; min-height: 44px; padding: 
 .page-dots a[aria-current="true"] { background: var(--pigment); color: var(--on-pigment); opacity: 1;
   width: auto; height: auto; }
 @media (max-height: 31.25rem) {
-  .glance { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1.25rem; }
+  .glance { flex-direction: row; flex-wrap: wrap; align-items: flex-start; justify-content: flex-start; gap: 1.25rem; }
   .glance-banner { flex: 1 0 100%; }
-  .glance-sun { width: min(40dvh, 16rem); }
-  .glance-captions { text-align: left; margin: 0; }
+  .glance-now, .glance-captions { flex: 1 1 10rem; }
+  .glance-loggers { flex: 1 1 12rem; min-width: 12rem; }
   .plant-mobile .plant-chart { flex: 0 1 auto; max-height: 42dvh; }
 }
 @media (prefers-reduced-motion: reduce) {
