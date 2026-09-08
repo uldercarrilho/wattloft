@@ -1,9 +1,6 @@
 import { LastSample } from "./LastSample";
 import type { GlanceView } from "./glanceModel";
 
-const RING_R = [88, 72];
-const RING_C = RING_R.map((r) => 2 * Math.PI * r);
-
 export function Glance({
   view,
   currentPowerAt,
@@ -18,56 +15,15 @@ export function Glance({
           {view.banner}
         </p>
       ) : null}
-      <svg
-        className="glance-sun"
-        viewBox="0 0 200 200"
-        data-testid="glance-sun"
-        data-hollow={view.hollow ? "true" : "false"}
-        aria-hidden="true"
-      >
-        {view.rings.map((ring, index) => {
-          const r = RING_R[index] ?? RING_R[RING_R.length - 1]!;
-          const c = RING_C[index] ?? RING_C[RING_C.length - 1]!;
-          const dash = ring.closed ? c : c * 0.14;
-          return (
-            <circle
-              key={ring.name}
-              className={index % 2 === 0 ? "series-a" : "series-b"}
-              cx="100"
-              cy="100"
-              r={r}
-              fill="none"
-              strokeWidth="7"
-              strokeLinecap="round"
-              strokeDasharray={`${dash} ${c}`}
-              opacity={ring.closed ? 1 : 0.45}
-              transform="rotate(-90 100 100)"
-            />
-          );
-        })}
-        {view.hollow ? (
-          <circle cx="100" cy="100" r="36" className="glance-core is-hollow" />
-        ) : (
-          <>
-            <circle cx="100" cy="100" r="52" className="glance-glow" />
-            <circle cx="100" cy="100" r="36" className="glance-core" />
-          </>
-        )}
-        <text className="glance-sun-watts" x="100" y="100" textAnchor="middle" dominantBaseline="central">
-          {view.wattsLabel}
-        </text>
-      </svg>
-      <p className="glance-watts">{view.wattsLabel}</p>
-      <ul className="glance-legend">
-        {view.rings.map((ring, index) => (
-          <li key={ring.name} className={index % 2 === 0 ? "series-a" : "series-b"}>
-            {ring.displayName} {ring.wattsLabel}
-          </li>
-        ))}
-      </ul>
-      {view.reportingLabel ? (
-        <p className="glance-reporting">{view.reportingLabel}</p>
-      ) : null}
+      <div className="glance-now">
+        <p className="glance-now-label">Plant now</p>
+        <p className="glance-watts">{view.wattsLabel}</p>
+        {currentPowerAt ? (
+          <p className="glance-as-of">
+            as of <LastSample at={currentPowerAt} />
+          </p>
+        ) : null}
+      </div>
       <dl className="glance-captions">
         <div>
           <dt>Today so far</dt>
@@ -77,15 +33,25 @@ export function Glance({
           <dt>Lifetime energy</dt>
           <dd>{view.lifetimeLabel}</dd>
         </div>
-        {currentPowerAt ? (
-          <div>
-            <dt>Last sample</dt>
-            <dd>
-              <LastSample at={currentPowerAt} />
-            </dd>
-          </div>
-        ) : null}
       </dl>
+      {view.loggers.length > 0 ? (
+        <div className="glance-loggers">
+          <p className="glance-loggers-label">Loggers</p>
+          <ul>
+            {view.loggers.map((row, index) => (
+              <li key={row.name} className={index % 2 === 0 ? "series-a" : "series-b"}>
+                <span className="glance-logger-name">{row.displayName}</span>
+                <span className="glance-logger-watts">{row.wattsLabel}</span>
+                <span className="glance-logger-cadence">
+                  {row.reporting
+                    ? `reporting · ${row.ageLabel}`
+                    : `silent · last Sample ${row.ageLabel}`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </section>
   );
 }
