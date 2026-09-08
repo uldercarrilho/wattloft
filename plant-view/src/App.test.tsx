@@ -122,7 +122,7 @@ describe("Plant view", () => {
     expect(screen.getByText("Watch this Plant.")).toBeTruthy();
     await waitFor(() => expect(document.title).toBe("Log in · Wattloft"));
     expect(document.querySelector(".login-mark")?.getAttribute("aria-hidden")).toBe("true");
-    expect(screen.queryByTestId("glance-sun")).toBeNull();
+    expect(screen.queryByText("Plant now")).toBeNull();
     expect(screen.getByLabelText("Password").getAttribute("autocomplete")).toBe(
       "current-password",
     );
@@ -568,12 +568,12 @@ describe("Plant view", () => {
     );
   });
 
-  it("shows the sun glance on a narrow viewport with no unit", async () => {
+  it("shows the Plant now glance on a narrow viewport with no unit", async () => {
     stubMatchMedia(false);
     window.history.replaceState({}, "", "/?day=2026-08-21");
     stubPlant(200, snapshot);
     render(<App />);
-    expect(await screen.findByTestId("glance-sun")).toBeTruthy();
+    expect(await screen.findByText("Plant now")).toBeTruthy();
     expect(screen.getByRole("navigation", { name: "Pages" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Glance" }).getAttribute("aria-current")).toBe(
       "true",
@@ -583,7 +583,7 @@ describe("Plant view", () => {
     expect(screen.getByRole("link", { name: "Month" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Year" })).toBeTruthy();
     expect(screen.queryByRole("navigation", { name: "Grain" })).toBeNull();
-    expect(document.querySelector(".glance-sun-watts")?.textContent).toBe("50 W");
+    expect(screen.getByText("50 W")).toBeTruthy();
   });
 
   it("opens the Day snap on a narrow viewport without a Grain switcher", async () => {
@@ -594,7 +594,7 @@ describe("Plant view", () => {
     expect(await screen.findByRole("link", { name: "Day" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Day" }).getAttribute("aria-current")).toBe("true");
     expect(screen.queryByRole("heading", { name: "Day" })).toBeNull();
-    expect(screen.queryByTestId("glance-sun")).toBeNull();
+    expect(screen.queryByText("Plant now")).toBeNull();
     expect(screen.queryByRole("navigation", { name: "Grain" })).toBeNull();
     expect(screen.getByRole("button", { name: "Each" })).toBeTruthy();
   });
@@ -604,7 +604,7 @@ describe("Plant view", () => {
     window.history.replaceState({}, "", "/?day=2026-08-21");
     stubPlant(200, snapshot);
     render(<App />);
-    await screen.findByTestId("glance-sun");
+    await screen.findByText("Plant now");
     const push = vi.spyOn(window.history, "pushState");
     fireEvent.click(screen.getByRole("link", { name: "Power" }));
     const pushed = String(push.mock.calls[0]?.[2]);
@@ -627,26 +627,26 @@ describe("Plant view", () => {
     });
     render(<App />);
     expect(await screen.findByRole("navigation", { name: "Grain" })).toBeTruthy();
-    expect(screen.queryByTestId("glance-sun")).toBeNull();
+    expect(screen.queryByText("Plant now")).toBeNull();
     expect(screen.getByText("Today so far")).toBeTruthy();
     expect(screen.getByText("50 W")).toBeTruthy();
   });
 
-  it("does not show a sun on login, empty History, or 502", async () => {
+  it("does not show Glance on login, empty History, or 502", async () => {
     stubMatchMedia(false);
     stubPlant(401);
     const { unmount } = render(<App />);
     expect(await screen.findByLabelText("Password")).toBeTruthy();
-    expect(screen.queryByTestId("glance-sun")).toBeNull();
+    expect(screen.queryByText("Plant now")).toBeNull();
     unmount();
     stubPlant(200, { empty: true });
     render(<App />);
     expect(await screen.findByText("This Plant has no History yet.")).toBeTruthy();
-    expect(screen.queryByTestId("glance-sun")).toBeNull();
+    expect(screen.queryByText("Plant now")).toBeNull();
     cleanup();
     stubPlant(502);
     render(<App />);
     expect(await screen.findByText("Plant view cannot reach History.")).toBeTruthy();
-    expect(screen.queryByTestId("glance-sun")).toBeNull();
+    expect(screen.queryByText("Plant now")).toBeNull();
   });
 });
