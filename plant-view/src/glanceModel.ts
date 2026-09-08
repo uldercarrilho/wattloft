@@ -4,21 +4,20 @@ import type { LoggerNow } from "./types";
 
 export const FRESH_MS = 15 * 60 * 1000;
 
-export type GlanceRing = {
+export type GlanceLogger = {
   name: string;
   displayName: string;
-  closed: boolean;
+  reporting: boolean;
   wattsLabel: string;
+  ageLabel: string;
 };
 
 export type GlanceView = {
   wattsLabel: string;
-  hollow: boolean;
   banner: string | null;
-  rings: GlanceRing[];
+  loggers: GlanceLogger[];
   todayLabel: string;
   lifetimeLabel: string;
-  reportingLabel: string | null;
 };
 
 export type GlanceSnapshot = {
@@ -32,9 +31,8 @@ function isFresh(at: string, now: Date): boolean {
   return now.getTime() - new Date(at).getTime() <= FRESH_MS;
 }
 
-function fromCurrentPower(watts: number | null): { wattsLabel: string; hollow: boolean } {
-  const wattsLabel = watts === null ? "—" : formatWatts(watts);
-  return { wattsLabel, hollow: watts === null || watts === 0 };
+function fromCurrentPower(watts: number | null): { wattsLabel: string } {
+  return { wattsLabel: watts === null ? "—" : formatWatts(watts) };
 }
 
 export function glanceModel(snapshot: GlanceSnapshot, now = new Date()): GlanceView {
@@ -43,31 +41,34 @@ export function glanceModel(snapshot: GlanceSnapshot, now = new Date()): GlanceV
   const lifetimeLabel = lifetimeKwh(snapshot.lifetime_energy_kwh);
   const rows = snapshot.loggers_now;
   if (rows === undefined || rows.length === 0) {
-    const hero = fromCurrentPower(watts);
     return {
-      ...hero,
+      ...fromCurrentPower(watts),
       banner: null,
-      rings: [],
+      loggers: [],
       todayLabel,
       lifetimeLabel,
-      reportingLabel: null,
     };
   }
-  const rings: GlanceRing[] = rows.map((row) => ({
-    name: row.name,
-    displayName: row.display_name ?? row.name,
-    closed: isFresh(row.last_success_at, now),
-    wattsLabel: formatWatts(row.power_w),
-  }));
-  const closed = rows.filter((_, index) => rings[index]!.closed);
+  const loggers: GlanceLogger[] = rows.map((row) => {
+    const reporting = isFresh(row.last_success_at, now);
+    const wattsLabel = formatWatts(row.power_w);
+    return {
+      name: row.name,
+      displayName: row.display_name ?? row.name,
+      reporting,
+      wattsLabel: reporting ? wattsLabel : `last ${wattsLabel}`,
+      ageLabel: relativeAge(row.last_success_at, now),
+    };
+  });
+  const reportingRows = rows.filter((_, index) => loggers[index]!.reporting);
   const wattsLabel =
-    closed.length === 0 ? "—" : formatWatts(closed.reduce((sum, row) => sum + row.power_w, 0));
-  const hollow = wattsLabel === "—" || wattsLabel === "0 W";
-  const nightZero = rings.every((ring) => ring.closed) && (wattsLabel === "0 W" || wattsLabel === "—");
-  const silent = rows.filter((row, index) => !rings[index]!.closed || row.power_w === 0);
-  const producing = rows.some((row, index) => rings[index]!.closed && row.power_w > 0);
+    reportingRows.length === 0
+      ? "—"
+      : formatWatts(reportingRows.reduce((sum, row) => sum + row.power_w, 0));
+  const producing = rows.some((row, index) => loggers[index]!.reporting && row.power_w > 0);
+  const silent = rows.filter((_, index) => !loggers[index]!.reporting);
   let banner: string | null = null;
-  if (!nightZero && producing && silent.length > 0) {
+  if (producing && silent.length > 0) {
     const stalest = silent.reduce((oldest, row) =>
       new Date(row.last_success_at).getTime() < new Date(oldest.last_success_at).getTime()
         ? row
@@ -76,18 +77,11 @@ export function glanceModel(snapshot: GlanceSnapshot, now = new Date()): GlanceV
     const names = silent.map((row) => row.display_name ?? row.name).join(", ");
     banner = `${names} silent · last Sample ${relativeAge(stalest.last_success_at, now)}`;
   }
-  const closedRings = rings.filter((ring) => ring.closed);
-  const reportingLabel =
-    closedRings.length === 0
-      ? null
-      : `${closedRings.map((ring) => ring.displayName).join(" and ")} reporting`;
   return {
     wattsLabel,
-    hollow,
     banner,
-    rings,
+    loggers,
     todayLabel,
     lifetimeLabel,
-    reportingLabel,
   };
 }
