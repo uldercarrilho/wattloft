@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import math
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 from wattloft.solar.geometry import solar_position
@@ -89,5 +88,11 @@ def test_ideal_power_and_envelope_curve() -> None:
     # Day length is around 13-14 hours (780-840 daylight minutes)
     assert 700 <= len(points) <= 900
     peak_w = max(w for _, w in points)
-    # Peak power on summer solstice with sun overhead is ~2070 W
+    p_noon = ideal_power_w(
+        datetime(2026, 12, 21, 12, 0, tzinfo=_SP),
+        latitude_deg=-23.5505,
+        longitude_deg=-46.6333,
+        peak_capacity_w=2000.0,
+    )
+    assert p_noon > 1800.0
     assert 1900.0 <= peak_w <= 2150.0
