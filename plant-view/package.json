@@ -3,17 +3,19 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k \"tsx watch src/server.ts\" \"vite\"",
-    "build": "vite build && esbuild src/server.ts --bundle --platform=node --format=esm --outfile=dist/server.js --packages=external",
+    "dev": "npm run build:sw && concurrently -k \"tsx watch src/server.ts\" \"vite\"",
+    "build:sw": "esbuild src/sw.ts --bundle --minify --outfile=public/sw.js",
+    "build": "npm run build:sw && vite build && esbuild src/server.ts --bundle --platform=node --format=esm --outfile=dist/server.js --packages=external",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc --project tsconfig.sw.json --noEmit"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",
     "chart.js": "^4.5.1",
     "hono": "^4.13.7",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^7.0.1",
@@ -21,6 +23,7 @@
     "@types/node": "^26.4.1",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
+    "@types/web-push": "^3.6.4",
     "@vitejs/plugin-react": "^6.1.1",
     "concurrently": "^10.0.5",
     "esbuild": "^0.28.2",

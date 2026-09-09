@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 
 from wattloft.config import now_utc
 from wattloft.history import record_sample
@@ -24,7 +24,11 @@ def idle_timeout_s() -> float:
 
 
 def handle_frame(
-    database_url: str, admitted_logger_serials: Iterable[str], raw: bytes
+    database_url: str,
+    admitted_logger_serials: Iterable[str],
+    raw: bytes,
+    *,
+    on_sample: Callable[[dict[str, object]], None] | None = None,
 ) -> bytes | None:
     frame = parse_v5(raw)
     if frame is None:
@@ -34,11 +38,12 @@ def handle_frame(
         return None
     if frame.control_code == CONTROL_DATA:
         header = decode_upload_header(frame.payload)
+        received_at = now_utc()
         if header is None:
             record_sample(
                 database_url,
                 logger_serial=logger_serial,
-                received_at=now_utc(),
+                received_at=received_at,
                 ac_power_w=None,
                 today_energy_kwh=None,
                 lifetime_energy_kwh=None,
@@ -48,11 +53,21 @@ def handle_frame(
             record_sample(
                 database_url,
                 logger_serial=logger_serial,
-                received_at=now_utc(),
+                received_at=received_at,
                 ac_power_w=header.ac_power_w,
                 today_energy_kwh=header.today_energy_kwh,
                 lifetime_energy_kwh=header.lifetime_energy_kwh,
             )
+            if on_sample is not None:
+                received_str = received_at.isoformat().replace("+00:00", "Z")
+                on_sample({
+                    "type": "sample",
+                    "logger_serial": logger_serial,
+                    "received_at": received_str,
+                    "ac_power_w": header.ac_power_w,
+                    "today_energy_kwh": header.today_energy_kwh,
+                    "lifetime_energy_kwh": header.lifetime_energy_kwh,
+                })
     return build_ack(frame)
 
 
@@ -61,6 +76,8 @@ async def serve_logger(
     writer: asyncio.StreamWriter,
     database_url: str,
     admitted_logger_serials: frozenset[str],
+    *,
+    on_sample: Callable[[dict[str, object]], None] | None = None,
 ) -> None:
     buf = b""
     timeout_s = idle_timeout_s()
@@ -75,7 +92,11 @@ async def serve_logger(
                 buf = b""
             for raw in frames:
                 ack = await asyncio.to_thread(
-                    handle_frame, database_url, admitted_logger_serials, raw
+                    handle_frame,
+                    database_url,
+                    admitted_logger_serials,
+                    raw,
+                    on_sample=on_sample,
                 )
                 if ack is None:
                     return
@@ -93,10 +114,15 @@ async def start_ingest(
     port: int,
     database_url: str,
     admitted_logger_serials: frozenset[str],
+    *,
+    on_sample: Callable[[dict[str, object]], None] | None = None,
 ) -> asyncio.Server:
     async def _client(
         reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ) -> None:
-        await serve_logger(reader, writer, database_url, admitted_logger_serials)
+        await serve_logger(
+            reader, writer, database_url, admitted_logger_serials, on_sample=on_sample
+        )
 
     return await asyncio.start_server(_client, host, port)
+

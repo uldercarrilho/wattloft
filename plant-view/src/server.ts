@@ -6,6 +6,8 @@ import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import type { Context } from "hono";
+import { streamSSE } from "hono/streaming";
+import webpush from "web-push";
 import {
   issuePasskeyChallenge,
   parsePasskeyCredential,
@@ -14,11 +16,42 @@ import {
   type OperatorPasskey,
   type PasskeyAssertion,
 } from "./passkey";
+import { PushSubscriptionStore, type PushSubscriptionRecord } from "./pushStore";
+import { evaluateStallAlert, type StallAlert } from "./stallAlert";
+import type { LoggerNow } from "./types";
 
 const COOKIE = "wattloft";
 const PASSKEY_COOKIE = "wattloft-pk";
 const SESSION_PAYLOAD = "operator";
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
+
+export type SampleEvent = {
+  type: "sample";
+  logger_serial: string;
+  received_at: string;
+  ac_power_w: number;
+  today_energy_kwh: number;
+  lifetime_energy_kwh: number;
+};
+
+export class SampleHub {
+  private _listeners: Set<(sample: SampleEvent) => void> = new Set();
+
+  subscribe(listener: (sample: SampleEvent) => void): () => void {
+    this._listeners.add(listener);
+    return () => this._listeners.delete(listener);
+  }
+
+  async broadcast(sample: SampleEvent): Promise<void> {
+    for (const listener of Array.from(this._listeners)) {
+      try {
+        await listener(sample);
+      } catch {
+        // ignore
+      }
+    }
+  }
+}
 
 export type CreateAppOptions = {
   operatorPassword: string;
@@ -28,6 +61,16 @@ export type CreateAppOptions = {
   fetch?: typeof fetch;
   staticRoot?: string;
   passkey?: OperatorPasskey | null;
+  vapidPublicKey?: string;
+  vapidPrivateKey?: string;
+  vapidSubject?: string;
+  pushStore?: PushSubscriptionStore;
+  sampleHub?: SampleHub;
+  sendNotification?: (sub: PushSubscriptionRecord, payload: string) => Promise<void>;
+  cachedLoggersNow?: LoggerNow[];
+  sentAlertKeys?: Set<string>;
+  onStallAlert?: (alert: StallAlert) => void;
+  heartbeatIntervalMs?: number;
 };
 
 function sessionHmac(password: string, issuedAt: number): string {
@@ -148,6 +191,61 @@ function grantLogin(
 export function createApp(opts: CreateAppOptions): Hono {
   const fetchImpl = opts.fetch ?? fetch;
   const app = new Hono();
+  const sampleHub = opts.sampleHub ?? new SampleHub();
+  const pushStore = opts.pushStore ?? new PushSubscriptionStore();
+  const cachedLoggersNow: LoggerNow[] = opts.cachedLoggersNow ?? [];
+  const sentAlertKeys = opts.sentAlertKeys ?? new Set<string>();
+
+  async function sendPushNotification(sub: PushSubscriptionRecord, payload: string): Promise<void> {
+    if (opts.sendNotification) {
+      return opts.sendNotification(sub, payload);
+    }
+    if (opts.vapidPublicKey && opts.vapidPrivateKey) {
+      try {
+        await webpush.sendNotification(
+          {
+            endpoint: sub.endpoint,
+            keys: {
+              p256dh: sub.keys.p256dh,
+              auth: sub.keys.auth,
+            },
+          },
+          payload,
+        );
+      } catch (err) {
+        if ((err as { statusCode?: number }).statusCode === 410) {
+          pushStore.remove(sub.endpoint);
+        }
+      }
+    }
+  }
+
+  sampleHub.subscribe((sample) => {
+    const existingIndex = cachedLoggersNow.findIndex((l) => l.name === sample.logger_serial);
+    if (existingIndex >= 0) {
+      cachedLoggersNow[existingIndex] = {
+        ...cachedLoggersNow[existingIndex]!,
+        last_success_at: sample.received_at,
+        power_w: sample.ac_power_w,
+      };
+    } else {
+      cachedLoggersNow.push({
+        name: sample.logger_serial,
+        last_success_at: sample.received_at,
+        power_w: sample.ac_power_w,
+      });
+    }
+
+    const alert = evaluateStallAlert(new Date(sample.received_at), cachedLoggersNow, sentAlertKeys);
+    if (alert) {
+      sentAlertKeys.add(alert.key);
+      opts.onStallAlert?.(alert);
+      const payload = JSON.stringify(alert.notification);
+      for (const sub of pushStore.list()) {
+        void sendPushNotification(sub, payload);
+      }
+    }
+  });
 
   app.post("/login", async (c) => {
     const text = await c.req.text();
@@ -243,16 +341,155 @@ export function createApp(opts: CreateAppOptions): Hono {
     return c.json({ empty: false, unit, ...snapshot });
   });
 
+  app.get("/api/plant/stream", async (c) => {
+    if (!hasSession(c.req.header("cookie"), opts.operatorPassword)) {
+      return c.body(null, 401);
+    }
+    c.header("Set-Cookie", persistSession(opts.operatorPassword, opts.cookieSecure));
+    const day = c.req.query("day");
+    const snapshotUrl = new URL("/snapshot", opts.apiUrl.endsWith("/") ? opts.apiUrl : `${opts.apiUrl}/`);
+    if (day) {
+      snapshotUrl.searchParams.set("day", day);
+    }
+
+    let initialSnapshot: Record<string, unknown> | null = null;
+    try {
+      const response = await fetchImpl(snapshotUrl);
+      if (response.ok) {
+        const body = (await response.json()) as Record<string, unknown>;
+        if (body && !body.empty) {
+          initialSnapshot = body;
+          if (Array.isArray(body.loggers_now)) {
+            for (const row of body.loggers_now as LoggerNow[]) {
+              const idx = cachedLoggersNow.findIndex((l) => l.name === row.name);
+              if (idx >= 0) {
+                cachedLoggersNow[idx] = row;
+              } else {
+                cachedLoggersNow.push(row);
+              }
+            }
+          }
+        }
+      }
+    } catch {
+      // offline/backend unreachable
+    }
+
+    return streamSSE(c, async (stream) => {
+      const unsubscribe = sampleHub.subscribe(async (sample) => {
+        try {
+          await stream.writeSSE({
+            event: "sample",
+            data: JSON.stringify(sample),
+          });
+        } catch {
+          // ignore
+        }
+      });
+
+      if (initialSnapshot !== null) {
+        await stream.writeSSE({
+          event: "snapshot",
+          data: JSON.stringify(initialSnapshot),
+        });
+      }
+
+      const heartbeatInterval = opts.heartbeatIntervalMs ?? 30_000;
+      const pingInterval = setInterval(() => {
+        void stream.write(": ping\n\n");
+      }, heartbeatInterval);
+
+      stream.onAbort(() => {
+        clearInterval(pingInterval);
+        unsubscribe();
+      });
+
+      await new Promise<void>((resolve) => {
+        stream.onAbort(resolve);
+      });
+    });
+  });
+
+  app.post("/api/notifications/subscribe", async (c) => {
+    if (!hasSession(c.req.header("cookie"), opts.operatorPassword)) {
+      return c.body(null, 401);
+    }
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "invalid-json" }, 400);
+    }
+    try {
+      pushStore.save(body as PushSubscriptionRecord);
+      return c.json({ ok: true });
+    } catch {
+      return c.json({ error: "invalid-subscription" }, 400);
+    }
+  });
+
+  app.get("/api/notifications/vapid-public-key", (c) => {
+    return c.json({ publicKey: opts.vapidPublicKey ?? null });
+  });
+
   if (opts.staticRoot) {
     const root = opts.staticRoot;
     app.use("/assets/*", serveStatic({ root }));
     app.use("/favicon.svg", serveStatic({ root }));
     app.use("/manifest.webmanifest", serveStatic({ root }));
     app.use("/apple-touch-icon.png", serveStatic({ root }));
+    app.use("/sw.js", serveStatic({ root }));
   }
 
   app.get("*", (c) => c.html(opts.documentHtml));
   return app;
+}
+
+export async function listenToIngestEvents(
+  apiUrl: string,
+  sampleHub: SampleHub,
+  signal?: AbortSignal,
+  fetchImpl: typeof fetch = fetch,
+): Promise<void> {
+  const eventsUrl = new URL("/events", apiUrl.endsWith("/") ? apiUrl : `${apiUrl}/`);
+  while (!signal?.aborted) {
+    try {
+      const response = await fetchImpl(eventsUrl.href, { signal });
+      if (!response.ok || !response.body) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (!signal?.aborted) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const blocks = buffer.split("\n\n");
+        buffer = blocks.pop() ?? "";
+        for (const block of blocks) {
+          for (const line of block.split("\n")) {
+            if (line.startsWith("data:")) {
+              const rawData = line.slice(5).trim();
+              if (rawData) {
+                try {
+                  const sample = JSON.parse(rawData);
+                  if (sample && sample.type === "sample") {
+                    sampleHub.broadcast(sample);
+                  }
+                } catch {
+                  // ignore
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch {
+      if (signal?.aborted) break;
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+  }
 }
 
 function isExecutedDirectly(): boolean {
@@ -281,6 +518,19 @@ export function start(): void {
   const documentHtml = existsSync(indexPath)
     ? readFileSync(indexPath, "utf8")
     : "<!doctype html><title>Plant · Wattloft</title>";
+
+  const vapidPublicKey = process.env.OPERATOR_VAPID_PUBLIC_KEY;
+  const vapidPrivateKey = process.env.OPERATOR_VAPID_PRIVATE_KEY;
+  const vapidSubject = process.env.OPERATOR_VAPID_SUBJECT ?? "mailto:operator@wattloft.dedyn.io";
+  if (vapidPublicKey && vapidPrivateKey) {
+    webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
+  }
+
+  const sampleHub = new SampleHub();
+  const pushStore = new PushSubscriptionStore();
+  const cachedLoggersNow: LoggerNow[] = [];
+  const sentAlertKeys = new Set<string>();
+
   const app = createApp({
     operatorPassword,
     apiUrl,
@@ -288,7 +538,31 @@ export function start(): void {
     documentHtml,
     staticRoot: existsSync(join(here, "client")) ? join(here, "client") : undefined,
     passkey: parsePasskeyCredential(process.env.OPERATOR_PASSKEY_CREDENTIAL),
+    vapidPublicKey,
+    vapidPrivateKey,
+    vapidSubject,
+    pushStore,
+    sampleHub,
+    cachedLoggersNow,
+    sentAlertKeys,
   });
+
+  void listenToIngestEvents(apiUrl, sampleHub);
+
+  setInterval(() => {
+    const alert = evaluateStallAlert(new Date(), cachedLoggersNow, sentAlertKeys);
+    if (alert) {
+      sentAlertKeys.add(alert.key);
+      const payload = JSON.stringify(alert.notification);
+      for (const sub of pushStore.list()) {
+        void webpush.sendNotification({
+          endpoint: sub.endpoint,
+          keys: sub.keys,
+        }, payload).catch(() => {});
+      }
+    }
+  }, 5 * 60 * 1000);
+
   const hostname = process.env.PLANT_VIEW_HOST ?? "127.0.0.1";
   const port = Number(process.env.PLANT_VIEW_PORT ?? "3000");
   serve({ fetch: app.fetch, hostname, port });

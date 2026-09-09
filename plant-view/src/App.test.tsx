@@ -657,4 +657,190 @@ describe("Plant view", () => {
     expect(await screen.findByText("Plant view cannot reach History.")).toBeTruthy();
     expect(screen.queryByText("Plant now")).toBeNull();
   });
+
+  it("streams live telemetry samples and updates Current Power without polling", async () => {
+    class MockEventSource {
+      static instances: MockEventSource[] = [];
+      url: string;
+      onopen: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      listeners: Record<string, ((event: MessageEvent) => void)[]> = {};
+
+      constructor(url: string) {
+        this.url = url;
+        MockEventSource.instances.push(this);
+        setTimeout(() => this.onopen?.(), 0);
+      }
+
+      addEventListener(type: string, listener: (event: MessageEvent) => void) {
+        if (!this.listeners[type]) this.listeners[type] = [];
+        this.listeners[type].push(listener);
+      }
+
+      removeEventListener(type: string, listener: (event: MessageEvent) => void) {
+        if (!this.listeners[type]) return;
+        this.listeners[type] = this.listeners[type].filter((l) => l !== listener);
+      }
+
+      emit(type: string, data: unknown) {
+        const event = new MessageEvent(type, {
+          data: typeof data === "string" ? data : JSON.stringify(data),
+        });
+        this.listeners[type]?.forEach((l) => l(event));
+      }
+
+      close() {}
+    }
+
+    vi.stubGlobal("EventSource", MockEventSource);
+    stubPlant(200, {
+      ...snapshot,
+      current_power_w: 50,
+    });
+
+    render(<App />);
+    expect(await screen.findByText("50 W")).toBeTruthy();
+
+    expect(MockEventSource.instances.length).toBeGreaterThanOrEqual(1);
+    const es = MockEventSource.instances[0];
+    expect(es.url).toBe("/api/plant/stream");
+
+    // Push a sample event
+    act(() => {
+      es.emit("sample", {
+        type: "sample",
+        logger_serial: "1000000001",
+        received_at: "2026-08-22T13:05:00+00:00",
+        ac_power_w: 780,
+        today_energy_kwh: 0.8,
+        lifetime_energy_kwh: 5636.0,
+      });
+    });
+
+    // Verify instantaneous update to 780 W
+    expect(await screen.findByText("780 W")).toBeTruthy();
+  });
+
+  it("disables 20s polling when SSE is active and falls back to polling after 3 SSE errors", async () => {
+    let sseErrorTrigger: (() => void) | null = null;
+
+    class MockEventSource {
+      url: string;
+      onopen: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      constructor(url: string) {
+        this.url = url;
+        setTimeout(() => this.onopen?.(), 0);
+        sseErrorTrigger = () => this.onerror?.();
+      }
+      addEventListener() {}
+      removeEventListener() {}
+      close() {}
+    }
+
+    vi.stubGlobal("EventSource", MockEventSource);
+    let fetchCount = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo) => {
+        const url = String(input);
+        if (url.startsWith("/api/plant")) {
+          fetchCount++;
+          return new Response(JSON.stringify(snapshot), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
+        }
+        return new Response("{}", { status: 200 });
+      }),
+    );
+
+    const setIntervalSpy = vi.spyOn(window, "setInterval");
+    render(<App />);
+    expect(await screen.findByText("Today so far")).toBeTruthy();
+    expect(fetchCount).toBe(1);
+
+    // While SSE is active, no 20s polling interval should be active
+    await waitFor(() => {
+      const pollingIntervals = setIntervalSpy.mock.calls.filter(
+        ([, delay]) => delay === 20_000,
+      );
+      expect(pollingIntervals.length).toBe(0);
+    });
+
+    // Simulate 4 consecutive SSE errors (> 3 retries threshold)
+    for (let i = 0; i < 4; i++) {
+      act(() => {
+        sseErrorTrigger?.();
+      });
+    }
+
+    // After >3 failures, 20s polling interval should be registered
+    await waitFor(() => {
+      const pollingIntervals = setIntervalSpy.mock.calls.filter(
+        ([, delay]) => delay === 20_000,
+      );
+      expect(pollingIntervals.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  it("renders quiet offline banner when offline or reading cached plant state", async () => {
+    stubPlant(200, {
+      ...snapshot,
+      current_power_at: "2026-08-22T14:32:00-03:00",
+    });
+
+    render(<App />);
+    expect(await screen.findByText("Today so far")).toBeTruthy();
+    expect(screen.queryByText(/Offline · Showing cached plant state/)).toBeNull();
+
+    // Simulate going offline
+    act(() => {
+      window.dispatchEvent(new Event("offline"));
+    });
+
+    expect(
+      await screen.findByText("Offline · Showing cached plant state as of 14:32"),
+    ).toBeTruthy();
+
+    // Simulate coming back online
+    act(() => {
+      window.dispatchEvent(new Event("online"));
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Offline · Showing cached plant state/)).toBeNull();
+    });
+  });
+
+  it("renders offline banner on mobile when cached response header is present", async () => {
+    stubMatchMedia(false);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo) => {
+        const url = String(input);
+        if (url.startsWith("/api/plant")) {
+          return new Response(
+            JSON.stringify({
+              ...snapshot,
+              current_power_at: "2026-08-22T15:45:00-03:00",
+            }),
+            {
+              status: 200,
+              headers: {
+                "content-type": "application/json",
+                "X-Wattloft-Offline": "true",
+              },
+            },
+          );
+        }
+        return new Response("{}", { status: 200 });
+      }),
+    );
+
+    render(<App />);
+    expect(
+      await screen.findByText("Offline · Showing cached plant state as of 15:45"),
+    ).toBeTruthy();
+  });
 });

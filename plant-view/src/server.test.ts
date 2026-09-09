@@ -3,7 +3,8 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { createApp } from "./server";
+import { createApp, SampleHub } from "./server";
+import { PushSubscriptionStore } from "./pushStore";
 
 const DOCUMENT = "<!doctype html><title>Plant</title>";
 const PASSWORD = "correct-horse";
@@ -327,3 +328,138 @@ describe("static Plant view files", () => {
     expect(await res.json()).toEqual({ name: "Wattloft" });
   });
 });
+
+describe("Live Telemetry & Notifications", () => {
+  it("denies live telemetry stream without a session", async () => {
+    const denied = await app().request("/api/plant/stream");
+    expect(denied.status).toBe(401);
+  });
+
+  it("streams snapshot and sample events to an authenticated Operator", async () => {
+    const sampleHub = new SampleHub();
+    const fetchImpl: typeof fetch = async () =>
+      new Response(JSON.stringify({ empty: false, current_power_w: 350 }), {
+        headers: { "content-type": "application/json" },
+      });
+    const client = createApp({
+      operatorPassword: PASSWORD,
+      apiUrl: "http://127.0.0.1:9",
+      cookieSecure: false,
+      documentHtml: DOCUMENT,
+      fetch: fetchImpl,
+      sampleHub,
+    });
+    const cookie = operatorSessionCookie(Math.floor(Date.now() / 1000));
+    const res = await client.request("/api/plant/stream", { headers: { cookie } });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+    expect(res.body).toBeDefined();
+
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+
+    // First message should be the initial snapshot
+    const first = await reader.read();
+    const firstText = decoder.decode(first.value);
+    expect(firstText).toContain("event: snapshot");
+    expect(firstText).toContain('"current_power_w":350');
+
+    // Broadcast a sample
+    await sampleHub.broadcast({
+      type: "sample",
+      logger_serial: "1000000001",
+      received_at: "2026-09-09T14:32:00Z",
+      ac_power_w: 412.5,
+      today_energy_kwh: 3.82,
+      lifetime_energy_kwh: 1420.15,
+    });
+
+    const second = await reader.read();
+    const secondText = decoder.decode(second.value);
+    expect(secondText).toContain("event: sample");
+    expect(secondText).toContain('"ac_power_w":412.5');
+
+    await reader.cancel();
+  });
+
+  it("denies notifications subscribe without session", async () => {
+    const denied = await app().request("/api/notifications/subscribe", {
+      method: "POST",
+      body: JSON.stringify({ endpoint: "https://push.example.com" }),
+    });
+    expect(denied.status).toBe(401);
+  });
+
+  it("saves web push subscription for authenticated operator", async () => {
+    const pushStore = new PushSubscriptionStore();
+    const client = createApp({
+      operatorPassword: PASSWORD,
+      apiUrl: "http://127.0.0.1:9",
+      cookieSecure: false,
+      documentHtml: DOCUMENT,
+      pushStore,
+      vapidPublicKey: "test-public-key",
+    });
+    const cookie = operatorSessionCookie(Math.floor(Date.now() / 1000));
+    const subRes = await client.request("/api/notifications/subscribe", {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({
+        endpoint: "https://push.example.com/123",
+        keys: { p256dh: "key-data", auth: "auth-data" },
+      }),
+    });
+    expect(subRes.status).toBe(200);
+    expect(await subRes.json()).toEqual({ ok: true });
+    expect(pushStore.list()).toHaveLength(1);
+    expect(pushStore.list()[0]!.endpoint).toBe("https://push.example.com/123");
+
+    const keyRes = await client.request("/api/notifications/vapid-public-key");
+    expect(await keyRes.json()).toEqual({ publicKey: "test-public-key" });
+  });
+
+  it("evaluates stall alert and triggers push notification during sample broadcast", async () => {
+    const pushStore = new PushSubscriptionStore();
+    pushStore.save({
+      endpoint: "https://push.example.com/sub1",
+      keys: { p256dh: "key1", auth: "auth1" },
+    });
+    const sentPushes: { sub: unknown; payload: string }[] = [];
+    const sampleHub = new SampleHub();
+    createApp({
+      operatorPassword: PASSWORD,
+      apiUrl: "http://127.0.0.1:9",
+      cookieSecure: false,
+      documentHtml: DOCUMENT,
+      pushStore,
+      sampleHub,
+      sendNotification: async (sub, payload) => {
+        sentPushes.push({ sub, payload });
+      },
+      cachedLoggersNow: [
+        {
+          name: "1000000002",
+          display_name: "West",
+          last_success_at: "2026-09-09T14:00:00-03:00",
+          power_w: 0,
+        },
+      ],
+    });
+
+    // East reports at 14:32 (32m after West silent) with 420 W
+    await sampleHub.broadcast({
+      type: "sample",
+      logger_serial: "1000000001",
+      received_at: "2026-09-09T14:32:00-03:00",
+      ac_power_w: 420,
+      today_energy_kwh: 3.5,
+      lifetime_energy_kwh: 5000,
+    });
+
+    expect(sentPushes).toHaveLength(1);
+    const notification = JSON.parse(sentPushes[0]!.payload);
+    expect(notification.title).toBe("Wattloft · Logger Stall");
+    expect(notification.body).toContain("West logger has been silent");
+  });
+});
+
