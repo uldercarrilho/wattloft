@@ -444,7 +444,12 @@ describe("Plant view", () => {
     const push = vi.spyOn(window.history, "pushState");
     render(<App />);
     await screen.findByRole("img", { name: "Energy bars" });
-    chartState.instances[0]?.config.options?.onClick?.({}, [{ index: 0 }]);
+    await waitFor(() => expect(chartState.instances.length).toBeGreaterThan(0));
+    const onClick = chartState.instances.at(-1)?.config.options?.onClick;
+    expect(onClick).toBeTypeOf("function");
+    act(() => {
+      onClick?.({}, [{ index: 0 }]);
+    });
     expect(push).toHaveBeenCalledWith({}, "", "/?day=2026-08-21&unit=time");
   });
 
