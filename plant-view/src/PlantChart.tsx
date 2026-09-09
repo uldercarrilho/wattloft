@@ -40,6 +40,7 @@ const FALLBACK: Record<ChartDataset["swatch"], [string, string]> = {
   pigment: ["--pigment", "#1E4F8C"],
   "logger-a": ["--logger-a", "#1E4F8C"],
   "logger-b": ["--logger-b", "#C4841D"],
+  muted: ["--muted", "#5A6B78"],
 };
 
 function cssColor(swatch: ChartDataset["swatch"]): string {
@@ -136,10 +137,36 @@ export function PlantChart({
         ctx.restore();
       },
     };
+    const clippingPlugin: Plugin = {
+      id: "wattloft-clipping",
+      afterDatasetsDraw(chart) {
+        if (model.kind !== "time" || !model.clippingPlateaus || model.clippingPlateaus.length === 0) return;
+        const xScale = chart.scales.x;
+        const yScale = chart.scales.y;
+        if (!xScale || !yScale) return;
+        const ctx = chart.ctx;
+        const color = cssColor("logger-a");
+        ctx.save();
+        for (const plateau of model.clippingPlateaus) {
+          const x1 = xScale.getPixelForValue(plateau.start_minute);
+          const x2 = xScale.getPixelForValue(plateau.end_minute);
+          const y = yScale.getPixelForValue(plateau.plateau_watts);
+          if (Number.isNaN(x1) || Number.isNaN(x2) || Number.isNaN(y)) continue;
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 3;
+          ctx.lineCap = "round";
+          ctx.beginPath();
+          ctx.moveTo(x1, y);
+          ctx.lineTo(x2, y);
+          ctx.stroke();
+        }
+        ctx.restore();
+      },
+    };
     try {
       chartRef.current = new Chart(
         canvas,
-        chartConfig(model, mode, ink, muted, hairPlugin, {
+        chartConfig(model, mode, ink, muted, [clippingPlugin, hairPlugin], {
           onPointer: (value) => {
             if (model.kind === "time") hairRef.current = value;
             else highlightRef.current = value;
@@ -265,7 +292,7 @@ function chartConfig(
   _mode: ChartMode,
   ink: string,
   muted: string,
-  hairPlugin: Plugin,
+  plugins: Plugin[],
   handlers: {
     onPointer: (value: number) => void;
     onBarNavigate: (href: string) => void;
@@ -321,7 +348,7 @@ function chartConfig(
           },
         },
       },
-      plugins: [hairPlugin],
+      plugins,
     };
   }
   const highlight = handlers.highlight();
@@ -331,6 +358,18 @@ function chartConfig(
       labels: model.tickLabels,
       datasets: model.datasets.map((dataset) => {
         const fill = cssColor(dataset.swatch);
+        if (dataset.role === "comparison") {
+          return {
+            label: dataset.name,
+            data: dataset.values,
+            backgroundColor: withAlpha(fill, 0.25),
+            borderColor: withAlpha(fill, 0.5),
+            borderWidth: 1,
+            barPercentage: 0.3,
+            categoryPercentage: 0.8,
+            stack: "comparison",
+          };
+        }
         return {
           label: dataset.name,
           data: dataset.values,
@@ -394,19 +433,21 @@ function timeDatasets(model: TimeChartModel, stacked: boolean) {
     const stroke = cssColor(dataset.swatch);
     const style = {
       label: dataset.name,
-      borderColor: stroke,
-      backgroundColor: stacked ? stroke : "transparent",
-      fill: stacked,
+      borderColor: dataset.role === "ideal" ? withAlpha(stroke, 0.3) : stroke,
+      backgroundColor: !stacked || dataset.role === "ideal" ? "transparent" : stroke,
+      fill: stacked && dataset.role !== "ideal",
       pointRadius: 0,
       tension: 0,
       spanGaps: false,
       borderDash:
-        !stacked && dataset.role === "logger" && dataset.name === dashedLogger
+        dataset.role === "ideal"
           ? [6, 4]
-          : undefined,
-      stack: stacked ? "power" : undefined,
+          : !stacked && dataset.role === "logger" && dataset.name === dashedLogger
+            ? [6, 4]
+            : undefined,
+      stack: stacked && dataset.role !== "ideal" ? "power" : undefined,
     };
-    if (!stacked) {
+    if (!stacked || dataset.role === "ideal") {
       return [
         {
           ...style,

@@ -225,6 +225,22 @@ function Plant({
   const snapshot = payload;
   const [mode, setMode] = useState<ChartMode>(() => readChartMode(window.localStorage));
   const [hidden, setHidden] = useState<Set<string>>(() => new Set());
+  const [idealEnvelope, setIdealEnvelope] = useState(() => {
+    try {
+      return window.localStorage.getItem("wattloft.ideal-envelope") === "true";
+    } catch {
+      return false;
+    }
+  });
+  const toggleIdealEnvelope = () => {
+    setIdealEnvelope((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem("wattloft.ideal-envelope", String(next));
+      } catch {}
+      return next;
+    });
+  };
   const names =
     unit === "time" && snapshot.curve.length === 0
       ? []
@@ -291,12 +307,19 @@ function Plant({
           </a>
         ))}
       </nav>
-      <ChartModeBar mode={mode} onChoose={(next) => chooseChartMode(next, setMode)} />
+      <ChartModeBar
+        mode={mode}
+        onChoose={(next) => chooseChartMode(next, setMode)}
+        unit={unit}
+        idealEnvelope={idealEnvelope}
+        onToggleIdealEnvelope={toggleIdealEnvelope}
+      />
       <Chart
         snapshot={snapshot}
         unit={unit}
         mode={mode}
         visible={visible}
+        idealEnvelope={idealEnvelope}
         chips={
           <SeriesChips
             snapshot={snapshot}

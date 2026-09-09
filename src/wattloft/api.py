@@ -122,6 +122,7 @@ def _snapshot_payload(snapshot: PlantSnapshot, selected_day: date) -> dict[str, 
             {
                 "local_day": bar.local_day.isoformat(),
                 "today_energy_kwh": bar.today_energy_kwh,
+                "prev_year_today_energy_kwh": bar.prev_year_today_energy_kwh,
                 "loggers": [
                     {
                         **_named_payload(part.name),
@@ -133,6 +134,40 @@ def _snapshot_payload(snapshot: PlantSnapshot, selected_day: date) -> dict[str, 
             for bar in snapshot.local_day_bars
         ],
         "curve": [_series_payload(series) for series in snapshot.curve],
+        "ideal_curve": [_point_payload(point) for point in snapshot.ideal_curve],
+        "clipping": (
+            {
+                "clipped": snapshot.clipping.clipped,
+                "clipped_minutes": snapshot.clipping.clipped_minutes,
+                "estimated_clipped_kwh": snapshot.clipping.estimated_clipped_kwh,
+                "plateaus": [
+                    {
+                        "logger_serial": p.logger_serial,
+                        "start_minute": p.start_minute,
+                        "end_minute": p.end_minute,
+                        "start_at": p.start_at.isoformat(),
+                        "end_at": p.end_at.isoformat(),
+                        "plateau_watts": p.plateau_watts,
+                        "estimated_clipped_kwh": p.estimated_clipped_kwh,
+                    }
+                    for p in snapshot.clipping.plateaus
+                ],
+            }
+            if snapshot.clipping is not None
+            else None
+        ),
+        "drift": (
+            {
+                "detected": snapshot.drift.detected,
+                "advisory": snapshot.drift.advisory,
+                "affected_logger": snapshot.drift.affected_logger,
+                "drift_pct": snapshot.drift.drift_pct,
+                "baseline_ratio": snapshot.drift.baseline_ratio,
+                "rolling_ratio": snapshot.drift.rolling_ratio,
+            }
+            if snapshot.drift is not None
+            else None
+        ),
         "loggers_now": [
             {
                 **_named_payload(row.name),

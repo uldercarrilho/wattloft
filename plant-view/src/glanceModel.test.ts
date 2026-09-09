@@ -135,4 +135,29 @@ describe("glanceModel", () => {
     expect(view.loggers).toEqual([]);
     expect(view.banner).toBeNull();
   });
+
+  it("populates drift advisory on affected logger when drift is detected", () => {
+    const view = glanceModel(
+      {
+        ...snapshot({
+          current_power_w: 210,
+          loggers_now: [
+            logger(EAST, "East", "2026-09-07T16:03:00.000Z", 150),
+            logger(WEST, "West", "2026-09-07T16:03:00.000Z", 200),
+          ],
+        }),
+        drift: {
+          detected: true,
+          advisory: "East array underperforming relative to West by 14% (check for soiling or obstruction)",
+          affected_logger: EAST,
+          drift_pct: 14,
+        },
+      },
+      NOW,
+    );
+    expect(view.loggers.find((l) => l.name === EAST)?.driftAdvisory).toBe(
+      "East array underperforming relative to West by 14% (check for soiling or obstruction)",
+    );
+    expect(view.loggers.find((l) => l.name === WEST)?.driftAdvisory).toBeNull();
+  });
 });

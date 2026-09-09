@@ -13,7 +13,7 @@ import {
   yearEnergyBars,
   type EnergyBar,
 } from "./grains";
-import type { CurveSeries, Grain, PlantSnapshot } from "./types";
+import type { ClippingPlateau, CurveSeries, Grain, PlantSnapshot } from "./types";
 
 export const GAP_MIN = 15;
 const POWER_FLOOR = 1.0;
@@ -29,9 +29,9 @@ export function niceYMax(peak: number): number {
 
 export type ChartDataset = {
   name: string;
-  role: "plant" | "logger";
+  role: "plant" | "logger" | "ideal" | "comparison";
   stacked: boolean;
-  swatch: "plant" | "pigment" | "logger-a" | "logger-b";
+  swatch: "plant" | "pigment" | "logger-a" | "logger-b" | "muted";
   values: (number | null)[];
 };
 
@@ -42,6 +42,7 @@ export type TimeChartModel = {
   yMax: number;
   yUnit: "W" | "kWh";
   datasets: ChartDataset[];
+  clippingPlateaus?: ClippingPlateau[];
 };
 
 export type EnergyChartModel = {
@@ -54,6 +55,7 @@ export type EnergyChartModel = {
   yUnit: "W" | "kWh";
   partial: boolean[];
   datasets: ChartDataset[];
+  bars?: EnergyBar[];
 };
 
 export type PlantChartModel = TimeChartModel | EnergyChartModel | { kind: "empty-time" };
@@ -120,7 +122,11 @@ function peakVisible(datasets: ChartDataset[]): number {
   return max;
 }
 
-function timeOverlay(snapshot: PlantSnapshot, visible: ReadonlySet<string>): TimeChartModel {
+function timeOverlay(
+  snapshot: PlantSnapshot,
+  visible: ReadonlySet<string>,
+  idealEnvelope = false,
+): TimeChartModel {
   const loggers = loggerSeries(snapshot);
   const [tMin, tMax] = solarWindow(snapshot);
   const minutes: number[] = [];
@@ -162,6 +168,16 @@ function timeOverlay(snapshot: PlantSnapshot, visible: ReadonlySet<string>): Tim
       values: plantValues,
     });
   }
+  if (idealEnvelope && snapshot.ideal_curve && snapshot.ideal_curve.length > 0) {
+    const idealMap = new Map(snapshot.ideal_curve.map((p) => [minuteOfDay(p.at), p.watts]));
+    datasets.push({
+      name: "Ideal envelope",
+      role: "ideal",
+      stacked: false,
+      swatch: "muted",
+      values: minutes.map((t) => idealMap.get(t) ?? null),
+    });
+  }
   return {
     kind: "time",
     minutes,
@@ -169,6 +185,7 @@ function timeOverlay(snapshot: PlantSnapshot, visible: ReadonlySet<string>): Tim
     yMax: niceYMax(peakVisible(datasets)),
     yUnit: "W",
     datasets,
+    clippingPlateaus: snapshot.clipping?.plateaus ?? [],
   };
 }
 
@@ -185,7 +202,11 @@ function peakStacked(datasets: ChartDataset[], minutes: number[]): number {
   return max;
 }
 
-function timeStack(snapshot: PlantSnapshot, visible: ReadonlySet<string>): TimeChartModel {
+function timeStack(
+  snapshot: PlantSnapshot,
+  visible: ReadonlySet<string>,
+  idealEnvelope = false,
+): TimeChartModel {
   const loggers = loggerSeries(snapshot);
   const [tMin, tMax] = solarWindow(snapshot);
   const minutes: number[] = [];
@@ -203,13 +224,26 @@ function timeStack(snapshot: PlantSnapshot, visible: ReadonlySet<string>): TimeC
       values: minutes.map((t) => curveWattsAt(points, t, GAP_MIN)),
     });
   }
+  if (idealEnvelope && snapshot.ideal_curve && snapshot.ideal_curve.length > 0) {
+    const idealMap = new Map(snapshot.ideal_curve.map((p) => [minuteOfDay(p.at), p.watts]));
+    datasets.push({
+      name: "Ideal envelope",
+      role: "ideal",
+      stacked: false,
+      swatch: "muted",
+      values: minutes.map((t) => idealMap.get(t) ?? null),
+    });
+  }
+  const stackedMax = peakStacked(datasets.filter((d) => d.role !== "ideal"), minutes);
+  const idealMax = peakVisible(datasets.filter((d) => d.role === "ideal"));
   return {
     kind: "time",
     minutes,
     tickHours: hourTicks(tMin, tMax),
-    yMax: niceYMax(peakStacked(datasets, minutes)),
+    yMax: niceYMax(Math.max(stackedMax, idealMax)),
     yUnit: "W",
     datasets,
+    clippingPlateaus: snapshot.clipping?.plateaus ?? [],
   };
 }
 
@@ -241,7 +275,7 @@ function energyModel(
           bars.findIndex((bar) => bar.href.includes(`day=${snapshot.selected_day}`)),
         )
       : Math.max(0, bars.findIndex((bar) => bar.current));
-  const yMax = niceYMax(Math.max(1, ...bars.map((bar) => bar.kwh)));
+  const yMax = niceYMax(Math.max(1, ...bars.map((bar) => Math.max(bar.kwh, bar.prevYearKwh ?? 0))));
   const useStack = stacked && bars.some((bar) => bar.segments.length > 0);
   const ordered = stackLoggerNames(snapshot);
   const datasets: ChartDataset[] = useStack
@@ -267,6 +301,17 @@ function energyModel(
           values: bars.map((bar) => bar.kwh),
         },
       ];
+
+  if (unit === "day" && bars.some((bar) => bar.prevYearKwh != null)) {
+    datasets.push({
+      name: "Previous year",
+      role: "comparison",
+      stacked: false,
+      swatch: "muted",
+      values: bars.map((bar) => bar.prevYearKwh ?? null),
+    });
+  }
+
   return {
     kind: "energy",
     tickLabels: bars.map((bar) => tickLabel(unit, bar.label)),
@@ -277,6 +322,7 @@ function energyModel(
     yUnit: "kWh",
     partial: bars.map((bar) => bar.partial),
     datasets,
+    bars,
   };
 }
 
@@ -285,15 +331,16 @@ export function buildPlantChartModel(
   unit: Grain,
   mode: ChartMode,
   visible: ReadonlySet<string>,
+  idealEnvelope = false,
 ): PlantChartModel {
   if (unit === "time") {
     if (snapshot.curve.length === 0) {
       return { kind: "empty-time" };
     }
     if (mode === "stack") {
-      return timeStack(snapshot, visible);
+      return timeStack(snapshot, visible, idealEnvelope);
     }
-    return timeOverlay(snapshot, visible);
+    return timeOverlay(snapshot, visible, idealEnvelope);
   }
   return energyModel(snapshot, unit, mode, visible);
 }
@@ -362,23 +409,37 @@ function valueAt(dataset: ChartDataset, index: number): number | null {
 export function timeReadout(model: TimeChartModel, minute: number, mode: ChartMode): Readout {
   const t = Math.max(model.minutes[0] ?? 0, Math.min(model.minutes.at(-1) ?? 0, Math.round(minute)));
   const index = model.minutes.indexOf(t);
+  const plateau = model.clippingPlateaus?.find((p) => t >= p.start_minute && t <= p.end_minute);
   const rows: Readout["rows"] = [];
   if (mode === "stack") {
     let plant = 0;
     let any = false;
     for (const dataset of model.datasets) {
+      if (dataset.role === "ideal") continue;
       const value = index < 0 ? null : valueAt(dataset, index);
       if (value != null) {
         plant += value;
         any = true;
       }
     }
-    rows.push({ name: "Plant", text: any ? wattsText(plant) : "—" });
+    let text = any ? wattsText(plant) : "—";
+    if (plateau && any) {
+      text += ` (clipped · est. ${formatKwh(plateau.estimated_clipped_kwh)} lost today)`;
+    }
+    rows.push({ name: "Plant", text });
   }
   for (const dataset of model.datasets) {
+    let text = index < 0 ? "—" : heldWattsText(dataset, index, model.minutes);
+    if (
+      plateau &&
+      text !== "—" &&
+      (dataset.role === "plant" || dataset.name === plateau.logger_serial)
+    ) {
+      text += ` (clipped · est. ${formatKwh(plateau.estimated_clipped_kwh)} lost today)`;
+    }
     rows.push({
       name: dataset.name,
-      text: index < 0 ? "—" : heldWattsText(dataset, index, model.minutes),
+      text,
     });
   }
   const dashed = rows.every((row) => row.text === "—");
@@ -396,6 +457,7 @@ export function energyReadout(model: EnergyChartModel, index: number): Readout {
     let plant = 0;
     let any = false;
     for (const dataset of model.datasets) {
+      if (dataset.role === "comparison") continue;
       const value = valueAt(dataset, i);
       if (value != null) {
         plant += value;
@@ -403,14 +465,24 @@ export function energyReadout(model: EnergyChartModel, index: number): Readout {
       }
       rows.push({ name: dataset.name, text: kwhText(value) });
     }
+    const comparison = model.datasets.find((d) => d.role === "comparison");
+    const comparisonRow =
+      comparison && valueAt(comparison, i) != null
+        ? [{ name: "Previous year", text: kwhText(valueAt(comparison, i)) }]
+        : [];
     return {
       when,
-      rows: [{ name: "Plant", text: any ? kwhText(plant) : "—" }, ...rows],
+      rows: [{ name: "Plant", text: any ? kwhText(plant) : "—" }, ...rows, ...comparisonRow],
     };
   }
   const plant = model.datasets.find((dataset) => dataset.role === "plant");
+  const rows: Readout["rows"] = [{ name: "Plant", text: kwhText(plant ? valueAt(plant, i) : null) }];
+  const comparison = model.datasets.find((d) => d.role === "comparison");
+  if (comparison && valueAt(comparison, i) != null) {
+    rows.push({ name: "Previous year", text: kwhText(valueAt(comparison, i)) });
+  }
   return {
     when,
-    rows: [{ name: "Plant", text: kwhText(plant ? valueAt(plant, i) : null) }],
+    rows,
   };
 }

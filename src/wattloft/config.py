@@ -10,6 +10,11 @@ LOGGER_DISPLAY_NAMES = {
     "3913630013": "West",
 }
 
+PLANT_LATITUDE = float(os.environ.get("WATTLOFT_PLANT_LATITUDE", "-23.5505"))
+PLANT_LONGITUDE = float(os.environ.get("WATTLOFT_PLANT_LONGITUDE", "-46.6333"))
+MICROINVERTER_NAMEPLATE_W = float(os.environ.get("WATTLOFT_MICROINVERTER_NAMEPLATE_W", "1000.0"))
+PLANT_PEAK_DC_CAPACITY_W = float(os.environ.get("WATTLOFT_PLANT_PEAK_DC_CAPACITY_W", "2000.0"))
+
 
 def now_utc() -> datetime:
     raw = os.environ.get("WATTLOFT_NOW")

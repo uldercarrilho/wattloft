@@ -249,4 +249,73 @@ describe("PlantChart", () => {
     fireEvent.keyDown(canvas, { key: "ArrowRight" });
     expect(onPointer).toHaveBeenCalledWith(12 * 60 + 1);
   });
+
+  it("renders ideal envelope dataset with dashed line styling when present", () => {
+    const model = buildPlantChartModel(
+      {
+        ...energySnapshot,
+        curve: [
+          {
+            name: loggerA,
+            points: [{ at: "2026-08-21T12:00:00", watts: 100, lifetime_kwh: 10 }],
+          },
+        ],
+        ideal_curve: [{ at: "2026-08-21T12:00:00", watts: 1500 }],
+      },
+      "time",
+      "overlay",
+      new Set(["Plant", loggerA]),
+      true,
+    );
+    expect(model.kind).toBe("time");
+    if (model.kind !== "time") return;
+    render(
+      <PlantChart
+        model={model}
+        mode="overlay"
+        onPointer={vi.fn()}
+        onBarNavigate={vi.fn()}
+        onDrawError={vi.fn()}
+      />,
+    );
+    const chart = chartState.instances.at(-1)?.config as {
+      data?: { datasets?: Array<{ label?: string; borderDash?: number[] }> };
+    };
+    const ideal = chart?.data?.datasets?.find((d) => d.label === "Ideal envelope");
+    expect(ideal).toBeDefined();
+    expect(ideal?.borderDash).toEqual([6, 4]);
+  });
+
+  it("renders previous year comparison dataset with hairline bar styling in day grain", () => {
+    const model = buildPlantChartModel(
+      {
+        ...energySnapshot,
+        local_day_bars: [
+          { local_day: "2026-08-21", today_energy_kwh: 3.9, prev_year_today_energy_kwh: 3.2 },
+          { local_day: "2026-08-22", today_energy_kwh: 0.2, prev_year_today_energy_kwh: 0.1 },
+        ],
+      },
+      "day",
+      "overlay",
+      new Set(["Plant"]),
+    );
+    expect(model.kind).toBe("energy");
+    if (model.kind !== "energy") return;
+    render(
+      <PlantChart
+        model={model}
+        mode="overlay"
+        onPointer={vi.fn()}
+        onBarNavigate={vi.fn()}
+        onDrawError={vi.fn()}
+      />,
+    );
+    const chart = chartState.instances.at(-1)?.config as {
+      data?: { datasets?: Array<{ label?: string; stack?: string; barPercentage?: number }> };
+    };
+    const comparison = chart?.data?.datasets?.find((d) => d.label === "Previous year");
+    expect(comparison).toBeDefined();
+    expect(comparison?.stack).toBe("comparison");
+    expect(comparison?.barPercentage).toBe(0.3);
+  });
 });

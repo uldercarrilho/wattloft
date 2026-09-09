@@ -47,6 +47,11 @@ export function Glance({
                     ? `reporting · ${row.ageLabel}`
                     : `silent · last Sample ${row.ageLabel}`}
                 </span>
+                {row.driftAdvisory ? (
+                  <p className="drift-advisory" role="note">
+                    {row.driftAdvisory}
+                  </p>
+                ) : null}
               </li>
             ))}
           </ul>

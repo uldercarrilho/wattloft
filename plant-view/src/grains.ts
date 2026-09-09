@@ -14,6 +14,8 @@ export type EnergyBar = {
   partial: boolean;
   width: number;
   segments: EnergySegment[];
+  prevYearKwh?: number | null;
+  deltaPct?: number | null;
 };
 
 export type Stepper = {
@@ -224,9 +226,11 @@ function withWidths(
     current: boolean;
     partial: boolean;
     parts: EnergyPart[];
+    prevYearKwh?: number | null;
+    deltaPct?: number | null;
   }[],
 ): EnergyBar[] {
-  const peak = Math.max(0, ...rows.map((row) => row.kwh));
+  const peak = Math.max(0, ...rows.map((row) => Math.max(row.kwh, row.prevYearKwh ?? 0)));
   return rows.map((row) => ({
     href: row.href,
     label: row.label,
@@ -242,6 +246,8 @@ function withWidths(
             kwh: part.kwh,
             width: (part.kwh / row.kwh) * 100,
           })),
+    prevYearKwh: row.prevYearKwh,
+    deltaPct: row.deltaPct,
   }));
 }
 
@@ -301,6 +307,7 @@ export function dayEnergyBars(
         current: false,
         partial: bar.local_day === nowDay,
         parts,
+        prevYearKwh: bar.prev_year_today_energy_kwh ?? null,
       };
     }),
   );
@@ -356,15 +363,29 @@ export function monthEnergyBars(
         visible,
         (day) => day.y === year && day.m === month,
       );
+      const prevYear = year - 1;
+      const { kwh: prevYearKwh } = mergeParts(
+        snapshot.local_day_bars,
+        visible,
+        (day) => day.y === prevYear && day.m === month,
+      );
+      let deltaPct: number | null = null;
+      let deltaText = "";
+      if (prevYearKwh > 0) {
+        deltaPct = Math.round(((kwh - prevYearKwh) / prevYearKwh) * 100);
+        deltaText = deltaPct >= 0 ? ` (+${deltaPct}% vs ${prevYear})` : ` (${deltaPct}% vs ${prevYear})`;
+      }
       const start = parseIsoDate(historyStartOf(snapshot));
       const partial = start.y === year && start.m === month && start.d > 1;
       return {
         href: href(anchorInMonth(snapshot, year, month, selectedDay), "day"),
-        label: `${key} ${formatKwh(kwh)}`,
+        label: `${key} ${formatKwh(kwh)}${deltaText}`,
         kwh,
         current: month === selected.m,
         partial,
         parts,
+        prevYearKwh: prevYearKwh > 0 ? prevYearKwh : null,
+        deltaPct,
       };
     });
   return withWidths(rows);

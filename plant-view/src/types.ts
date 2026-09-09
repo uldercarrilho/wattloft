@@ -21,6 +21,7 @@ export type LoggerEnergy = {
 export type LocalDayBar = {
   local_day: string;
   today_energy_kwh: number;
+  prev_year_today_energy_kwh?: number | null;
   loggers?: LoggerEnergy[];
 };
 
@@ -29,6 +30,32 @@ export type LoggerNow = {
   display_name?: string;
   last_success_at: string;
   power_w: number;
+};
+
+export type ClippingPlateau = {
+  logger_serial: string;
+  start_minute: number;
+  end_minute: number;
+  start_at: string;
+  end_at: string;
+  plateau_watts: number;
+  estimated_clipped_kwh: number;
+};
+
+export type ClippingInfo = {
+  clipped: boolean;
+  clipped_minutes: number;
+  estimated_clipped_kwh: number | null;
+  plateaus: ClippingPlateau[];
+};
+
+export type DriftInfo = {
+  detected: boolean;
+  advisory: string | null;
+  affected_logger: string | null;
+  drift_pct: number | null;
+  baseline_ratio?: number | null;
+  rolling_ratio?: number | null;
 };
 
 export type PlantSnapshot = {
@@ -41,6 +68,9 @@ export type PlantSnapshot = {
   local_day_bars: LocalDayBar[];
   curve: CurveSeries[];
   loggers_now?: LoggerNow[];
+  ideal_curve?: CurvePoint[];
+  clipping?: ClippingInfo | null;
+  drift?: DriftInfo | null;
 };
 
 export type EmptyPlant = { empty: true };

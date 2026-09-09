@@ -35,6 +35,8 @@ CREATE TABLE IF NOT EXISTS day_summaries (
     last_today_energy_kwh DOUBLE,
     peak_power_w DOUBLE,
     sample_count INT NOT NULL DEFAULT 1,
+    clipped_minutes INT NOT NULL DEFAULT 0,
+    estimated_clipped_kwh DOUBLE DEFAULT NULL,
     PRIMARY KEY (local_day, logger_serial),
     INDEX idx_day_summaries_day (local_day)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
@@ -62,7 +64,7 @@ ORDER BY received_at, logger_serial
 _DUMP_SUMMARIES_SQL = """
 SELECT local_day, logger_serial, first_received_at, last_received_at,
        start_lifetime_kwh, last_lifetime_kwh, last_today_energy_kwh,
-       peak_power_w, sample_count
+       peak_power_w, sample_count, clipped_minutes, estimated_clipped_kwh
 FROM day_summaries
 ORDER BY local_day, logger_serial
 """
@@ -111,6 +113,8 @@ class _DaySummaryRow:
     last_lifetime_kwh: float | None
     last_today_energy_kwh: float | None
     last_received_at: datetime
+    clipped_minutes: int = 0
+    estimated_clipped_kwh: float | None = None
 
 
 def _as_utc(value: datetime) -> datetime:
@@ -173,6 +177,30 @@ def _ensure_indexes(cursor: Any) -> None:
         if _index_exists(cursor, "samples", name):
             continue
         cursor.execute(f"ALTER TABLE samples ADD INDEX {name} {columns}")
+
+
+def _column_exists(cursor: Any, table: str, column: str) -> bool:
+    cursor.execute(
+        """
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = %s AND column_name = %s
+        LIMIT 1
+        """,
+        (table, column),
+    )
+    return cursor.fetchone() is not None
+
+
+def _ensure_day_summary_columns(cursor: Any) -> None:
+    if not _column_exists(cursor, "day_summaries", "clipped_minutes"):
+        cursor.execute(
+            "ALTER TABLE day_summaries ADD COLUMN clipped_minutes INT NOT NULL DEFAULT 0"
+        )
+    if not _column_exists(cursor, "day_summaries", "estimated_clipped_kwh"):
+        cursor.execute(
+            "ALTER TABLE day_summaries ADD COLUMN estimated_clipped_kwh DOUBLE DEFAULT NULL"
+        )
 
 
 def _backfill_complete(cursor: Any) -> bool:
@@ -324,6 +352,7 @@ def ensure_history(database_url: str) -> None:
             cursor.execute(_SAMPLES_TABLE_SQL)
             _ensure_indexes(cursor)
             cursor.execute(_DAY_SUMMARIES_TABLE_SQL)
+            _ensure_day_summary_columns(cursor)
             cursor.execute(_HISTORY_META_SQL)
         conn.commit()
         _backfill_if_needed(conn, rebuild=True)
@@ -353,7 +382,7 @@ def dump_history(database_url: str) -> str:
             "INSERT INTO day_summaries ("
             "local_day, logger_serial, first_received_at, last_received_at, "
             "start_lifetime_kwh, last_lifetime_kwh, last_today_energy_kwh, "
-            "peak_power_w, sample_count"
+            "peak_power_w, sample_count, clipped_minutes, estimated_clipped_kwh"
             f") VALUES ({values});"
         )
     return "\n".join(statements) + "\n"
@@ -441,7 +470,8 @@ def load_day_summaries(database_url: str) -> tuple[_DaySummaryRow, ...]:
             cursor.execute(
                 """
                 SELECT local_day, logger_serial, last_lifetime_kwh,
-                       last_today_energy_kwh, last_received_at
+                       last_today_energy_kwh, last_received_at,
+                       clipped_minutes, estimated_clipped_kwh
                 FROM day_summaries
                 ORDER BY local_day ASC, logger_serial ASC
                 """
@@ -449,7 +479,7 @@ def load_day_summaries(database_url: str) -> tuple[_DaySummaryRow, ...]:
             rows = cursor.fetchall()
     summaries: list[_DaySummaryRow] = []
     for row in rows:
-        local_day, serial, last_life, last_today, last_received = row
+        local_day, serial, last_life, last_today, last_received, clipped_min, est_clipped = row
         summaries.append(
             _DaySummaryRow(
                 local_day=_as_date(local_day),
@@ -457,9 +487,32 @@ def load_day_summaries(database_url: str) -> tuple[_DaySummaryRow, ...]:
                 last_lifetime_kwh=_as_float(last_life),
                 last_today_energy_kwh=_as_float(last_today),
                 last_received_at=_as_utc(last_received),
+                clipped_minutes=int(clipped_min or 0),
+                estimated_clipped_kwh=_as_float(est_clipped),
             )
         )
     return tuple(summaries)
+
+
+def update_day_summary_clipping(
+    database_url: str,
+    *,
+    local_day: date,
+    logger_serial: str,
+    clipped_minutes: int,
+    estimated_clipped_kwh: float | None,
+) -> None:
+    with connection(database_url) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE day_summaries
+                SET clipped_minutes = %s, estimated_clipped_kwh = %s
+                WHERE local_day = %s AND logger_serial = %s
+                """,
+                (clipped_minutes, estimated_clipped_kwh, local_day, logger_serial),
+            )
+        conn.commit()
 
 
 def load_samples_for_local_day(
