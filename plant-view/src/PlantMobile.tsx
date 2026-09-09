@@ -21,6 +21,7 @@ import {
   type MobilePage,
 } from "./mobilePage";
 import type { Grain, PlantPayload } from "./types";
+import { formatTimeOfDay } from "./liveStream";
 
 const DOT_LABEL: Record<MobilePage, string> = {
   glance: "Glance",
@@ -33,9 +34,11 @@ const DOT_LABEL: Record<MobilePage, string> = {
 export function PlantMobile({
   payload,
   busy,
+  offline,
 }: {
   payload: Extract<PlantPayload, { empty: false }>;
   busy: boolean;
+  offline?: boolean;
 }) {
   const page = mobilePageOf(window.location.search);
   const snapshot = payload;
@@ -89,6 +92,11 @@ export function PlantMobile({
       onTouchEnd={onTouchEnd}
     >
       <PlantHeader />
+      {offline ? (
+        <p className="offline-banner" role="status">
+          Offline · Showing cached plant state as of {formatTimeOfDay(snapshot.current_power_at)}
+        </p>
+      ) : null}
       <div className="plant-mobile-body">
         {page === "glance" ? (
           <Glance

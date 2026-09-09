@@ -2,6 +2,7 @@
   "name": "Wattloft",
   "short_name": "Wattloft",
   "display": "standalone",
+  "orientation": "any",
   "start_url": "/",
   "background_color": "#1E4F8C",
   "theme_color": "#1E4F8C",

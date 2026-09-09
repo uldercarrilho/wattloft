@@ -26,10 +26,17 @@ export const GRAIN_LABEL: Record<Grain, string> = {
 };
 
 export function PlantHeader() {
+  const onLogout = () => {
+    if (typeof caches !== "undefined") {
+      caches.keys().then((keys) => {
+        return Promise.all(keys.map((k) => caches.delete(k)));
+      }).catch(() => {});
+    }
+  };
   return (
     <header className="plant-header">
       <h1>Plant</h1>
-      <form className="logout" method="post" action="/logout">
+      <form className="logout" method="post" action="/logout" onSubmit={onLogout}>
         <button type="submit">Log out</button>
       </form>
     </header>

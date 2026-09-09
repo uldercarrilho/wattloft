@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import date, datetime
@@ -8,7 +9,7 @@ from zoneinfo import ZoneInfo
 
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
 
 from wattloft.config import ADMITTED_LOGGER_SERIALS, LOGGER_DISPLAY_NAMES, now_utc
@@ -16,6 +17,42 @@ from wattloft.history import CurvePoint, CurveSeries, PlantSnapshot, plant_snaps
 from wattloft.ingest import start_ingest
 
 _LOCAL = ZoneInfo("America/Sao_Paulo")
+
+
+class EventBroadcaster:
+    def __init__(self) -> None:
+        self._subscribers: set[asyncio.Queue[dict[str, object]]] = set()
+        self._loop: asyncio.AbstractEventLoop | None = None
+
+    def set_loop(self, loop: asyncio.AbstractEventLoop) -> None:
+        self._loop = loop
+
+    def subscribe(self) -> asyncio.Queue[dict[str, object]]:
+        queue: asyncio.Queue[dict[str, object]] = asyncio.Queue(maxsize=100)
+        self._subscribers.add(queue)
+        return queue
+
+    def unsubscribe(self, queue: asyncio.Queue[dict[str, object]]) -> None:
+        self._subscribers.discard(queue)
+
+    def publish(self, event: dict[str, object]) -> None:
+        if self._loop is not None:
+            try:
+                running_loop = asyncio.get_running_loop()
+            except RuntimeError:
+                running_loop = None
+            if running_loop != self._loop:
+                self._loop.call_soon_threadsafe(self._publish_now, event)
+                return
+        self._publish_now(event)
+
+    def _publish_now(self, event: dict[str, object]) -> None:
+        for q in list(self._subscribers):
+            try:
+                q.put_nowait(event)
+            except asyncio.QueueFull:
+                pass
+
 
 
 def _parse_day(raw: str | None) -> date | None:
@@ -113,7 +150,10 @@ def create_app(
     ingest_host: str = "0.0.0.0",
     ingest_port: int = 10000,
     admitted_logger_serials: frozenset[str] = ADMITTED_LOGGER_SERIALS,
+    broadcaster: EventBroadcaster | None = None,
 ) -> Starlette:
+    event_bus = broadcaster if broadcaster is not None else EventBroadcaster()
+
     async def snapshot(request: Request) -> Response:
         day_raw = request.query_params.get("day")
         requested = _parse_day(day_raw)
@@ -127,15 +167,45 @@ def create_app(
                 return Response(status_code=404)
         return JSONResponse(_snapshot_payload(loaded, selected))
 
+    async def events(request: Request) -> Response:
+        queue = event_bus.subscribe()
+
+        async def event_stream() -> AsyncIterator[str]:
+            try:
+                while True:
+                    payload = await queue.get()
+                    yield f"data: {json.dumps(payload)}\n\n"
+            except (asyncio.CancelledError, GeneratorExit):
+                pass
+            finally:
+                event_bus.unsubscribe(queue)
+
+        return StreamingResponse(
+            event_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+            },
+        )
+
     @asynccontextmanager
     async def lifespan(_app: Starlette) -> AsyncIterator[None]:
+        event_bus.set_loop(asyncio.get_running_loop())
         server = await start_ingest(
-            ingest_host, ingest_port, database_url, admitted_logger_serials
+            ingest_host,
+            ingest_port,
+            database_url,
+            admitted_logger_serials,
+            on_sample=event_bus.publish,
         )
         async with server:
             yield
 
     return Starlette(
-        routes=[Route("/snapshot", snapshot)],
+        routes=[
+            Route("/snapshot", snapshot),
+            Route("/events", events),
+        ],
         lifespan=lifespan,
     )

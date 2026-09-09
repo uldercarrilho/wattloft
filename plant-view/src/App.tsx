@@ -26,6 +26,7 @@ import {
 } from "./plantChrome";
 import type { Grain, PlantPayload } from "./types";
 import { useWideViewport } from "./useWideViewport";
+import { applySample, formatTimeOfDay } from "./liveStream";
 
 type ViewState =
   | { kind: "loading" }
@@ -214,9 +215,11 @@ function Login({ onGranted }: { onGranted: () => void }) {
 function Plant({
   payload,
   busy,
+  offline,
 }: {
   payload: Extract<PlantPayload, { empty: false }>;
   busy: boolean;
+  offline?: boolean;
 }) {
   const unit = payload.unit;
   const snapshot = payload;
@@ -243,6 +246,11 @@ function Plant({
         Skip to chart
       </a>
       <PlantHeader />
+      {offline ? (
+        <p className="offline-banner" role="status">
+          Offline · Showing cached plant state as of {formatTimeOfDay(snapshot.current_power_at)}
+        </p>
+      ) : null}
       <dl className="kpis">
         <div>
           <dt>Today so far</dt>
@@ -309,13 +317,69 @@ function Plant({
   );
 }
 
+async function enablePushNotifications(registration: ServiceWorkerRegistration) {
+  try {
+    if (!("Notification" in window) || Notification.permission === "denied") return;
+    const res = await fetch("/api/notifications/vapid-public-key");
+    if (!res.ok) return;
+    const { publicKey } = (await res.json()) as { publicKey?: string };
+    if (!publicKey) return;
+
+    let sub = await registration.pushManager.getSubscription();
+    if (!sub && Notification.permission === "granted") {
+      sub = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: b64urlToBuffer(publicKey),
+      });
+    }
+    if (sub) {
+      await fetch("/api/notifications/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subscription: sub }),
+      });
+    }
+  } catch {
+    // push notifications not configured or denied
+  }
+}
+
 export function App() {
   const wide = useWideViewport();
   const [state, setState] = useState<ViewState>({ kind: "loading" });
   const [tick, setTick] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [isOffline, setIsOffline] = useState(() => typeof navigator !== "undefined" && !navigator.onLine);
+  const [fallbackPolling, setFallbackPolling] = useState(() => typeof EventSource === "undefined");
   const stateRef = useRef(state);
   stateRef.current = state;
+
+  useEffect(() => {
+    if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
+      navigator.serviceWorker
+        .register("/sw.js")
+        .then((registration) => {
+          void enablePushNotifications(registration);
+        })
+        .catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    const onOnline = () => {
+      setIsOffline(false);
+      setTick((n) => n + 1);
+    };
+    const onOffline = () => {
+      setIsOffline(true);
+    };
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, []);
 
   useEffect(() => {
     const onPop = () => setTick((n) => n + 1);
@@ -350,40 +414,157 @@ export function App() {
       setBusy(true);
     }
     void (async () => {
-      const response = await fetch(apiPath());
-      if (cancelled) return;
-      if (response.status === 401) {
-        setState({ kind: "login" });
-        setBusy(false);
-        return;
-      }
-      if (response.status === 502) {
-        if (!hadPlant && stateRef.current.kind !== "plant") {
-          setState({ kind: "error" });
+      try {
+        const response = await fetch(apiPath());
+        if (cancelled) return;
+        if (response.headers.get("X-Wattloft-Offline") === "true") {
+          setIsOffline(true);
+        } else if (typeof navigator !== "undefined" && navigator.onLine) {
+          setIsOffline(false);
         }
+        if (response.status === 401) {
+          setState({ kind: "login" });
+          setBusy(false);
+          return;
+        }
+        if (response.status === 502) {
+          if (!hadPlant && stateRef.current.kind !== "plant") {
+            setState({ kind: "error" });
+          }
+          setBusy(false);
+          return;
+        }
+        const body = (await response.json()) as PlantPayload;
+        if (cancelled) return;
+        if (body.empty) {
+          setState({ kind: "empty" });
+          setBusy(false);
+          return;
+        }
+        setState({
+          kind: "plant",
+          payload: { ...body, unit: body.unit ?? currentUnit() },
+        });
         setBusy(false);
-        return;
+      } catch {
+        if (cancelled) return;
+        if (hadPlant || stateRef.current.kind === "plant") {
+          setIsOffline(true);
+          setBusy(false);
+        } else {
+          setState({ kind: "error" });
+          setBusy(false);
+        }
       }
-      const body = (await response.json()) as PlantPayload;
-      if (cancelled) return;
-      if (body.empty) {
-        setState({ kind: "empty" });
-        setBusy(false);
-        return;
-      }
-      setState({
-        kind: "plant",
-        payload: { ...body, unit: body.unit ?? currentUnit() },
-      });
-      setBusy(false);
     })();
     return () => {
       cancelled = true;
     };
   }, [tick]);
 
+  const isPlant = state.kind === "plant";
+  useEffect(() => {
+    if (!isPlant) {
+      setFallbackPolling(typeof EventSource === "undefined");
+      return undefined;
+    }
+    if (typeof EventSource === "undefined") {
+      setFallbackPolling(true);
+      return undefined;
+    }
+
+    let es: EventSource | null = null;
+    let retryCount = 0;
+    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+    let cancelled = false;
+
+    function connect() {
+      if (cancelled) return;
+      es = new EventSource("/api/plant/stream");
+
+      es.onopen = () => {
+        retryCount = 0;
+        setFallbackPolling(false);
+      };
+
+      es.addEventListener("snapshot", (event: MessageEvent) => {
+        try {
+          const snapshot = JSON.parse(event.data);
+          setState((prev) => {
+            if (prev.kind !== "plant") return prev;
+            const queryDay = new URLSearchParams(window.location.search).get("day");
+            if (queryDay && queryDay !== snapshot.selected_day) {
+              return {
+                kind: "plant",
+                payload: {
+                  ...prev.payload,
+                  current_power_w: snapshot.current_power_w,
+                  current_power_at: snapshot.current_power_at,
+                  loggers_now: snapshot.loggers_now,
+                  today_energy_kwh: snapshot.today_energy_kwh,
+                  lifetime_energy_kwh: snapshot.lifetime_energy_kwh,
+                },
+              };
+            }
+            return {
+              kind: "plant",
+              payload: {
+                ...snapshot,
+                unit: prev.payload.unit ?? currentUnit(),
+              },
+            };
+          });
+        } catch {
+          // ignore malformed snapshot
+        }
+      });
+
+      es.addEventListener("sample", (event: MessageEvent) => {
+        try {
+          const sample = JSON.parse(event.data);
+          setState((prev) => {
+            if (prev.kind !== "plant") return prev;
+            return {
+              kind: "plant",
+              payload: applySample(prev.payload, sample),
+            };
+          });
+        } catch {
+          // ignore malformed sample
+        }
+      });
+
+      es.onerror = () => {
+        es?.close();
+        es = null;
+        retryCount++;
+        if (retryCount > 3) {
+          setFallbackPolling(true);
+        }
+        const backoffMs = Math.min(1000 * Math.pow(2, retryCount - 1), 16000);
+        reconnectTimeout = setTimeout(() => {
+          connect();
+        }, backoffMs);
+      };
+    }
+
+    connect();
+
+    return () => {
+      cancelled = true;
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (es) {
+        es.close();
+        es = null;
+      }
+    };
+  }, [isPlant]);
+
   useEffect(() => {
     if (state.kind !== "plant" && state.kind !== "empty") {
+      return undefined;
+    }
+    if (!fallbackPolling) {
       return undefined;
     }
     const id = window.setInterval(() => {
@@ -392,7 +573,7 @@ export function App() {
       }
     }, 20_000);
     return () => window.clearInterval(id);
-  }, [state.kind]);
+  }, [state.kind, fallbackPolling]);
 
   if (state.kind === "login") {
     return <Login onGranted={() => setTick((n) => n + 1)} />;
@@ -415,9 +596,9 @@ export function App() {
   }
   if (state.kind === "plant") {
     return wide ? (
-      <Plant payload={state.payload} busy={busy} />
+      <Plant payload={state.payload} busy={busy} offline={isOffline} />
     ) : (
-      <PlantMobile payload={state.payload} busy={busy} />
+      <PlantMobile payload={state.payload} busy={busy} offline={isOffline} />
     );
   }
   return <main />;
