@@ -5,7 +5,14 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
-from wattloft.config import now_utc
+from wattloft.config import (
+    LOGGER_DISPLAY_NAMES,
+    MICROINVERTER_NAMEPLATE_W,
+    PLANT_LATITUDE,
+    PLANT_LONGITUDE,
+    PLANT_PEAK_DC_CAPACITY_W,
+    now_utc,
+)
 from wattloft.history._store import (
     _DaySummaryRow,
     _SampleRow,
@@ -13,6 +20,14 @@ from wattloft.history._store import (
     load_day_summaries,
     load_latest_logger_samples,
     load_samples_for_local_day,
+    update_day_summary_clipping,
+)
+from wattloft.solar import (
+    ClippingSummary,
+    DriftResult,
+    detect_clipping,
+    evaluate_drift,
+    ideal_envelope_curve,
 )
 
 _LOCAL = ZoneInfo("America/Sao_Paulo")
@@ -49,6 +64,7 @@ class LocalDayBar:
     local_day: date
     today_energy_kwh: float
     loggers: tuple[LoggerEnergy, ...]
+    prev_year_today_energy_kwh: float | None = None
 
 
 @dataclass(frozen=True)
@@ -60,6 +76,9 @@ class PlantSnapshot:
     local_day_bars: tuple[LocalDayBar, ...]
     curve: tuple[CurveSeries, ...]
     loggers_now: tuple[LoggerNow, ...] = ()
+    ideal_curve: tuple[CurvePoint, ...] = ()
+    clipping: ClippingSummary | None = None
+    drift: DriftResult | None = None
 
 
 def _local(value: datetime) -> datetime:
@@ -186,16 +205,73 @@ def build_plant_snapshot(
 
     by_bar_day = _local_day_production(bar_life, bar_today)
 
+    return _make_snapshot(
+        by_bar_day=by_bar_day,
+        local_today=local_day,
+        curve_day=curve_day,
+        power_in_minute=power_in_minute,
+        lifetime_last=lifetime_last,
+        latest_power_at=latest_power_at,
+        curve_last=curve_last,
+        now_success_at=now_success_at,
+        now_power=now_power,
+    )
+
+
+def _prev_year_day(d: date) -> date:
+    try:
+        return date(d.year - 1, d.month, d.day)
+    except ValueError:
+        return date(d.year - 1, d.month, d.day - 1)
+
+
+def _make_snapshot(
+    *,
+    by_bar_day: dict[date, dict[str, float]],
+    local_today: date,
+    curve_day: date,
+    power_in_minute: dict[str, float],
+    lifetime_last: dict[str, float],
+    latest_power_at: datetime,
+    curve_last: dict[tuple[str, datetime], tuple[float, float | None]],
+    now_success_at: dict[str, datetime],
+    now_power: dict[str, float],
+) -> PlantSnapshot:
     curve_points = [
         (serial, minute, watts, lifetime_kwh)
         for (serial, minute), (watts, lifetime_kwh) in curve_last.items()
     ]
 
+    # Clear-sky ideal envelope
+    envelope_pts = ideal_envelope_curve(
+        curve_day,
+        PLANT_LATITUDE,
+        PLANT_LONGITUDE,
+        PLANT_PEAK_DC_CAPACITY_W,
+        _LOCAL,
+    )
+    ideal_curve = tuple(CurvePoint(at=dt, watts=w) for dt, w in envelope_pts)
+
+    # Inverter clipping detection
+    points_by_logger: dict[str, list[tuple[datetime, float]]] = {}
+    for (serial, minute), (watts, _) in curve_last.items():
+        points_by_logger.setdefault(serial, []).append((minute, watts))
+
+    plant_clipping, _ = detect_clipping(
+        points_by_logger,
+        MICROINVERTER_NAMEPLATE_W,
+        PLANT_LATITUDE,
+        PLANT_LONGITUDE,
+    )
+
+    # Array balance & drift tracker
+    drift_result = evaluate_drift(by_bar_day, LOGGER_DISPLAY_NAMES)
+
     return PlantSnapshot(
         today_energy_kwh=(
             None
-            if local_day not in by_bar_day
-            else sum(by_bar_day[local_day].values())
+            if local_today not in by_bar_day
+            else sum(by_bar_day[local_today].values())
         ),
         current_power_w=sum(power_in_minute.values()),
         lifetime_energy_kwh=sum(lifetime_last.values()),
@@ -209,6 +285,11 @@ def build_plant_snapshot(
                     for serial, kwh in sorted(parts.items())
                     if kwh != 0
                 ),
+                prev_year_today_energy_kwh=(
+                    sum(by_bar_day[_prev_year_day(day)].values())
+                    if _prev_year_day(day) in by_bar_day
+                    else None
+                ),
             )
             for day, parts in sorted(by_bar_day.items())
         ),
@@ -221,6 +302,9 @@ def build_plant_snapshot(
             )
             for serial in sorted(now_power)
         ),
+        ideal_curve=ideal_curve,
+        clipping=plant_clipping if plant_clipping.clipped else None,
+        drift=drift_result if drift_result.detected else None,
     )
 
 
@@ -280,40 +364,16 @@ def _snapshot_from_parts(
         )
 
     by_bar_day = _local_day_production(bar_life, bar_today)
-    curve_points = [
-        (serial, minute, watts, lifetime_kwh)
-        for (serial, minute), (watts, lifetime_kwh) in curve_last.items()
-    ]
-    return PlantSnapshot(
-        today_energy_kwh=(
-            None
-            if local_today not in by_bar_day
-            else sum(by_bar_day[local_today].values())
-        ),
-        current_power_w=sum(power_in_minute.values()),
-        lifetime_energy_kwh=sum(lifetime_last.values()),
-        current_power_at=latest_power_at,
-        local_day_bars=tuple(
-            LocalDayBar(
-                local_day=day,
-                today_energy_kwh=sum(parts.values()),
-                loggers=tuple(
-                    LoggerEnergy(name=serial, today_energy_kwh=kwh)
-                    for serial, kwh in sorted(parts.items())
-                    if kwh != 0
-                ),
-            )
-            for day, parts in sorted(by_bar_day.items())
-        ),
-        curve=_curve_series(curve_points),
-        loggers_now=tuple(
-            LoggerNow(
-                name=serial,
-                last_success_at=now_success_at[serial],
-                power_w=now_power[serial],
-            )
-            for serial in sorted(now_power)
-        ),
+    return _make_snapshot(
+        by_bar_day=by_bar_day,
+        local_today=local_today,
+        curve_day=curve_day,
+        power_in_minute=power_in_minute,
+        lifetime_last=lifetime_last,
+        latest_power_at=latest_power_at,
+        curve_last=curve_last,
+        now_success_at=now_success_at,
+        now_power=now_power,
     )
 
 
@@ -325,10 +385,23 @@ def plant_snapshot(
         return None
     local_today = now_utc().astimezone(_LOCAL).date()
     curve_day = selected_day or local_today
-    return _snapshot_from_parts(
+    snapshot = _snapshot_from_parts(
         summaries,
         load_samples_for_local_day(database_url, curve_day),
         load_latest_logger_samples(database_url),
         local_today=local_today,
         curve_day=curve_day,
     )
+    if snapshot and snapshot.clipping and snapshot.clipping.clipped:
+        for p in snapshot.clipping.plateaus:
+            try:
+                update_day_summary_clipping(
+                    database_url,
+                    local_day=curve_day,
+                    logger_serial=p.logger_serial,
+                    clipped_minutes=p.end_minute - p.start_minute + 1,
+                    estimated_clipped_kwh=p.estimated_clipped_kwh,
+                )
+            except Exception:
+                pass
+    return snapshot

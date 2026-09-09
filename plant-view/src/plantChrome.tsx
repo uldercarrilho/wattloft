@@ -70,16 +70,18 @@ export function Chart({
   mode,
   visible,
   chips,
+  idealEnvelope = false,
 }: {
   snapshot: PlantSnapshot;
   unit: Grain;
   mode: ChartMode;
   visible: ReadonlySet<string>;
   chips: ReactNode;
+  idealEnvelope?: boolean;
 }) {
   const model = useMemo(
-    () => buildPlantChartModel(snapshot, unit, mode, visible),
-    [snapshot, unit, mode, visible],
+    () => buildPlantChartModel(snapshot, unit, mode, visible, idealEnvelope),
+    [snapshot, unit, mode, visible, idealEnvelope],
   );
   const [pointer, setPointer] = useState<number | null>(null);
   useEffect(() => {
@@ -150,6 +152,11 @@ export function Chart({
             </p>
           ))}
         </div>
+        {snapshot.drift?.detected && snapshot.drift.advisory ? (
+          <p className="drift-advisory" role="note">
+            {snapshot.drift.advisory}
+          </p>
+        ) : null}
         {partialCaption ? <p className="hint">{partialCaption}</p> : null}
         {tapHint ? <p className="hint">{tapHint}</p> : null}
         {unit === "time" ? (
@@ -240,37 +247,55 @@ export function PeriodStepper({
 export function ChartModeBar({
   mode,
   onChoose,
+  unit,
+  idealEnvelope = false,
+  onToggleIdealEnvelope,
 }: {
   mode: ChartMode;
   onChoose: (next: ChartMode) => void;
+  unit?: Grain;
+  idealEnvelope?: boolean;
+  onToggleIdealEnvelope?: () => void;
 }) {
   const [hint, setHint] = useState(() => !readModeHintSeen(window.localStorage));
   return (
     <>
-      <nav className="grain chart-mode" aria-label="Chart mode">
-        <button
-          type="button"
-          aria-pressed={mode === "overlay"}
-          onClick={() => {
-            onChoose("overlay");
-            writeModeHintSeen(window.localStorage);
-            setHint(false);
-          }}
-        >
-          Each
-        </button>
-        <button
-          type="button"
-          aria-pressed={mode === "stack"}
-          onClick={() => {
-            onChoose("stack");
-            writeModeHintSeen(window.localStorage);
-            setHint(false);
-          }}
-        >
-          By Logger
-        </button>
-      </nav>
+      <div className="chart-mode-row">
+        <nav className="grain chart-mode" aria-label="Chart mode">
+          <button
+            type="button"
+            aria-pressed={mode === "overlay"}
+            onClick={() => {
+              onChoose("overlay");
+              writeModeHintSeen(window.localStorage);
+              setHint(false);
+            }}
+          >
+            Each
+          </button>
+          <button
+            type="button"
+            aria-pressed={mode === "stack"}
+            onClick={() => {
+              onChoose("stack");
+              writeModeHintSeen(window.localStorage);
+              setHint(false);
+            }}
+          >
+            By Logger
+          </button>
+        </nav>
+        {unit === "time" && onToggleIdealEnvelope ? (
+          <button
+            type="button"
+            className={`ideal-toggle${idealEnvelope ? " is-active" : ""}`}
+            aria-pressed={idealEnvelope ? "true" : "false"}
+            onClick={onToggleIdealEnvelope}
+          >
+            Ideal envelope
+          </button>
+        ) : null}
+      </div>
       {hint ? (
         <p className="hint mode-hint">
           Each: Plant and Loggers on top of each other. By Logger: Loggers stacked; Plant is

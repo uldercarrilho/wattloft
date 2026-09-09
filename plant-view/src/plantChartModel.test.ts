@@ -559,3 +559,135 @@ describe("niceYMax and hour ticks", () => {
     expect(hourTickLabel(12 * 60 + 1)).toBe("");
   });
 });
+
+describe("Ideal Envelope Model", () => {
+  const idealCurve = [
+    { at: "2026-08-21T06:00:00-03:00", watts: 100 },
+    { at: "2026-08-21T12:00:00-03:00", watts: 1800 },
+    { at: "2026-08-21T18:00:00-03:00", watts: 50 },
+  ];
+  const snapWithIdeal = {
+    ...snapshot([
+      {
+        name: loggerA,
+        points: [{ at: "2026-08-21T12:00:00-03:00", watts: 900, lifetime_kwh: 10 }],
+      },
+    ]),
+    ideal_curve: idealCurve,
+  };
+
+  it("omits ideal envelope when toggled off", () => {
+    const model = buildPlantChartModel(snapWithIdeal, "time", "overlay", new Set(["Plant"]), false);
+    expect(model.kind).toBe("time");
+    if (model.kind !== "time") return;
+    expect(model.datasets.find((d) => d.role === "ideal")).toBeUndefined();
+  });
+
+  it("includes ideal envelope dataset when toggled on", () => {
+    const model = buildPlantChartModel(snapWithIdeal, "time", "overlay", new Set(["Plant"]), true);
+    expect(model.kind).toBe("time");
+    if (model.kind !== "time") return;
+    const ideal = model.datasets.find((d) => d.role === "ideal");
+    expect(ideal).toBeDefined();
+    expect(ideal?.role).toBe("ideal");
+    expect(ideal?.swatch).toBe("muted");
+    expect(ideal?.name).toBe("Ideal envelope");
+    expect(model.yMax).toBe(2000);
+  });
+
+  it("does not stack ideal envelope in stack mode", () => {
+    const model = buildPlantChartModel(snapWithIdeal, "time", "stack", new Set([loggerA]), true);
+    expect(model.kind).toBe("time");
+    if (model.kind !== "time") return;
+    const ideal = model.datasets.find((d) => d.role === "ideal");
+    expect(ideal).toBeDefined();
+    expect(ideal?.stacked).toBe(false);
+  });
+});
+
+describe("Clipping & Throttle Detection", () => {
+  it("annotates readout when scrubbed minute is inside a clipping plateau", () => {
+    const model: TimeChartModel = {
+      kind: "time",
+      minutes: [12 * 60 + 40, 12 * 60 + 45, 12 * 60 + 50],
+      tickHours: [],
+      yMax: 1000,
+      yUnit: "W",
+      datasets: [
+        {
+          name: "Plant",
+          role: "plant",
+          stacked: false,
+          swatch: "plant",
+          values: [998, 998, 998],
+        },
+      ],
+      clippingPlateaus: [
+        {
+          logger_serial: "Plant",
+          start_minute: 12 * 60 + 40,
+          end_minute: 12 * 60 + 50,
+          start_at: "2026-08-21T12:40:00-03:00",
+          end_at: "2026-08-21T12:50:00-03:00",
+          plateau_watts: 998,
+          estimated_clipped_kwh: 0.35,
+        },
+      ],
+    };
+
+    const readout = timeReadout(model, 12 * 60 + 45, "overlay");
+    expect(readout.when).toBe("12:45");
+    expect(readout.rows[0]?.text).toBe("998 W (clipped · est. 0.35 kWh lost today)");
+  });
+});
+
+describe("Historical Period Comparison Overlays", () => {
+  const comparisonSnapshot = {
+    ...energySnapshot,
+    local_day_bars: [
+      {
+        local_day: "2026-08-21",
+        today_energy_kwh: 3.9,
+        prev_year_today_energy_kwh: 3.2,
+      },
+      {
+        local_day: "2026-08-22",
+        today_energy_kwh: 4.1,
+        prev_year_today_energy_kwh: 3.8,
+      },
+      {
+        local_day: "2025-08-21",
+        today_energy_kwh: 3.2,
+      },
+      {
+        local_day: "2025-08-22",
+        today_energy_kwh: 3.8,
+      },
+    ],
+  };
+
+  it("adds previous year comparison dataset for day grain", () => {
+    const model = buildPlantChartModel(comparisonSnapshot, "day", "overlay", new Set(["Plant"]));
+    expect(model.kind).toBe("energy");
+    if (model.kind !== "energy") return;
+    const comparison = model.datasets.find((d) => d.role === "comparison");
+    expect(comparison).toBeDefined();
+    expect(comparison?.name).toBe("Previous year");
+    expect(comparison?.swatch).toBe("muted");
+    expect(comparison?.values).toEqual([3.2, 3.8]);
+
+    const readout = energyReadout(model, 0);
+    expect(readout.rows).toEqual([
+      { name: "Plant", text: "3.90 kWh" },
+      { name: "Previous year", text: "3.20 kWh" },
+    ]);
+  });
+
+  it("calculates YoY percentage delta for month grain", () => {
+    const model = buildPlantChartModel(comparisonSnapshot, "month", "overlay", new Set(["Plant"]));
+    expect(model.kind).toBe("energy");
+    if (model.kind !== "energy") return;
+    expect(model.readoutLabels[0]).toContain("vs 2025");
+    expect(model.readoutLabels[0]).toContain("+14%");
+  });
+});

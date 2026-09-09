@@ -134,3 +134,64 @@ def test_snapshot_payload_serializes_loggers_now() -> None:
     assert by_name["1000000001"]["power_w"] == 210.0
     assert by_name["1000000002"]["display_name"] == "West"
     assert by_name["1000000002"]["power_w"] == 0.0
+
+
+def test_snapshot_payload_serializes_diagnostics_and_comparisons() -> None:
+    from wattloft.solar import ClippingPlateau, ClippingSummary, DriftResult
+
+    snapshot = PlantSnapshot(
+        today_energy_kwh=5.0,
+        current_power_w=998.0,
+        lifetime_energy_kwh=1000.0,
+        current_power_at=datetime(2026, 9, 9, 12, 45, tzinfo=timezone.utc),
+        local_day_bars=(
+            LocalDayBar(
+                local_day=date(2026, 9, 9),
+                today_energy_kwh=5.0,
+                loggers=(LoggerEnergy(name="1000000001", today_energy_kwh=5.0),),
+                prev_year_today_energy_kwh=4.6,
+            ),
+        ),
+        curve=(),
+        ideal_curve=(
+            CurvePoint(at=datetime(2026, 9, 9, 12, 0), watts=1800.0),
+        ),
+        clipping=ClippingSummary(
+            clipped=True,
+            clipped_minutes=75,
+            estimated_clipped_kwh=0.35,
+            plateaus=(
+                ClippingPlateau(
+                    logger_serial="1000000001",
+                    start_minute=720,
+                    end_minute=795,
+                    start_at=datetime(2026, 9, 9, 12, 0),
+                    end_at=datetime(2026, 9, 9, 13, 15),
+                    plateau_watts=998.0,
+                    estimated_clipped_kwh=0.35,
+                ),
+            ),
+        ),
+        drift=DriftResult(
+            detected=True,
+            advisory="East array underperforming relative to West by 14% (check for soiling or obstruction)",
+            affected_logger="1000000001",
+            drift_pct=14,
+            baseline_ratio=1.0,
+            rolling_ratio=0.86,
+        ),
+    )
+    body = _snapshot_payload(snapshot, date(2026, 9, 9))
+    assert body["local_day_bars"][0]["prev_year_today_energy_kwh"] == 4.6
+    assert len(body["ideal_curve"]) == 1
+    assert body["ideal_curve"][0]["watts"] == 1800.0
+    assert body["clipping"] is not None
+    assert body["clipping"]["clipped"] is True
+    assert body["clipping"]["clipped_minutes"] == 75
+    assert body["clipping"]["estimated_clipped_kwh"] == 0.35
+    assert len(body["clipping"]["plateaus"]) == 1
+    assert body["clipping"]["plateaus"][0]["plateau_watts"] == 998.0
+    assert body["drift"] is not None
+    assert body["drift"]["detected"] is True
+    assert body["drift"]["drift_pct"] == 14
+    assert "East array underperforming" in body["drift"]["advisory"]

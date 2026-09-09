@@ -1,6 +1,6 @@
 import { formatKwh, formatWatts } from "./grains";
 import { lifetimeKwh, relativeAge } from "./LastSample";
-import type { LoggerNow } from "./types";
+import type { DriftInfo, LoggerNow } from "./types";
 
 export const FRESH_MS = 15 * 60 * 1000;
 
@@ -10,6 +10,7 @@ export type GlanceLogger = {
   reporting: boolean;
   wattsLabel: string;
   ageLabel: string;
+  driftAdvisory?: string | null;
 };
 
 export type GlanceView = {
@@ -25,6 +26,7 @@ export type GlanceSnapshot = {
   current_power_w: number | null;
   lifetime_energy_kwh: number;
   loggers_now?: LoggerNow[];
+  drift?: DriftInfo | null;
 };
 
 function isFresh(at: string, now: Date): boolean {
@@ -52,12 +54,18 @@ export function glanceModel(snapshot: GlanceSnapshot, now = new Date()): GlanceV
   const loggers: GlanceLogger[] = rows.map((row) => {
     const reporting = isFresh(row.last_success_at, now);
     const wattsLabel = formatWatts(row.power_w);
+    const isDrifted =
+      Boolean(snapshot.drift?.detected) &&
+      (snapshot.drift?.affected_logger === row.name ||
+        snapshot.drift?.affected_logger === row.display_name);
+    const driftAdvisory = isDrifted ? (snapshot.drift?.advisory ?? null) : null;
     return {
       name: row.name,
       displayName: row.display_name ?? row.name,
       reporting,
       wattsLabel: reporting ? wattsLabel : `last ${wattsLabel}`,
       ageLabel: relativeAge(row.last_success_at, now),
+      driftAdvisory,
     };
   });
   const reportingRows = rows.filter((_, index) => loggers[index]!.reporting);

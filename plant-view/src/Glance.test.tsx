@@ -94,4 +94,26 @@ describe("Glance", () => {
     render(<Glance view={{ ...healthy, loggers: [] }} />);
     expect(screen.queryByText("Loggers")).toBeNull();
   });
+
+  it("renders drift advisory note for an affected logger", () => {
+    render(
+      <Glance
+        view={{
+          ...healthy,
+          loggers: [
+            {
+              ...healthy.loggers[0]!,
+              driftAdvisory:
+                "East array underperforming relative to West by 14% (check for soiling or obstruction)",
+            },
+            healthy.loggers[1]!,
+          ],
+        }}
+      />,
+    );
+    const advisory = screen.getByRole("note");
+    expect(advisory.textContent).toBe(
+      "East array underperforming relative to West by 14% (check for soiling or obstruction)",
+    );
+  });
 });
