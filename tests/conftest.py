@@ -146,14 +146,15 @@ class WattloftProcess:
 
 def _reset_history(database_url: str) -> None:
     with _connect(database_url) as connection:
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute("TRUNCATE TABLE samples")
-            connection.commit()
-        except ProgrammingError as exc:
-            if exc.args[0] != 1146:
-                raise
-            connection.rollback()
+        for table in ("samples", "day_summaries", "history_meta"):
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute(f"TRUNCATE TABLE `{table}`")
+                connection.commit()
+            except ProgrammingError as exc:
+                if exc.args[0] != 1146:
+                    raise
+                connection.rollback()
 
 
 @pytest.fixture(scope="session")

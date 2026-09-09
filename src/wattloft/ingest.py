@@ -34,7 +34,17 @@ def handle_frame(
         return None
     if frame.control_code == CONTROL_DATA:
         header = decode_upload_header(frame.payload)
-        if header is not None:
+        if header is None:
+            record_sample(
+                database_url,
+                logger_serial=logger_serial,
+                received_at=now_utc(),
+                ac_power_w=None,
+                today_energy_kwh=None,
+                lifetime_energy_kwh=None,
+                parse_succeeded=False,
+            )
+        else:
             record_sample(
                 database_url,
                 logger_serial=logger_serial,

@@ -6,7 +6,14 @@ from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 from wattloft.config import now_utc
-from wattloft.history._store import _SampleRow, _as_utc, load_successful_samples
+from wattloft.history._store import (
+    _DaySummaryRow,
+    _SampleRow,
+    _as_utc,
+    load_day_summaries,
+    load_latest_logger_samples,
+    load_samples_for_local_day,
+)
 
 _LOCAL = ZoneInfo("America/Sao_Paulo")
 
@@ -217,7 +224,111 @@ def build_plant_snapshot(
     )
 
 
+def _snapshot_from_parts(
+    summaries: tuple[_DaySummaryRow, ...],
+    curve_samples: tuple[_SampleRow, ...],
+    now_samples: tuple[_SampleRow, ...],
+    *,
+    local_today: date,
+    curve_day: date,
+) -> PlantSnapshot | None:
+    lifetime_last: dict[str, float] = {}
+    bar_life: dict[tuple[date, str], float] = {}
+    bar_today: dict[tuple[date, str], float] = {}
+    for row in summaries:
+        serial = row.logger_serial
+        life = _positive(row.last_lifetime_kwh)
+        if life is not None:
+            bar_life[(row.local_day, serial)] = life
+            lifetime_last[serial] = life
+        if row.last_today_energy_kwh is not None:
+            key = (row.local_day, serial)
+            if row.last_today_energy_kwh or key not in bar_today:
+                bar_today[key] = row.last_today_energy_kwh
+
+    latest_power_at: datetime | None = None
+    now_success_at: dict[str, datetime] = {}
+    now_power: dict[str, float] = {}
+    for sample in now_samples:
+        now_success_at[sample.logger_serial] = sample.received_at
+        if sample.ac_power_w is None:
+            continue
+        now_power[sample.logger_serial] = sample.ac_power_w
+        if latest_power_at is None or sample.received_at >= latest_power_at:
+            latest_power_at = sample.received_at
+
+    if not lifetime_last or latest_power_at is None:
+        return None
+
+    current_minute = _local_minute(latest_power_at)
+    power_in_minute: dict[str, float] = {}
+    for sample in now_samples:
+        if sample.ac_power_w is None:
+            continue
+        if _local_minute(sample.received_at) == current_minute:
+            power_in_minute[sample.logger_serial] = sample.ac_power_w
+
+    curve_last: dict[tuple[str, datetime], tuple[float, float | None]] = {}
+    for sample in curve_samples:
+        if sample.ac_power_w is None:
+            continue
+        if _local(sample.received_at).date() != curve_day:
+            continue
+        curve_last[(sample.logger_serial, _local_minute(sample.received_at))] = (
+            sample.ac_power_w,
+            sample.lifetime_energy_kwh,
+        )
+
+    by_bar_day = _local_day_production(bar_life, bar_today)
+    curve_points = [
+        (serial, minute, watts, lifetime_kwh)
+        for (serial, minute), (watts, lifetime_kwh) in curve_last.items()
+    ]
+    return PlantSnapshot(
+        today_energy_kwh=(
+            None
+            if local_today not in by_bar_day
+            else sum(by_bar_day[local_today].values())
+        ),
+        current_power_w=sum(power_in_minute.values()),
+        lifetime_energy_kwh=sum(lifetime_last.values()),
+        current_power_at=latest_power_at,
+        local_day_bars=tuple(
+            LocalDayBar(
+                local_day=day,
+                today_energy_kwh=sum(parts.values()),
+                loggers=tuple(
+                    LoggerEnergy(name=serial, today_energy_kwh=kwh)
+                    for serial, kwh in sorted(parts.items())
+                    if kwh != 0
+                ),
+            )
+            for day, parts in sorted(by_bar_day.items())
+        ),
+        curve=_curve_series(curve_points),
+        loggers_now=tuple(
+            LoggerNow(
+                name=serial,
+                last_success_at=now_success_at[serial],
+                power_w=now_power[serial],
+            )
+            for serial in sorted(now_power)
+        ),
+    )
+
+
 def plant_snapshot(
     database_url: str, selected_day: date | None = None
 ) -> PlantSnapshot | None:
-    return build_plant_snapshot(load_successful_samples(database_url), selected_day=selected_day)
+    summaries = load_day_summaries(database_url)
+    if not summaries:
+        return None
+    local_today = now_utc().astimezone(_LOCAL).date()
+    curve_day = selected_day or local_today
+    return _snapshot_from_parts(
+        summaries,
+        load_samples_for_local_day(database_url, curve_day),
+        load_latest_logger_samples(database_url),
+        local_today=local_today,
+        curve_day=curve_day,
+    )

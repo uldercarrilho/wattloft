@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Dump History (samples) and put the gzip SQL in Always Free Object Storage.
+# Dump History (samples and day_summaries) and put the gzip SQL in Always Free Object Storage.
 # HeatWave's 1-day automatic backup is not enough.
 set -euo pipefail
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:${PATH}"
