@@ -120,3 +120,28 @@ def test_no_clipping_below_90_percent_nameplate() -> None:
     )
 
     assert summary.clipped is False
+
+
+def test_detect_clipping_plant_and_by_logger() -> None:
+    nameplate_w = 1000.0
+    start_dt = datetime(2026, 9, 9, 11, 30, tzinfo=_SP)
+    points_a: list[tuple[datetime, float]] = []
+    points_b: list[tuple[datetime, float]] = []
+
+    # Logger A clips at ~998 W for 50 minutes
+    for m in range(50):
+        t = start_dt + timedelta(minutes=m)
+        points_a.append((t, 998.0))
+        points_b.append((t, 600.0))  # Logger B does not clip
+
+    plant_summary, by_logger = detect_clipping(
+        points_by_logger={"logger-a": points_a, "logger-b": points_b},
+        nameplate_w=nameplate_w,
+        latitude_deg=-23.5505,
+        longitude_deg=-46.6333,
+    )
+
+    assert plant_summary.clipped is True
+    assert plant_summary.clipped_minutes == 50
+    assert by_logger["logger-a"].clipped is True
+    assert by_logger["logger-b"].clipped is False
