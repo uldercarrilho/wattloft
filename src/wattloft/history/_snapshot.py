@@ -243,6 +243,7 @@ def _make_snapshot(
     now_power: dict[str, float],
     calibration: EnvelopeCalibration | None = None,
 ) -> PlantSnapshot:
+    cal = calibration or EnvelopeCalibration(calibrated=False)
     curve_points = [
         (serial, minute, watts, lifetime_kwh)
         for (serial, minute), (watts, lifetime_kwh) in curve_last.items()
@@ -255,7 +256,7 @@ def _make_snapshot(
         PLANT_LONGITUDE,
         PLANT_PEAK_DC_CAPACITY_W,
         _LOCAL,
-        calibration=calibration,
+        calibration=cal,
     )
     ideal_curve = tuple(CurvePoint(at=dt, watts=w) for dt, w in envelope_pts)
 
@@ -312,7 +313,7 @@ def _make_snapshot(
         ideal_curve=ideal_curve,
         clipping=plant_clipping if plant_clipping.clipped else None,
         drift=drift_result if drift_result.detected else None,
-        envelope_calibration=calibration,
+        envelope_calibration=cal,
     )
 
 
