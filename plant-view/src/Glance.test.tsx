@@ -116,4 +116,31 @@ describe("Glance", () => {
       "East array underperforming relative to West by 14% (check for soiling or obstruction)",
     );
   });
+
+  it("renders clear-sky meter when clearSky is present in view", () => {
+    render(
+      <Glance
+        view={{
+          ...healthy,
+          clearSky: {
+            efficiencyPct: 89,
+            barWidthPct: 89,
+            idealWatts: 3840,
+            idealLabel: "3.8 kW ideal",
+            condition: "optimal",
+          },
+        }}
+      />,
+    );
+    const meter = screen.getByRole("meter", { name: "Clear-sky efficiency" });
+    expect(meter).toBeTruthy();
+    expect(screen.getByText("89% clear-sky")).toBeTruthy();
+    expect(screen.getByText("3.8 kW ideal")).toBeTruthy();
+  });
+
+  it("omits clear-sky meter when clearSky is absent or null", () => {
+    render(<Glance view={{ ...healthy, clearSky: null }} />);
+    expect(screen.queryByRole("meter", { name: "Clear-sky efficiency" })).toBeNull();
+  });
 });
+

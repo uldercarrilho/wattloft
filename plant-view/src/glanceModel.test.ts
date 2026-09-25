@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { glanceModel } from "./glanceModel";
+import { computeClearSkyInstant, glanceModel } from "./glanceModel";
 import type { LoggerNow } from "./types";
 
 const EAST = "3909309465";
@@ -159,5 +159,78 @@ describe("glanceModel", () => {
       "East array underperforming relative to West by 14% (check for soiling or obstruction)",
     );
     expect(view.loggers.find((l) => l.name === WEST)?.driftAdvisory).toBeNull();
+  });
+
+  describe("computeClearSkyInstant", () => {
+    const idealCurve = [
+      { at: "2026-09-07T06:30:00", watts: 400 },
+      { at: "2026-09-07T11:30:00", watts: 3840 },
+      { at: "2026-09-07T12:00:00", watts: 4000 },
+      { at: "2026-09-07T17:30:00", watts: 350 },
+    ];
+
+    it("returns null when current watts is null or idealCurve is missing", () => {
+      expect(computeClearSkyInstant(null, "2026-09-07T14:30:00Z", idealCurve)).toBeNull();
+      expect(computeClearSkyInstant(3000, undefined, idealCurve)).toBeNull();
+      expect(computeClearSkyInstant(3000, "2026-09-07T14:30:00Z", undefined)).toBeNull();
+      expect(computeClearSkyInstant(3000, "2026-09-07T14:30:00Z", [])).toBeNull();
+    });
+
+    it("computes optimal condition and percentage with kW ideal label", () => {
+      // 14:30 UTC = 11:30 America/Sao_Paulo -> matches 11:30:00 (watts: 3840)
+      const res = computeClearSkyInstant(3420, "2026-09-07T14:30:00Z", idealCurve);
+      expect(res).not.toBeNull();
+      expect(res?.efficiencyPct).toBe(89);
+      expect(res?.barWidthPct).toBe(89);
+      expect(res?.idealWatts).toBe(3840);
+      expect(res?.idealLabel).toBe("3.8 kW ideal");
+      expect(res?.condition).toBe("optimal");
+    });
+
+    it("computes reduced condition for 50-79% efficiency", () => {
+      const res = computeClearSkyInstant(2300, "2026-09-07T14:30:00Z", idealCurve);
+      expect(res).not.toBeNull();
+      expect(res?.efficiencyPct).toBe(60);
+      expect(res?.barWidthPct).toBe(60);
+      expect(res?.condition).toBe("reduced");
+    });
+
+    it("computes overcast condition for <50% efficiency and formats sub-kW labels in W", () => {
+      // 09:30 UTC = 06:30 Sao Paulo -> matches 06:30:00 (watts: 400)
+      const res = computeClearSkyInstant(100, "2026-09-07T09:30:00Z", idealCurve);
+      expect(res).not.toBeNull();
+      expect(res?.efficiencyPct).toBe(25);
+      expect(res?.barWidthPct).toBe(25);
+      expect(res?.idealLabel).toBe("400 W ideal");
+      expect(res?.condition).toBe("overcast");
+    });
+
+    it("caps barWidthPct at 100 while preserving real percentage above 100%", () => {
+      const res = computeClearSkyInstant(4200, "2026-09-07T14:30:00Z", idealCurve);
+      expect(res).not.toBeNull();
+      expect(res?.efficiencyPct).toBe(109);
+      expect(res?.barWidthPct).toBe(100);
+      expect(res?.condition).toBe("optimal");
+    });
+
+    it("returns null at night or when timestamp is far from daylight points", () => {
+      // 03:00 UTC = 00:00 midnight Sao Paulo
+      const res = computeClearSkyInstant(0, "2026-09-07T03:00:00Z", idealCurve);
+      expect(res).toBeNull();
+    });
+
+    it("integrates clearSky inside glanceModel output when ideal_curve is provided", () => {
+      const view = glanceModel(
+        {
+          ...snapshot({ current_power_w: 3420 }),
+          current_power_at: "2026-09-07T14:30:00Z",
+          ideal_curve: idealCurve,
+        },
+        NOW,
+      );
+      expect(view.clearSky).not.toBeNull();
+      expect(view.clearSky?.efficiencyPct).toBe(89);
+      expect(view.clearSky?.idealLabel).toBe("3.8 kW ideal");
+    });
   });
 });

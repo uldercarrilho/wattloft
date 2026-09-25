@@ -130,6 +130,7 @@ describe("MobilePlantView (Azulejo Moderno 4-Tab Dock)", () => {
     expect(screen.getByRole("tab", { name: /Glance/i }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByText("Plant now")).toBeTruthy();
     expect(screen.getByText("450 W")).toBeTruthy();
+    expect(screen.getByRole("meter", { name: "Clear-sky efficiency" })).toBeTruthy();
   });
 
   it("switches to Power tab and renders diurnal power curve controls", () => {
