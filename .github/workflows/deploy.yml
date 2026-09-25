@@ -10,6 +10,10 @@ on:
         type: boolean
         default: false
 
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 permissions:
   contents: read
   packages: write
@@ -179,6 +183,9 @@ jobs:
   deploy:
     needs: [trivy-scan, dast]
     runs-on: ubuntu-24.04
+    environment:
+      name: production
+      url: https://wattloft.dedyn.io
     env:
       OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
       OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
