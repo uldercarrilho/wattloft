@@ -1,0 +1,8 @@
+# Global repository owner
+* @uldercarrilho
+
+# CI/CD workflows and GitHub settings
+.github/ @uldercarrilho
+
+# Infrastructure and deployment automation
+infra/ @uldercarrilho
