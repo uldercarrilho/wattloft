@@ -528,33 +528,31 @@ describe("Plant view", () => {
     expect(screen.getByText("In progress")).toBeTruthy();
   });
 
-  it("captions Month History since the first Sample", async () => {
+  it("captions Month History since the first Sample in the footer note", async () => {
     window.history.replaceState({}, "", "/?day=2026-08-21&unit=month");
     stubPlant(200, { ...snapshot, unit: "month", history_start: "2026-08-21" });
     render(<App />);
     expect(
       await screen.findByText("Wattloft History · from 21 Aug"),
     ).toBeTruthy();
-    expect(document.querySelector(".grain-title")?.textContent).toBe(
+    expect(document.querySelector(".history-footer-note")?.textContent).toBe(
       "Wattloft History · from 21 Aug",
     );
     expect(screen.getByText("This month is incomplete in Wattloft")).toBeTruthy();
-    expect(screen.getByText("Tap a month to select, then view its Day chart")).toBeTruthy();
+    expect(document.querySelector(".grain-title")).toBeNull();
   });
 
-  it("omits Year chevrons when History is one span", async () => {
+  it("hides PeriodStepper on Year grain and displays history footer", async () => {
     window.history.replaceState({}, "", "/?day=2026-08-21&unit=year");
     stubPlant(200, { ...snapshot, unit: "year" });
     render(<App />);
     expect(await screen.findByText("This year is incomplete in Wattloft")).toBeTruthy();
-    expect(document.querySelector(".grain-title")?.textContent).toBe(
+    expect(document.querySelector(".history-footer-note")?.textContent).toBe(
       "Wattloft History · from 21 Aug",
     );
-    expect(screen.getByText("Lifetime 5,635.40 kWh · before Wattloft")).toBeTruthy();
-    expect(document.querySelector(".stepper span")?.textContent).toBe("2026");
-    expect(screen.getByText("Tap a year to select, then view its Month chart")).toBeTruthy();
-    expect(screen.queryByRole("link", { name: "Previous" })).toBeNull();
-    expect(screen.queryByRole("link", { name: "Next" })).toBeNull();
+    expect(screen.queryByRole("navigation", { name: "Period" })).toBeNull();
+    expect(screen.queryByText(/before Wattloft/)).toBeNull();
+    expect(document.querySelector(".grain-title")).toBeNull();
   });
 
   it("exposes a skip link to the chart and keeps Log out off the heading", async () => {

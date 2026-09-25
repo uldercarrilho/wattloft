@@ -3,8 +3,10 @@ import type { ChartMode } from "../../chartMode";
 import { readChartMode } from "../../chartMode";
 import { computeDiagnostics } from "../../diagnostics";
 import {
+  formatDayMonth,
   formatKwh,
   formatWatts,
+  historyStartOf,
   localDayOf,
   stackLoggerNames,
   stepper,
@@ -178,6 +180,13 @@ export function DesktopPlantView({
       />
 
       <DiagnosticsPanel snapshot={snapshot} />
+      {unit === "month" || unit === "year" ? (
+        <footer className="history-footer">
+          <p className="history-footer-note">
+            Wattloft History · from {formatDayMonth(historyStartOf(snapshot))}
+          </p>
+        </footer>
+      ) : null}
     </main>
   );
 }
