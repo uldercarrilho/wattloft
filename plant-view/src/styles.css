@@ -478,15 +478,26 @@ h1 { font: 600 1.7rem/1.1 "Ibarra Real Nova", serif; margin: 0; color: var(--ink
   background: none; border: 0; border-radius: var(--item-radius);
   color: var(--muted); font: 500 0.72rem/1 "Source Sans 3", sans-serif;
   text-decoration: none; cursor: pointer; transition: all 0.15s ease;
+  padding: 0.35rem 0.25rem;
 }
 .mobile-tab-icon { font-size: 1.15rem; }
 .mobile-tab-item:hover { color: var(--ink); background: var(--surface-hover); }
 .mobile-tab-item[aria-selected="true"], .mobile-tab-item.is-active {
   color: var(--pigment); font-weight: 600;
+  background: color-mix(in srgb, var(--pigment) 12%, transparent);
+}
+@supports not (background: color-mix(in srgb, red 50%, blue)) {
+  .mobile-tab-item[aria-selected="true"], .mobile-tab-item.is-active {
+    background: var(--surface-hover);
+  }
 }
 .mobile-tab-item[aria-selected="true"] .mobile-tab-icon,
 .mobile-tab-item.is-active .mobile-tab-icon {
-  transform: scale(1.1);
+  transform: scale(1.08);
+}
+.mobile-tab-item:focus-visible {
+  outline: 2px solid var(--pigment);
+  outline-offset: -2px;
 }
 
 /* Mobile Glance Tab */
@@ -564,6 +575,17 @@ h1 { font: 600 1.7rem/1.1 "Ibarra Real Nova", serif; margin: 0; color: var(--ink
 .page-dots a[aria-current="true"] { background: var(--pigment); color: var(--on-pigment); font-weight: 600; }
 
 .grain-title { font: 600 1.35rem/1.1 "Ibarra Real Nova", serif; margin: 0 0 0.5rem; text-align: center; color: var(--ink); }
+
+.history-footer {
+  margin: 1.5rem 0 0.5rem;
+  text-align: center;
+}
+.history-footer-note {
+  margin: 0;
+  font: 400 0.82rem/1.3 "Source Sans 3", sans-serif;
+  color: var(--muted);
+  opacity: 0.85;
+}
 
 /* Desktop Viewport Layout */
 @media (min-width: 60rem) {
