@@ -251,7 +251,7 @@ describe("Plant view", () => {
     render(<App />);
     expect(await screen.findByText("0.20 kWh")).toBeTruthy();
     expect(screen.getByText("50 W")).toBeTruthy();
-    expect(screen.getByText("5,635.4 kWh")).toBeTruthy();
+    expect(screen.getByText("5,635.40 kWh")).toBeTruthy();
     expect(await screen.findByRole("img", { name: "Energy bars" })).toBeTruthy();
     expect(screen.getAllByText("21 Aug 3.90 kWh").length).toBeGreaterThan(0);
     expect(screen.queryByText("2026-09-01 0.20 kWh")).toBeNull();
@@ -438,7 +438,7 @@ describe("Plant view", () => {
     expect(screen.queryByText("East 625 W")).toBeNull();
   });
 
-  it("navigates from a Day column click", async () => {
+  it("navigates from a Day column click via the readout details button", async () => {
     window.history.replaceState({}, "", "/?day=2026-08-21&unit=day");
     stubPlant(200, snapshot);
     const push = vi.spyOn(window.history, "pushState");
@@ -450,6 +450,10 @@ describe("Plant view", () => {
     act(() => {
       onClick?.({}, [{ index: 0 }]);
     });
+    const detailsBtn = screen.getByRole("link", { name: "View Power curve" });
+    expect(detailsBtn).toBeTruthy();
+    expect(detailsBtn.getAttribute("href")).toBe("/?day=2026-08-21&unit=time");
+    fireEvent.click(detailsBtn);
     expect(push).toHaveBeenCalledWith({}, "", "/?day=2026-08-21&unit=time");
   });
 
@@ -535,7 +539,7 @@ describe("Plant view", () => {
       "Wattloft History · from 21 Aug",
     );
     expect(screen.getByText("This month is incomplete in Wattloft")).toBeTruthy();
-    expect(screen.getByText("Tap a month to open the Day chart")).toBeTruthy();
+    expect(screen.getByText("Tap a month to select, then view its Day chart")).toBeTruthy();
   });
 
   it("omits Year chevrons when History is one span", async () => {
@@ -546,9 +550,9 @@ describe("Plant view", () => {
     expect(document.querySelector(".grain-title")?.textContent).toBe(
       "Wattloft History · from 21 Aug",
     );
-    expect(screen.getByText("Lifetime 5,635.4 kWh · before Wattloft")).toBeTruthy();
+    expect(screen.getByText("Lifetime 5,635.40 kWh · before Wattloft")).toBeTruthy();
     expect(document.querySelector(".stepper span")?.textContent).toBe("2026");
-    expect(screen.getByText("Tap a year to open the Month chart")).toBeTruthy();
+    expect(screen.getByText("Tap a year to select, then view its Month chart")).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Previous" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Next" })).toBeNull();
   });

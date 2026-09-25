@@ -77,14 +77,16 @@ function withAlpha(color: string, alpha: number): string {
 export function PlantChart({
   model,
   mode,
+  pointer,
   onPointer,
   onBarNavigate,
   onDrawError,
 }: {
   model: Exclude<PlantChartModel, { kind: "empty-time" }>;
   mode: ChartMode;
+  pointer?: number | null;
   onPointer: (value: number) => void;
-  onBarNavigate: (href: string) => void;
+  onBarNavigate?: (href: string) => void;
   onDrawError: () => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -92,6 +94,7 @@ export function PlantChart({
   const hairRef = useRef(0);
   const highlightRef = useRef(0);
   const domainRef = useRef("");
+  const userPinnedRef = useRef(false);
   const onPointerRef = useRef(onPointer);
   const onBarNavigateRef = useRef(onBarNavigate);
   const onDrawErrorRef = useRef(onDrawError);
@@ -121,8 +124,33 @@ export function PlantChart({
     const ink = inkColor();
     const muted = mutedColor();
     const domain = pointerDomain(model, mode);
-    if (domainRef.current !== domain) {
+    const domainChanged = domainRef.current !== domain;
+    if (domainChanged) {
       domainRef.current = domain;
+    }
+
+    if (pointer !== undefined) {
+      if (pointer == null) {
+        userPinnedRef.current = false;
+      } else {
+        userPinnedRef.current = true;
+      }
+    }
+
+    if (userPinnedRef.current) {
+      const active = pointer !== undefined && pointer != null ? pointer : hairRef.current;
+      if (model.kind === "time") {
+        hairRef.current = Math.max(
+          model.minutes[0] ?? 0,
+          Math.min(model.minutes.at(-1) ?? 0, active),
+        );
+      } else {
+        highlightRef.current = Math.max(
+          0,
+          Math.min(model.tickLabels.length - 1, active),
+        );
+      }
+    } else if (domainChanged) {
       hairRef.current = model.kind === "time" ? parkedMinute(model) : model.currentIndex;
       highlightRef.current = model.kind === "energy" ? model.currentIndex : 0;
       if (model.kind === "time") {
@@ -131,6 +159,7 @@ export function PlantChart({
         onPointerRef.current(model.currentIndex);
       }
     }
+
     const hairPlugin: Plugin = {
       id: "wattloft-hair",
       afterDraw(chart) {
@@ -150,12 +179,36 @@ export function PlantChart({
         ctx.lineTo(x, yScale.bottom);
         ctx.stroke();
 
-        const targetDataset =
-          model.datasets.find((d) => d.role === "plant") ||
-          model.datasets.find((d) => d.role === "logger");
-        if (targetDataset) {
-          const minuteIdx = model.minutes.indexOf(hairRef.current);
-          const val = minuteIdx >= 0 ? targetDataset.values[minuteIdx] : null;
+        const minuteIdx = model.minutes.indexOf(hairRef.current);
+        if (minuteIdx >= 0) {
+          let val: number | null = null;
+          const isStacked = model.datasets.some((d) => d.stacked);
+          if (isStacked) {
+            let sum = 0;
+            let any = false;
+            for (const d of model.datasets) {
+              if (d.role !== "ideal" && d.stacked) {
+                const v = d.values[minuteIdx];
+                if (v != null) {
+                  sum += v;
+                  any = true;
+                }
+              }
+            }
+            if (any) val = sum;
+          } else {
+            let max = -Infinity;
+            for (const d of model.datasets) {
+              if (d.role !== "ideal") {
+                const v = d.values[minuteIdx];
+                if (v != null && v > max) {
+                  max = v;
+                }
+              }
+            }
+            if (max > -Infinity) val = max;
+          }
+
           if (val != null && val > 0) {
             const y = yScale.getPixelForValue(val);
             if (!Number.isNaN(y)) {
@@ -204,12 +257,28 @@ export function PlantChart({
         canvas,
         chartConfig(model, mode, ink, muted, [clippingPlugin, hairPlugin], {
           onPointer: (value) => {
-            if (model.kind === "time") hairRef.current = value;
-            else highlightRef.current = value;
+            userPinnedRef.current = true;
+            if (model.kind === "time") {
+              hairRef.current = value;
+            } else {
+              highlightRef.current = value;
+              const chart = chartRef.current;
+              if (chart?.data?.datasets) {
+                for (const ds of chart.data.datasets) {
+                  if (Array.isArray(ds.borderWidth)) {
+                    ds.borderWidth = ds.borderWidth.map((_, i) => (i === value ? 3 : 0));
+                  }
+                  if (Array.isArray(ds.borderColor)) {
+                    const fill = typeof ds.backgroundColor === "string" ? ds.backgroundColor : ink;
+                    ds.borderColor = ds.borderColor.map((_, i) => (i === value ? ink : fill));
+                  }
+                }
+              }
+            }
             onPointerRef.current(value);
             chartRef.current?.update?.("none");
           },
-          onBarNavigate: (href) => onBarNavigateRef.current(href),
+          onBarNavigate: (href) => onBarNavigateRef.current?.(href),
           highlight: () => highlightRef.current,
         }) as ChartConfiguration,
       );
@@ -222,7 +291,7 @@ export function PlantChart({
       chartRef.current?.destroy();
       chartRef.current = null;
     };
-  }, [model, mode, failed, themeVersion]);
+  }, [model, mode, pointer, failed, themeVersion]);
 
   useEffect(() => {
     const host = canvasRef.current;
@@ -245,6 +314,7 @@ export function PlantChart({
         raw = fallback;
       }
       const minute = Math.max(tMin, Math.min(tMax, Math.round(raw)));
+      userPinnedRef.current = true;
       hairRef.current = minute;
       onPointerRef.current(minute);
       chartRef.current?.update?.("none");
@@ -276,6 +346,7 @@ export function PlantChart({
     function onKey(ev: KeyboardEvent): void {
       if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
       ev.preventDefault();
+      userPinnedRef.current = true;
       const delta = ev.key === "ArrowRight" ? 1 : -1;
       if (model.kind === "time") {
         const tMin = model.minutes[0] ?? 0;
@@ -443,8 +514,7 @@ function chartConfig(
       onClick(_event: ChartEvent, elements: ActiveElement[]) {
         const index = elements[0]?.index;
         if (index == null) return;
-        const href = model.hrefs[index];
-        if (href) handlers.onBarNavigate(href);
+        handlers.onPointer(index);
       },
       onHover(_event: ChartEvent, elements: ActiveElement[]) {
         const index = elements[0]?.index;

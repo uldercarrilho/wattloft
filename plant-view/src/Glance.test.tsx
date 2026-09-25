@@ -24,7 +24,7 @@ const healthy: GlanceView = {
     },
   ],
   todayLabel: "3.90 kWh",
-  lifetimeLabel: "5,635.4 kWh",
+  lifetimeLabel: "5,635.40 kWh",
 };
 
 afterEach(() => cleanup());
@@ -37,7 +37,7 @@ describe("Glance", () => {
     expect(screen.getByText("Today so far")).toBeTruthy();
     expect(screen.getByText("3.90 kWh")).toBeTruthy();
     expect(screen.getByText("Lifetime energy")).toBeTruthy();
-    expect(screen.getByText("5,635.4 kWh")).toBeTruthy();
+    expect(screen.getByText("5,635.40 kWh")).toBeTruthy();
     expect(screen.getByText("East")).toBeTruthy();
     expect(screen.getByText("210 W")).toBeTruthy();
     expect(screen.getByText("West")).toBeTruthy();

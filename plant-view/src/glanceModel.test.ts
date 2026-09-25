@@ -50,7 +50,7 @@ describe("glanceModel", () => {
       ["West", true, "202 W", "1 minute ago"],
     ]);
     expect(view.todayLabel).toBe("3.90 kWh");
-    expect(view.lifetimeLabel).toBe("5,635.4 kWh");
+    expect(view.lifetimeLabel).toBe("5,635.40 kWh");
   });
 
   it("banners a stale Logger while a sibling still produces", () => {

@@ -313,6 +313,33 @@ h1 { font: 600 1.7rem/1.1 "Ibarra Real Nova", serif; margin: 0; color: var(--ink
   background: transparent;
   border: 1.5px dashed var(--muted);
 }
+.readout-actions {
+  display: flex;
+  margin-top: 0.25rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--surface-border);
+}
+.readout-details-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0.45rem 0.75rem;
+  font-family: "Source Sans 3", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--pigment);
+  background: var(--surface-hover);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--item-radius);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.readout-details-btn:hover {
+  background: var(--pigment);
+  color: #ffffff;
+}
 
 .hint { font-size: 0.8rem; color: var(--muted); margin: 0.75rem 0 0; max-width: 36rem; }
 .mode-hint { margin: 0 0 0.85rem; }

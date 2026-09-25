@@ -54,6 +54,8 @@ describe("grains", () => {
     expect(formatKwh(0.2)).toBe("0.20 kWh");
     expect(formatKwh(11319.5)).toBe("11,319.50 kWh");
     expect(formatWatts(50)).toBe("50 W");
+    expect(formatWatts(50.4)).toBe("50 W");
+    expect(formatWatts(50.7)).toBe("51 W");
     expect(formatWatts(0)).toBe("0 W");
     expect(formatWatts(11319)).toBe("11,319 W");
   });
