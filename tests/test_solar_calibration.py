@@ -6,13 +6,10 @@ from zoneinfo import ZoneInfo
 
 from wattloft.api import _snapshot_payload
 from wattloft.history._snapshot import (
-    CurvePoint,
     CurveSeries,
     LocalDayBar,
     PlantSnapshot,
-    build_plant_snapshot,
 )
-from wattloft.history._store import _SampleRow
 from wattloft.solar.calibration import (
     EnvelopeCalibration,
     calibrate_parameters,
@@ -20,7 +17,7 @@ from wattloft.solar.calibration import (
     is_clear_sky_day,
     load_calibration_from_meta,
 )
-from wattloft.solar.clearsky import ideal_envelope_curve, ideal_power_w
+from wattloft.solar.clearsky import ideal_envelope_curve
 
 _SP = ZoneInfo("America/Sao_Paulo")
 

@@ -13,6 +13,7 @@ on:
 permissions:
   contents: read
   packages: write
+  security-events: write
 
 env:
   REGISTRY: ghcr.io
@@ -66,6 +67,8 @@ jobs:
           tags: |
             ${{ env.IMAGE_NAME }}:${{ github.sha }}
             ${{ env.IMAGE_NAME }}:main
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
       - uses: docker/build-push-action@v7
         with:
           context: plant-view
@@ -74,9 +77,108 @@ jobs:
           tags: |
             ${{ env.PLANT_VIEW_IMAGE_NAME }}:${{ github.sha }}
             ${{ env.PLANT_VIEW_IMAGE_NAME }}:main
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  trivy-scan:
+    name: Container Security (Trivy)
+    needs: image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Scan Wattloft image for CVEs
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          image-ref: ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-wattloft.sarif'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+          exit-code: '1'
+      - name: Upload Wattloft Trivy scan to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-wattloft.sarif'
+          category: 'trivy-wattloft'
+      - name: Scan Plant-View image for CVEs
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          image-ref: ${{ env.PLANT_VIEW_IMAGE_NAME }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-plant-view.sarif'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+          exit-code: '1'
+      - name: Upload Plant-View Trivy scan to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-plant-view.sarif'
+          category: 'trivy-plant-view'
+
+  dast:
+    name: Ephemeral DAST (OWASP ZAP)
+    needs: image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Start Ephemeral App Container
+        run: |
+          docker pull ${{ env.PLANT_VIEW_IMAGE_NAME }}:${{ github.sha }}
+          docker run -d --name plant-view-dast \
+            --network host \
+            -e OPERATOR_PASSWORD=ci-dast-test-token \
+            -e WATTLOFT_API_URL=http://127.0.0.1:8000 \
+            -e PLANT_VIEW_HOST=127.0.0.1 \
+            -e PLANT_VIEW_PORT=3000 \
+            -e COOKIE_SECURE=false \
+            ${{ env.PLANT_VIEW_IMAGE_NAME }}:${{ github.sha }}
+
+          echo "Waiting for plant-view to become responsive..."
+          for i in {1..30}; do
+            if curl -s -f http://127.0.0.1:3000 >/dev/null; then
+              echo "Plant-view is ready!"
+              break
+            fi
+            sleep 1
+          done
+      - name: Run OWASP ZAP Baseline Scan
+        run: |
+          mkdir -p zap-report
+          chmod 777 zap-report
+          docker run --rm --network host \
+            -v "$(pwd)/zap-report:/zap/wrk/:rw" \
+            ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
+            -t http://127.0.0.1:3000 \
+            -r zap_report.html \
+            -J zap_report.json \
+            -I || true
+      - name: Stop Ephemeral App Container
+        if: always()
+        run: docker rm -f plant-view-dast || true
+      - name: Upload ZAP DAST Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zap-dast-report
+          path: zap-report/
 
   deploy:
-    needs: image
+    needs: [trivy-scan, dast]
     runs-on: ubuntu-latest
     env:
       OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}

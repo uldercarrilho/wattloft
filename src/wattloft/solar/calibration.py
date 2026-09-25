@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 from wattloft.config import (
@@ -165,7 +165,7 @@ def calibrate_parameters(
             delta_gamma = math.radians(az_offset)
             # Evaluate base shape
             base_powers: list[float] = []
-            for obs_w, zenith_deg, azimuth_deg, elevation_deg in samples_data:
+            for _obs_w, zenith_deg, azimuth_deg, _elevation_deg in samples_data:
                 ghi = haurwitz_irradiance(zenith_deg)
                 if ghi <= 0:
                     base_powers.append(0.0)
