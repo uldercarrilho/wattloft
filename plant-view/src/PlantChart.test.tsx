@@ -7,11 +7,17 @@ import type { PlantSnapshot } from "./types";
 
 const chartState = vi.hoisted(() => ({
   throwNext: false,
-  instances: [] as { config: { options?: { onClick?: Function } }; destroy: ReturnType<typeof vi.fn> }[],
+  instances: [] as {
+    config: { plugins?: any[]; options?: { onClick?: Function } };
+    destroy: ReturnType<typeof vi.fn>;
+  }[],
 }));
 
 vi.mock("chart.js", () => {
-  function Chart(_canvas: unknown, config: { options?: { onClick?: Function } }) {
+  function Chart(
+    _canvas: unknown,
+    config: { plugins?: any[]; options?: { onClick?: Function } },
+  ) {
     if (chartState.throwNext) {
       chartState.throwNext = false;
       throw new Error("chart failed");
