@@ -21,6 +21,11 @@ export type DiagnosticsSummary = {
     idealPeakW: number | null;
     efficiencyPct: number | null;
     status: "optimal" | "reduced" | "unavailable";
+    calibration?: {
+      calibrated: boolean;
+      sunnyDaysCount: number;
+      lastCalibratedAt: string | null;
+    } | null;
   };
   historical: {
     prevYearKwh: number | null;
@@ -102,6 +107,15 @@ export function computeDiagnostics(snapshot: PlantSnapshot): DiagnosticsSummary 
     deltaPct = Math.round(((currentPeriodKwh - prevYearKwh) / prevYearKwh) * 100);
   }
 
+  const cal = snapshot.envelope_calibration;
+  const calibrationInfo = cal
+    ? {
+        calibrated: cal.calibrated,
+        sunnyDaysCount: cal.sunny_days_count,
+        lastCalibratedAt: cal.last_calibrated_at,
+      }
+    : null;
+
   return {
     arrayBalance: {
       ratio,
@@ -123,6 +137,7 @@ export function computeDiagnostics(snapshot: PlantSnapshot): DiagnosticsSummary 
       idealPeakW,
       efficiencyPct,
       status: envelopeStatus,
+      calibration: calibrationInfo,
     },
     historical: {
       prevYearKwh,

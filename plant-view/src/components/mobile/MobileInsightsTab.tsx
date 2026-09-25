@@ -81,13 +81,19 @@ export function MobileInsightsTab({ snapshot }: { snapshot: PlantSnapshot }) {
               ? `Peak: ${formatWatts(diag.solarEnvelope.actualPeakW)} / ${formatWatts(diag.solarEnvelope.idealPeakW)} ideal`
               : `Observed Peak: ${formatWatts(diag.solarEnvelope.actualPeakW)}`
           }
-          subtext="Passive astronomical Haurwitz irradiance envelope benchmark."
+          subtext={
+            diag.solarEnvelope.calibration?.calibrated
+              ? `Calibrated against ${diag.solarEnvelope.calibration.sunnyDaysCount} reference sunny ${diag.solarEnvelope.calibration.sunnyDaysCount === 1 ? "day" : "days"}.`
+              : "Passive astronomical Haurwitz irradiance envelope benchmark."
+          }
           badge={
-            diag.solarEnvelope.status === "optimal"
-              ? "Optimal"
-              : diag.solarEnvelope.status === "reduced"
-                ? "Reduced"
-                : "Passive"
+            diag.solarEnvelope.calibration?.calibrated
+              ? "Calibrated"
+              : diag.solarEnvelope.status === "optimal"
+                ? "Optimal"
+                : diag.solarEnvelope.status === "reduced"
+                  ? "Reduced"
+                  : "Passive"
           }
         />
       </div>

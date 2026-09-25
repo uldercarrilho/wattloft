@@ -58,6 +58,17 @@ export type DriftInfo = {
   rolling_ratio?: number | null;
 };
 
+export type EnvelopeCalibration = {
+  calibrated: boolean;
+  sunny_days_count: number;
+  last_calibrated_at: string | null;
+  scale?: number;
+  tilt_deg?: number;
+  azimuth_offset_deg?: number;
+  elevation_cutoff_deg?: number;
+  ac_cap_w?: number;
+};
+
 export type PlantSnapshot = {
   selected_day: string;
   history_start?: string;
@@ -71,6 +82,7 @@ export type PlantSnapshot = {
   ideal_curve?: CurvePoint[];
   clipping?: ClippingInfo | null;
   drift?: DriftInfo | null;
+  envelope_calibration?: EnvelopeCalibration | null;
 };
 
 export type EmptyPlant = { empty: true };

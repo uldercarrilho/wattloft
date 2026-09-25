@@ -25,9 +25,11 @@ from wattloft.history._store import (
 from wattloft.solar import (
     ClippingSummary,
     DriftResult,
+    EnvelopeCalibration,
     detect_clipping,
     evaluate_drift,
     ideal_envelope_curve,
+    load_calibration,
 )
 
 _LOCAL = ZoneInfo("America/Sao_Paulo")
@@ -79,6 +81,7 @@ class PlantSnapshot:
     ideal_curve: tuple[CurvePoint, ...] = ()
     clipping: ClippingSummary | None = None
     drift: DriftResult | None = None
+    envelope_calibration: EnvelopeCalibration | None = None
 
 
 def _local(value: datetime) -> datetime:
@@ -153,6 +156,7 @@ def build_plant_snapshot(
     *,
     selected_day: date | None = None,
     now: datetime | None = None,
+    calibration: EnvelopeCalibration | None = None,
 ) -> PlantSnapshot | None:
     local_day = (now or now_utc()).astimezone(_LOCAL).date()
     curve_day = selected_day or local_day
@@ -215,6 +219,7 @@ def build_plant_snapshot(
         curve_last=curve_last,
         now_success_at=now_success_at,
         now_power=now_power,
+        calibration=calibration,
     )
 
 
@@ -236,6 +241,7 @@ def _make_snapshot(
     curve_last: dict[tuple[str, datetime], tuple[float, float | None]],
     now_success_at: dict[str, datetime],
     now_power: dict[str, float],
+    calibration: EnvelopeCalibration | None = None,
 ) -> PlantSnapshot:
     curve_points = [
         (serial, minute, watts, lifetime_kwh)
@@ -249,6 +255,7 @@ def _make_snapshot(
         PLANT_LONGITUDE,
         PLANT_PEAK_DC_CAPACITY_W,
         _LOCAL,
+        calibration=calibration,
     )
     ideal_curve = tuple(CurvePoint(at=dt, watts=w) for dt, w in envelope_pts)
 
@@ -305,6 +312,7 @@ def _make_snapshot(
         ideal_curve=ideal_curve,
         clipping=plant_clipping if plant_clipping.clipped else None,
         drift=drift_result if drift_result.detected else None,
+        envelope_calibration=calibration,
     )
 
 
@@ -315,6 +323,7 @@ def _snapshot_from_parts(
     *,
     local_today: date,
     curve_day: date,
+    calibration: EnvelopeCalibration | None = None,
 ) -> PlantSnapshot | None:
     lifetime_last: dict[str, float] = {}
     bar_life: dict[tuple[date, str], float] = {}
@@ -374,6 +383,7 @@ def _snapshot_from_parts(
         curve_last=curve_last,
         now_success_at=now_success_at,
         now_power=now_power,
+        calibration=calibration,
     )
 
 
@@ -385,12 +395,14 @@ def plant_snapshot(
         return None
     local_today = now_utc().astimezone(_LOCAL).date()
     curve_day = selected_day or local_today
+    calibration = load_calibration(database_url)
     snapshot = _snapshot_from_parts(
         summaries,
         load_samples_for_local_day(database_url, curve_day),
         load_latest_logger_samples(database_url),
         local_today=local_today,
         curve_day=curve_day,
+        calibration=calibration,
     )
     if snapshot and snapshot.clipping and snapshot.clipping.clipped:
         for p in snapshot.clipping.plateaus:
