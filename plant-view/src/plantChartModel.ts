@@ -346,8 +346,11 @@ export function buildPlantChartModel(
 }
 
 export function parkedMinute(model: TimeChartModel): number {
-  const plant = model.datasets.find((dataset) => dataset.role === "plant");
-  const series = plant ? [plant] : model.datasets;
+  const production = model.datasets.filter(
+    (dataset) => dataset.role === "plant" || dataset.role === "logger",
+  );
+  const plant = production.find((dataset) => dataset.role === "plant");
+  const series = plant ? [plant] : production.length > 0 ? production : model.datasets;
   let last: number | null = null;
   for (let i = 0; i < model.minutes.length; i++) {
     if (series.some((dataset) => dataset.values[i] != null)) {

@@ -491,6 +491,12 @@ describe("parkedMinute", () => {
     expect(parkedMinute(model([plant, logger]))).toBe(110);
     expect(parkedMinute(model([logger]))).toBe(120);
   });
+
+  it("ignores ideal envelope and parks on actual production", () => {
+    const logger = series(loggerA, "logger", [10, 20, null]);
+    const ideal = series("Ideal envelope", "ideal", [10, 20, 30]);
+    expect(parkedMinute(model([logger, ideal]))).toBe(110);
+  });
 });
 
 describe("timeReadout hold", () => {

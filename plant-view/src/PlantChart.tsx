@@ -143,12 +143,33 @@ export function PlantChart({
         const ctx = chart.ctx;
         ctx.save();
         ctx.strokeStyle = ink;
-        ctx.globalAlpha = 0.85;
+        ctx.globalAlpha = 0.75;
         ctx.lineWidth = 1.2;
         ctx.beginPath();
         ctx.moveTo(x, yScale.top);
         ctx.lineTo(x, yScale.bottom);
         ctx.stroke();
+
+        const targetDataset =
+          model.datasets.find((d) => d.role === "plant") ||
+          model.datasets.find((d) => d.role === "logger");
+        if (targetDataset) {
+          const minuteIdx = model.minutes.indexOf(hairRef.current);
+          const val = minuteIdx >= 0 ? targetDataset.values[minuteIdx] : null;
+          if (val != null && val > 0) {
+            const y = yScale.getPixelForValue(val);
+            if (!Number.isNaN(y)) {
+              ctx.globalAlpha = 1.0;
+              ctx.fillStyle = ink;
+              ctx.beginPath();
+              ctx.arc(x, y, 4, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.strokeStyle = "#FFFFFF";
+              ctx.lineWidth = 1.5;
+              ctx.stroke();
+            }
+          }
+        }
         ctx.restore();
       },
     };
@@ -213,7 +234,16 @@ export function PlantChart({
       if (rect.width <= 0) return;
       const tMin = model.minutes[0] ?? 0;
       const tMax = model.minutes.at(-1) ?? 0;
-      const raw = tMin + ((ev.clientX - rect.left) / rect.width) * (tMax - tMin);
+      let raw: number;
+      const xScale = chartRef.current?.scales?.x;
+      const fallback = tMin + ((ev.clientX - rect.left) / rect.width) * (tMax - tMin);
+      if (xScale && typeof xScale.getValueForPixel === "function") {
+        const xCanvas = ev.clientX - rect.left;
+        const val = xScale.getValueForPixel(xCanvas);
+        raw = val != null ? val : fallback;
+      } else {
+        raw = fallback;
+      }
       const minute = Math.max(tMin, Math.min(tMax, Math.round(raw)));
       hairRef.current = minute;
       onPointerRef.current(minute);
@@ -339,16 +369,20 @@ function chartConfig(
         scales: {
           x: {
             type: "linear" as const,
-            min: model.minutes[0],
-            max: model.minutes.at(-1),
+            min: Math.floor((model.minutes[0] ?? 0) / 60) * 60,
+            max: Math.ceil((model.minutes.at(-1) ?? 1440) / 60) * 60,
             ticks: {
+              stepSize: 60,
+              autoSkip: true,
+              autoSkipPadding: 16,
+              maxRotation: 0,
               color: muted,
               font: { family: '"IBM Plex Mono", monospace', size: 12 },
               callback(value: string | number) {
                 return hourTickLabel(value);
               },
             },
-            grid: { color: "rgba(26, 42, 58, 0.12)" },
+            grid: { color: "rgba(26, 42, 58, 0.08)" },
           },
           y: {
             min: 0,
@@ -359,7 +393,7 @@ function chartConfig(
               color: muted,
               font: { family: '"IBM Plex Mono", monospace', size: 12 },
             },
-            grid: { color: "rgba(26, 42, 58, 0.12)" },
+            grid: { color: "rgba(26, 42, 58, 0.08)" },
           },
         },
       },
@@ -435,7 +469,7 @@ function chartConfig(
             color: muted,
             font: { family: '"IBM Plex Mono", monospace', size: 12 },
           },
-          grid: { color: "rgba(26, 42, 58, 0.12)" },
+          grid: { color: "rgba(26, 42, 58, 0.08)" },
         },
       },
     },
@@ -446,13 +480,31 @@ function timeDatasets(model: TimeChartModel, stacked: boolean) {
   const dashedLogger = model.datasets.find((dataset) => dataset.role === "logger")?.name;
   return model.datasets.flatMap((dataset) => {
     const stroke = cssColor(dataset.swatch);
+    const isPlant = dataset.role === "plant";
     const style = {
       label: dataset.name,
-      borderColor: dataset.role === "ideal" ? withAlpha(stroke, 0.3) : stroke,
-      backgroundColor: !stacked || dataset.role === "ideal" ? "transparent" : stroke,
-      fill: stacked && dataset.role !== "ideal",
+      borderColor: dataset.role === "ideal" ? withAlpha(stroke, 0.4) : stroke,
+      borderWidth: isPlant ? 2.4 : dataset.role === "ideal" ? 1.4 : 1.8,
+      backgroundColor:
+        !stacked && isPlant
+          ? (context: { chart: { ctx?: CanvasRenderingContext2D; chartArea?: { top: number; bottom: number } } }) => {
+              const chart = context.chart;
+              const ctx = chart.ctx;
+              const chartArea = chart.chartArea;
+              if (!chartArea || !ctx || typeof ctx.createLinearGradient !== "function") {
+                return withAlpha(stroke, 0.12);
+              }
+              const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+              gradient.addColorStop(0, withAlpha(stroke, 0.22));
+              gradient.addColorStop(1, withAlpha(stroke, 0.01));
+              return gradient;
+            }
+          : !stacked || dataset.role === "ideal"
+            ? "transparent"
+            : withAlpha(stroke, 0.35),
+      fill: (!stacked && isPlant) || (stacked && dataset.role !== "ideal"),
       pointRadius: 0,
-      tension: 0,
+      tension: 0.1,
       spanGaps: false,
       borderDash:
         dataset.role === "ideal"
