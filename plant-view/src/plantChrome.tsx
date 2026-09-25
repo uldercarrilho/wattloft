@@ -14,6 +14,7 @@ import {
   historyStartOf,
   localDayOf,
   selectedPeriodKwh,
+  stackLoggerNames,
 } from "./grains";
 import { lifetimeKwh } from "./LastSample";
 import type { Grain, PlantSnapshot } from "./types";
@@ -142,6 +143,13 @@ export function Chart({
       ? `Wattloft History · from ${formatDayMonth(historyStartOf(snapshot))}`
       : null;
   const tapHint = drillHint(unit);
+
+  const seriesNames =
+    mode === "stack" ? stackLoggerNames(snapshot) : overlayTimeNames(snapshot);
+  const plantRow = readout.rows.find((r) => r.name === "Plant");
+  const otherRows = readout.rows.filter((r) => r.name !== "Plant");
+  const isGap = readout.when.includes("gap");
+
   return (
     <div className="plant-stage">
       <div className="plant-plot">
@@ -170,16 +178,46 @@ export function Chart({
       </div>
       <div className="plant-aside">
         <div className="readout" aria-live="polite">
-          <span className="when">{readout.when}</span>
-          {readout.rows.map((row) => (
-            <p
-              key={row.name}
-              data-series={row.name}
-              className={row.name === "Plant" ? "series-plant" : ""}
-            >
-              {displayNameOf(snapshot, row.name)} {row.text}
-            </p>
-          ))}
+          <div className="readout-header">
+            <span className="when">{readout.when}</span>
+            {unit === "time" ? (
+              <span className={`readout-status ${isGap ? "is-gap" : "is-active"}`}>
+                {isGap ? "Gap" : "Production"}
+              </span>
+            ) : null}
+          </div>
+          {plantRow ? (
+            <div className="readout-summary series-plant" data-series="Plant">
+              <div className="readout-label">
+                <span className="readout-dot series-plant" />
+                <span>{displayNameOf(snapshot, "Plant")}</span>
+              </div>
+              <span className="readout-val">{plantRow.text}</span>
+            </div>
+          ) : null}
+          {otherRows.length > 0 ? (
+            <div className="readout-breakdown">
+              {otherRows.map((row) => {
+                const isIdeal = row.name === "Ideal envelope";
+                const dotClass = isIdeal
+                  ? "series-ideal"
+                  : loggerClass(row.name, seriesNames);
+                return (
+                  <div
+                    key={row.name}
+                    className={`readout-row ${isIdeal ? "is-ideal" : ""}`}
+                    data-series={row.name}
+                  >
+                    <div className="readout-label">
+                      <span className={`readout-dot ${dotClass}`} />
+                      <span>{displayNameOf(snapshot, row.name)}</span>
+                    </div>
+                    <span className="readout-val">{row.text}</span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
         </div>
         {snapshot.drift?.detected && snapshot.drift.advisory ? (
           <p className="drift-advisory" role="note">
