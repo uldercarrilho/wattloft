@@ -62,6 +62,11 @@ export function DiagnosticsPanel({ snapshot }: { snapshot: PlantSnapshot }) {
               ? `Peak: ${formatWatts(diag.solarEnvelope.actualPeakW)} (ideal: ${formatWatts(diag.solarEnvelope.idealPeakW)})`
               : `Observed: ${formatWatts(diag.solarEnvelope.actualPeakW)}`}
           </div>
+          <div className="diag-detail" style={{ fontSize: "0.75rem", opacity: 0.8, marginTop: "0.25rem" }}>
+            {diag.solarEnvelope.calibration?.calibrated
+              ? `Calibrated (${diag.solarEnvelope.calibration.sunnyDaysCount} sunny ${diag.solarEnvelope.calibration.sunnyDaysCount === 1 ? "day" : "days"})`
+              : "Clear-Sky baseline"}
+          </div>
         </div>
 
         {/* Prior Year Comparison */}
