@@ -88,10 +88,17 @@ function loggerClass(name: string, names: string[]): string {
 }
 
 function drillHint(unit: Grain): string | null {
-  if (unit === "day") return "Tap a day to open its Power chart";
-  if (unit === "month") return "Tap a month to open the Day chart";
-  if (unit === "year") return "Tap a year to open the Month chart";
+  if (unit === "day") return "Tap a day to select, then view its Power curve";
+  if (unit === "month") return "Tap a month to select, then view its Day chart";
+  if (unit === "year") return "Tap a year to select, then view its Month chart";
   return null;
+}
+
+function detailButtonLabel(unit: Grain): string {
+  if (unit === "day") return "View Power curve";
+  if (unit === "month") return "View Days";
+  if (unit === "year") return "View Months";
+  return "View details";
 }
 
 export function Chart({
@@ -150,6 +157,9 @@ export function Chart({
   const otherRows = readout.rows.filter((r) => r.name !== "Plant");
   const isGap = readout.when.includes("gap");
 
+  const selectedIdx = pointer ?? (model.kind === "energy" ? model.currentIndex : 0);
+  const targetHref = model.kind === "energy" ? model.hrefs[selectedIdx] : null;
+
   return (
     <div className="plant-stage">
       <div className="plant-plot">
@@ -167,6 +177,7 @@ export function Chart({
         <PlantChart
           model={model}
           mode={mode}
+          pointer={pointer}
           onPointer={setPointer}
           onBarNavigate={(target) => {
             window.history.pushState({}, "", target);
@@ -216,6 +227,21 @@ export function Chart({
                   </div>
                 );
               })}
+            </div>
+          ) : null}
+          {targetHref ? (
+            <div className="readout-actions">
+              <a
+                href={targetHref}
+                className="readout-details-btn"
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.history.pushState({}, "", targetHref);
+                  window.dispatchEvent(new PopStateEvent("popstate"));
+                }}
+              >
+                {detailButtonLabel(unit)}
+              </a>
             </div>
           ) : null}
         </div>

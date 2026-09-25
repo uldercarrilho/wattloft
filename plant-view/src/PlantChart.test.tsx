@@ -38,6 +38,7 @@ vi.mock("chart.js", () => {
 import { PlantChart } from "./PlantChart";
 
 const loggerA = "3909309465";
+const loggerB = "3913630013";
 
 const energySnapshot: PlantSnapshot = {
   selected_day: "2026-08-21",
@@ -108,17 +109,17 @@ describe("PlantChart", () => {
     expect(screen.queryByRole("img")).toBeNull();
   });
 
-  it("navigates with the model's href when a Day column is clicked", () => {
+  it("selects the column and notifies onPointer when a Day column is clicked", () => {
     const model = buildPlantChartModel(energySnapshot, "day", "overlay", new Set(["Plant"]));
     expect(model.kind).toBe("energy");
     if (model.kind !== "energy") return;
-    const onBarNavigate = vi.fn();
+    const onPointer = vi.fn();
     render(
       <PlantChart
         model={model}
         mode="overlay"
-        onPointer={vi.fn()}
-        onBarNavigate={onBarNavigate}
+        onPointer={onPointer}
+        onBarNavigate={vi.fn()}
         onDrawError={vi.fn()}
       />,
     );
@@ -126,7 +127,7 @@ describe("PlantChart", () => {
     const onClick = chartState.instances[0]?.config.options?.onClick;
     expect(onClick).toBeTypeOf("function");
     onClick?.({}, [{ index: 0 }]);
-    expect(onBarNavigate).toHaveBeenCalledWith("/?day=2026-08-21&unit=time");
+    expect(onPointer).toHaveBeenCalledWith(0);
   });
 
   it("reports the parked Time minute to onPointer", () => {
@@ -317,5 +318,141 @@ describe("PlantChart", () => {
     expect(comparison).toBeDefined();
     expect(comparison?.stack).toBe("comparison");
     expect(comparison?.barPercentage).toBe(0.3);
+  });
+
+  it("locks the vertical bar at user chosen pointer when model updates", () => {
+    const model1 = buildPlantChartModel(
+      {
+        ...energySnapshot,
+        curve: [
+          {
+            name: loggerA,
+            points: [{ at: "2026-08-21T10:00:00", watts: 100, lifetime_kwh: 10 }],
+          },
+        ],
+      },
+      "time",
+      "overlay",
+      new Set(["Plant", loggerA]),
+    );
+    if (model1.kind !== "time") return;
+
+    const onPointer = vi.fn();
+    const { rerender } = render(
+      <PlantChart
+        model={model1}
+        mode="overlay"
+        pointer={10 * 60}
+        onPointer={onPointer}
+        onBarNavigate={vi.fn()}
+        onDrawError={vi.fn()}
+      />,
+    );
+
+    // Live update arrives with later sample
+    const model2 = buildPlantChartModel(
+      {
+        ...energySnapshot,
+        curve: [
+          {
+            name: loggerA,
+            points: [
+              { at: "2026-08-21T10:00:00", watts: 100, lifetime_kwh: 10 },
+              { at: "2026-08-21T12:00:00", watts: 500, lifetime_kwh: 10.5 },
+            ],
+          },
+        ],
+      },
+      "time",
+      "overlay",
+      new Set(["Plant", loggerA]),
+    );
+    if (model2.kind !== "time") return;
+
+    rerender(
+      <PlantChart
+        model={model2}
+        mode="overlay"
+        pointer={10 * 60}
+        onPointer={onPointer}
+        onBarNavigate={vi.fn()}
+        onDrawError={vi.fn()}
+      />,
+    );
+
+    // onPointer should NOT have been called with parkedMinute (12 * 60)
+    expect(onPointer).not.toHaveBeenCalledWith(12 * 60);
+  });
+
+  it("draws the dot on the highest visible production curve, ignoring ideal envelope", () => {
+    const model = buildPlantChartModel(
+      {
+        ...energySnapshot,
+        ideal_curve: [{ at: "2026-08-21T11:00:00", watts: 999 }],
+        curve: [
+          {
+            name: loggerA,
+            points: [{ at: "2026-08-21T11:00:00", watts: 200, lifetime_kwh: 10 }],
+          },
+          {
+            name: loggerB,
+            points: [{ at: "2026-08-21T11:00:00", watts: 500, lifetime_kwh: 5 }],
+          },
+        ],
+      },
+      "time",
+      "overlay",
+      new Set([loggerA, loggerB]),
+      true,
+    );
+    if (model.kind !== "time") return;
+
+    render(
+      <PlantChart
+        model={model}
+        mode="overlay"
+        pointer={11 * 60}
+        onPointer={vi.fn()}
+        onBarNavigate={vi.fn()}
+        onDrawError={vi.fn()}
+      />,
+    );
+
+    const instance = chartState.instances.at(-1);
+    expect(instance).toBeDefined();
+    const hairPlugin = instance?.config.plugins?.find((p: any) => p.id === "wattloft-hair");
+    expect(hairPlugin).toBeDefined();
+
+    const mockCtx = {
+      save: vi.fn(),
+      restore: vi.fn(),
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      stroke: vi.fn(),
+      fill: vi.fn(),
+      arc: vi.fn(),
+      strokeStyle: "",
+      fillStyle: "",
+      lineWidth: 0,
+      globalAlpha: 1,
+    };
+    const mockChart = {
+      ctx: mockCtx,
+      scales: {
+        x: { getPixelForValue: (v: number) => v },
+        y: {
+          top: 0,
+          bottom: 300,
+          getPixelForValue: vi.fn((v: number) => 300 - v),
+        },
+      },
+    };
+
+    hairPlugin.afterDraw(mockChart);
+
+    // Highest production is loggerB (500W), NOT ideal (999W)
+    expect(mockChart.scales.y.getPixelForValue).toHaveBeenCalledWith(500);
+    expect(mockChart.scales.y.getPixelForValue).not.toHaveBeenCalledWith(999);
   });
 });

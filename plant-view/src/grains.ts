@@ -112,8 +112,8 @@ export function formatKwh(kwh: number): string {
 }
 
 export function formatWatts(watts: number): string {
-  const value = watts === Math.trunc(watts) ? Math.trunc(watts) : watts;
-  return `${new Intl.NumberFormat("en-US").format(value)} W`;
+  const value = Math.round(watts);
+  return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value)} W`;
 }
 
 export function formatDayMonth(isoDay: string): string {
