@@ -6,6 +6,7 @@ import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import type { Context } from "hono";
+import { secureHeaders } from "hono/secure-headers";
 import { streamSSE } from "hono/streaming";
 import webpush from "web-push";
 import {
@@ -191,6 +192,15 @@ function grantLogin(
 export function createApp(opts: CreateAppOptions): Hono {
   const fetchImpl = opts.fetch ?? fetch;
   const app = new Hono();
+  app.use(
+    secureHeaders({
+      permissionsPolicy: {
+        camera: [],
+        microphone: [],
+        geolocation: [],
+      },
+    })
+  );
   const sampleHub = opts.sampleHub ?? new SampleHub();
   const pushStore = opts.pushStore ?? new PushSubscriptionStore();
   const cachedLoggersNow: LoggerNow[] = opts.cachedLoggersNow ?? [];

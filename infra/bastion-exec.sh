@@ -71,8 +71,9 @@ ssh_opts=(
   -i "$SSH_KEY"
   -o StrictHostKeyChecking=no
   -o UserKnownHostsFile=/dev/null
+  -o LogLevel=ERROR
   -o IdentitiesOnly=yes
-  -o ProxyCommand="ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o IdentitiesOnly=yes -W %h:%p -p 22 ${SESSION_ID}@${BASTION_HOST}"
+  -o ProxyCommand="ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o IdentitiesOnly=yes -W %h:%p -p 22 ${SESSION_ID}@${BASTION_HOST}"
 )
 
 # First hop through Bastion sometimes rejects the key once; retry.

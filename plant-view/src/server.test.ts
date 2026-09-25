@@ -461,5 +461,12 @@ describe("Live Telemetry & Notifications", () => {
     expect(notification.title).toBe("Wattloft · Logger Stall");
     expect(notification.body).toContain("West logger has been silent");
   });
+
+  it("serves HTTP security headers", async () => {
+    const res = await app().request("/");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(res.headers.get("x-frame-options")).toBe("SAMEORIGIN");
+    expect(res.headers.get("permissions-policy")).toBe("camera=(), microphone=(), geolocation=()");
+  });
 });
 
