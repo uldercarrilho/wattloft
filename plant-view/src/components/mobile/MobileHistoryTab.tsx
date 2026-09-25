@@ -1,6 +1,13 @@
 import { useState } from "react";
 import type { ChartMode } from "../../chartMode";
-import { href, localDayOf, stackLoggerNames, stepper } from "../../grains";
+import {
+  formatDayMonth,
+  historyStartOf,
+  href,
+  localDayOf,
+  stackLoggerNames,
+  stepper,
+} from "../../grains";
 import {
   Chart,
   ChartModeBar,
@@ -72,12 +79,13 @@ export function MobileHistoryTab({
         })}
       </nav>
 
-      <PeriodStepper
-        label={period.label}
-        prevHref={period.prevHref}
-        nextHref={period.nextHref}
-        hideChevrons={effectiveGrain === "year" && !period.prevHref && !period.nextHref}
-      />
+      {effectiveGrain !== "year" ? (
+        <PeriodStepper
+          label={period.label}
+          prevHref={period.prevHref}
+          nextHref={period.nextHref}
+        />
+      ) : null}
 
       <ChartModeBar
         mode={mode}
@@ -106,6 +114,14 @@ export function MobileHistoryTab({
           />
         }
       />
+
+      {effectiveGrain === "month" || effectiveGrain === "year" ? (
+        <footer className="history-footer">
+          <p className="history-footer-note">
+            Wattloft History · from {formatDayMonth(historyStartOf(snapshot))}
+          </p>
+        </footer>
+      ) : null}
     </div>
   );
 }

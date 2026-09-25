@@ -27,12 +27,13 @@ export function ChartControls({
 }) {
   return (
     <div className="desktop-chart-controls">
-      <PeriodStepper
-        label={period.label}
-        prevHref={period.prevHref}
-        nextHref={period.nextHref}
-        hideChevrons={unit === "year" && !period.prevHref && !period.nextHref}
-      />
+      {unit !== "year" ? (
+        <PeriodStepper
+          label={period.label}
+          prevHref={period.prevHref}
+          nextHref={period.nextHref}
+        />
+      ) : null}
 
       <nav className="grain" aria-label="Grain">
         {(["time", "day", "month", "year"] as const).map((grain) => (

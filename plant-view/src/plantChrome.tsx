@@ -11,12 +11,10 @@ import {
   displayNameOf,
   formatDayMonth,
   formatKwh,
-  historyStartOf,
   localDayOf,
   selectedPeriodKwh,
   stackLoggerNames,
 } from "./grains";
-import { lifetimeKwh } from "./LastSample";
 import type { Grain, PlantSnapshot } from "./types";
 
 import { LiveStatusBadge, type ConnectionStatus } from "./components/LiveStatusBadge";
@@ -87,13 +85,6 @@ function loggerClass(name: string, names: string[]): string {
   return loggers.indexOf(name) % 2 === 0 ? "series-a" : "series-b";
 }
 
-function drillHint(unit: Grain): string | null {
-  if (unit === "day") return "Tap a day to select, then view its Power curve";
-  if (unit === "month") return "Tap a month to select, then view its Day chart";
-  if (unit === "year") return "Tap a year to select, then view its Month chart";
-  return null;
-}
-
 function detailButtonLabel(unit: Grain): string {
   if (unit === "day") return "View Power curve";
   if (unit === "month") return "View Days";
@@ -132,7 +123,7 @@ export function Chart({
       ? timeReadout(model, pointer ?? parkedMinute(model), mode)
       : energyReadout(model, pointer ?? model.currentIndex);
   const nowDay = localDayOf(snapshot.current_power_at);
-  const showPeriod = snapshot.selected_day !== nowDay;
+  const showPeriod = unit === "time" && snapshot.selected_day !== nowDay;
   const periodKwh =
     mode === "stack"
       ? selectedPeriodKwh(snapshot, visible)
@@ -145,11 +136,6 @@ export function Chart({
           ? "This year is incomplete in Wattloft"
           : "This month is incomplete in Wattloft"
       : null;
-  const historyCaption =
-    unit === "month" || unit === "year"
-      ? `Wattloft History · from ${formatDayMonth(historyStartOf(snapshot))}`
-      : null;
-  const tapHint = drillHint(unit);
 
   const seriesNames =
     mode === "stack" ? stackLoggerNames(snapshot) : overlayTimeNames(snapshot);
@@ -166,12 +152,6 @@ export function Chart({
         {showPeriod ? (
           <p className="period">
             {formatDayMonth(snapshot.selected_day)} {formatKwh(periodKwh)}
-          </p>
-        ) : null}
-        {historyCaption ? <p className="grain-title">{historyCaption}</p> : null}
-        {unit === "year" ? (
-          <p className="hint">
-            Lifetime {lifetimeKwh(snapshot.lifetime_energy_kwh)} · before Wattloft
           </p>
         ) : null}
         <PlantChart
@@ -251,7 +231,6 @@ export function Chart({
           </p>
         ) : null}
         {partialCaption ? <p className="hint">{partialCaption}</p> : null}
-        {tapHint ? <p className="hint">{tapHint}</p> : null}
         {unit === "time" ? (
           <details className="hint gaps">
             <summary>Why gaps?</summary>

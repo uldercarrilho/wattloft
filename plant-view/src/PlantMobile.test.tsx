@@ -152,10 +152,25 @@ describe("MobilePlantView (Azulejo Moderno 4-Tab Dock)", () => {
     fireEvent.click(historyTab);
 
     expect(historyTab.getAttribute("aria-selected")).toBe("true");
+    expect(historyTab.classList.contains("is-active")).toBe(true);
     expect(screen.getByRole("navigation", { name: "History Grain" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Day" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Month" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Year" })).toBeTruthy();
+
+    // On Day grain, PeriodStepper is present and footer is not rendered
+    expect(screen.getByRole("navigation", { name: "Period" })).toBeTruthy();
+    expect(screen.queryByText(/Wattloft History · from/)).toBeNull();
+
+    // Switch to Month grain
+    fireEvent.click(screen.getByRole("link", { name: "Month" }));
+    expect(screen.getByRole("navigation", { name: "Period" })).toBeTruthy();
+    expect(screen.getByText(/Wattloft History · from/)).toBeTruthy();
+
+    // Switch to Year grain: PeriodStepper hidden, footer rendered
+    fireEvent.click(screen.getByRole("link", { name: "Year" }));
+    expect(screen.queryByRole("navigation", { name: "Period" })).toBeNull();
+    expect(screen.getByText(/Wattloft History · from/)).toBeTruthy();
   });
 
   it("switches to Insights tab and surfaces passive solar intelligence metrics", () => {
