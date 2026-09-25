@@ -13,7 +13,6 @@ on:
 permissions:
   contents: read
   packages: write
-  security-events: write
 
 env:
   REGISTRY: ghcr.io
@@ -84,9 +83,6 @@ jobs:
     name: Container Security (Trivy)
     needs: image
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write
     steps:
       - uses: actions/checkout@v5
       - uses: docker/login-action@v4
@@ -94,36 +90,39 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Pull images for scanning
+        run: |
+          docker pull ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          docker pull ${{ env.PLANT_VIEW_IMAGE_NAME }}:${{ github.sha }}
       - name: Scan Wattloft image for CVEs
-        uses: aquasecurity/trivy-action@0.29.0
-        with:
-          image-ref: ${{ env.IMAGE_NAME }}:${{ github.sha }}
-          format: 'sarif'
-          output: 'trivy-wattloft.sarif'
-          severity: 'CRITICAL,HIGH'
-          ignore-unfixed: true
-          exit-code: '1'
-      - name: Upload Wattloft Trivy scan to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: 'trivy-wattloft.sarif'
-          category: 'trivy-wattloft'
+        run: |
+          mkdir -p trivy-reports
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$(pwd)/trivy-reports:/reports" \
+            ghcr.io/aquasecurity/trivy:latest image \
+            --severity CRITICAL,HIGH \
+            --ignore-unfixed \
+            --format table \
+            --output /reports/wattloft.txt \
+            --exit-code 1 \
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
       - name: Scan Plant-View image for CVEs
-        uses: aquasecurity/trivy-action@0.29.0
-        with:
-          image-ref: ${{ env.PLANT_VIEW_IMAGE_NAME }}:${{ github.sha }}
-          format: 'sarif'
-          output: 'trivy-plant-view.sarif'
-          severity: 'CRITICAL,HIGH'
-          ignore-unfixed: true
-          exit-code: '1'
-      - name: Upload Plant-View Trivy scan to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$(pwd)/trivy-reports:/reports" \
+            ghcr.io/aquasecurity/trivy:latest image \
+            --severity CRITICAL,HIGH \
+            --ignore-unfixed \
+            --format table \
+            --output /reports/plant-view.txt \
+            --exit-code 1 \
+            ${{ env.PLANT_VIEW_IMAGE_NAME }}:${{ github.sha }}
+      - name: Upload Trivy Reports
+        uses: actions/upload-artifact@v4
         if: always()
         with:
-          sarif_file: 'trivy-plant-view.sarif'
-          category: 'trivy-plant-view'
+          name: trivy-reports
+          path: trivy-reports/
 
   dast:
     name: Ephemeral DAST (OWASP ZAP)

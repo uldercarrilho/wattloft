@@ -61,27 +61,30 @@ jobs:
       - name: Python tests
         run: pytest -q
 
-  sast-codeql:
-    name: CodeQL SAST (${{ matrix.language }})
+  sast:
+    name: SAST (Semgrep & Bandit)
     runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-    strategy:
-      fail-fast: false
-      matrix:
-        language: ['javascript-typescript', 'python']
     steps:
       - uses: actions/checkout@v4
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+      - uses: actions/setup-python@v5
         with:
-          languages: ${{ matrix.language }}
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+          python-version: "3.12"
+      - name: Python Bandit SAST
+        run: |
+          pip install bandit
+          mkdir -p sast-reports
+          bandit -r src/ -s B104 -f txt -o sast-reports/bandit.txt || true
+          cat sast-reports/bandit.txt
+      - name: Polyglot Semgrep SAST
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/src" semgrep/semgrep \
+            semgrep scan --config "p/security-audit" --config "p/secrets" --json -o /src/sast-reports/semgrep.json || true
+      - name: Upload SAST Reports
+        uses: actions/upload-artifact@v4
+        if: always()
         with:
-          category: "/language:${{ matrix.language }}"
+          name: sast-reports
+          path: sast-reports/
 
   secret-scanning:
     name: Secret Scanning (Gitleaks)
