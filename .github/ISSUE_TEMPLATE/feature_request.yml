@@ -1,0 +1,60 @@
+name: Feature / Task Request
+description: Propose a new feature, architecture enhancement, or task for Wattloft
+title: "feat: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please consult [CONTEXT.md](file:///CONTEXT.md) and existing [ADRs](file:///docs/adr/) before proposing substantial feature or architectural additions.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Target Component
+      description: Which component will be primarily modified?
+      options:
+        - Ingest (Python / Server B TCP daemon)
+        - History API (Python / Starlette / MySQL)
+        - Plant View UI (React / Vite / Hono)
+        - Infrastructure & Deploy (OCI / Caddy / Systemd)
+        - Documentation / ADR
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement / Context
+      description: What problem does this solve, or what opportunity does it address?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution / Technical Specification
+      description: Detailed specification or approach for implementing this change.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance Criteria
+      description: What specific measurable conditions must be satisfied for completion?
+      placeholder: |
+        - [ ] Criterion 1
+        - [ ] Criterion 2
+    validations:
+      required: true
+  - type: textarea
+    id: adr_references
+    attributes:
+      label: Related ADRs or Issue References
+      description: References to related ADRs, issue numbers, or external technical docs.
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Alignment Checklist
+      options:
+        - label: I used proper domain language per [CONTEXT.md](file:///CONTEXT.md).
+          required: true
+        - label: I searched open and closed issues for prior discussions.
+          required: true

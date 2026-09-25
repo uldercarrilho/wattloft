@@ -1,0 +1,59 @@
+name: Bug Report
+description: Create a report to help reproduce and fix a bug in Wattloft
+title: "fix: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting an issue! Please refer to [CONTEXT.md](file:///CONTEXT.md) for domain terminology.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of Wattloft does this affect?
+      options:
+        - Ingest (Python / Server B TCP daemon)
+        - History API (Python / Starlette / MySQL)
+        - Plant View UI (React / Vite / Hono)
+        - Infrastructure & Deploy (OCI / Caddy / Systemd)
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: How can this issue be reproduced?
+      placeholder: |
+        1. Go to '...'
+        2. Execute '...'
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error Logs or Screenshots
+      description: Paste any terminal logs, stack traces, or upload screenshots here.
+      render: text
+  - type: input
+    id: environment
+    attributes:
+      label: Environment & Runtime Details
+      description: e.g., Node version, Python version, Browser, OS, commit SHA
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Verification Checklist
+      options:
+        - label: I verified that domain nouns match [CONTEXT.md](file:///CONTEXT.md).
+          required: true
+        - label: I searched existing issues to ensure this is not a duplicate.
+          required: true
