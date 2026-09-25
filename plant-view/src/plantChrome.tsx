@@ -284,12 +284,12 @@ export function PeriodStepper({
   label,
   prevHref,
   nextHref,
-  hideChevrons,
+  hideChevrons = false,
 }: {
   label: string;
   prevHref: string;
   nextHref: string;
-  hideChevrons: boolean;
+  hideChevrons?: boolean;
 }) {
   return (
     <nav className="stepper" aria-label="Period">
