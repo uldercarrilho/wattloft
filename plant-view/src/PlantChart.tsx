@@ -96,6 +96,21 @@ export function PlantChart({
   const onBarNavigateRef = useRef(onBarNavigate);
   const onDrawErrorRef = useRef(onDrawError);
   const [failed, setFailed] = useState(false);
+  const [themeVersion, setThemeVersion] = useState(0);
+
+  useEffect(() => {
+    if (typeof MutationObserver === "undefined" || typeof document === "undefined") return undefined;
+    const observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.type === "attributes" && m.attributeName === "data-theme") {
+          setThemeVersion((v) => v + 1);
+        }
+      }
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
+  }, []);
+
   onPointerRef.current = onPointer;
   onBarNavigateRef.current = onBarNavigate;
   onDrawErrorRef.current = onDrawError;
@@ -186,7 +201,7 @@ export function PlantChart({
       chartRef.current?.destroy();
       chartRef.current = null;
     };
-  }, [model, mode, failed]);
+  }, [model, mode, failed, themeVersion]);
 
   useEffect(() => {
     const host = canvasRef.current;
