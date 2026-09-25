@@ -17,7 +17,9 @@ dependencies = [
 dev = [
     "httpx>=0.28",
     "mypy>=1.14",
+    "pip-audit>=2.7",
     "pytest>=8",
+    "ruff>=0.9",
     "testcontainers[mysql]>=4.9",
     "types-PyMySQL>=1.1",
 ]
@@ -35,3 +37,12 @@ testpaths = ["tests"]
 python_version = "3.12"
 files = ["src/wattloft"]
 strict = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B"]
+ignore = ["E501"]
+

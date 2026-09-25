@@ -172,7 +172,7 @@ def detect_clipping_for_series(
             )
         )
 
-    for i, (dt, watts) in enumerate(sorted_pts):
+    for dt, watts in sorted_pts:
         m = _minute_of_day(dt)
         if watts >= threshold_min_watts:
             if not current_run:
