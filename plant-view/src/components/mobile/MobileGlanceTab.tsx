@@ -1,5 +1,6 @@
 import { LastSample } from "../../LastSample";
 import type { GlanceView } from "../../glanceModel";
+import { ClearSkyMeter } from "../ClearSkyMeter";
 import { KpiCard } from "../KpiCard";
 import { StallBanner } from "../StallBanner";
 
@@ -22,6 +23,7 @@ export function MobileGlanceTab({
       <div className="hero-plant-now">
         <span className="hero-label">Plant now</span>
         <div className="hero-watts">{view.wattsLabel}</div>
+        {view.clearSky ? <ClearSkyMeter meter={view.clearSky} /> : null}
         {currentPowerAt ? (
           <div className="hero-as-of">
             as of <LastSample at={currentPowerAt} />

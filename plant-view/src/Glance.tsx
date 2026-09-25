@@ -1,5 +1,6 @@
 import { LastSample } from "./LastSample";
 import type { GlanceView } from "./glanceModel";
+import { ClearSkyMeter } from "./components/ClearSkyMeter";
 
 export function Glance({
   view,
@@ -18,6 +19,7 @@ export function Glance({
       <div className="glance-now">
         <p className="glance-now-label">Plant now</p>
         <p className="glance-watts">{view.wattsLabel}</p>
+        {view.clearSky ? <ClearSkyMeter meter={view.clearSky} /> : null}
         {currentPowerAt ? (
           <p className="glance-as-of">
             as of <LastSample at={currentPowerAt} />

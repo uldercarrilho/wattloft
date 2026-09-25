@@ -516,6 +516,55 @@ h1 { font: 600 1.7rem/1.1 "Ibarra Real Nova", serif; margin: 0; color: var(--ink
 }
 .hero-as-of { font-size: 0.85rem; color: var(--muted); }
 
+/* Clear-sky instantaneous bullet meter */
+.clearsky-meter {
+  margin: 0.5rem auto 0.65rem;
+  max-width: 220px;
+  width: 100%;
+}
+.clearsky-bar-track {
+  height: 6px;
+  width: 100%;
+  background: var(--solar-arc);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+.clearsky-bar-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+.clearsky-bar-fill.condition-optimal {
+  background: var(--pigment);
+}
+.clearsky-bar-fill.condition-reduced {
+  background: var(--status-warn);
+}
+.clearsky-bar-fill.condition-overcast {
+  background: var(--muted);
+}
+.clearsky-readout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.clearsky-pct {
+  font-weight: 600;
+  color: var(--ink);
+}
+.clearsky-sep {
+  opacity: 0.6;
+}
+.clearsky-ideal {
+  color: var(--muted);
+}
+
 /* Logger Rows on Glance */
 .glance-loggers-card {
   background: var(--surface); border: 1px solid var(--surface-border);
