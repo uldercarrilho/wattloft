@@ -576,25 +576,24 @@ describe("Plant view", () => {
     );
   });
 
-  it("shows the Plant now glance on a narrow viewport with no unit", async () => {
+  it("shows the Plant now glance on a narrow viewport with no unit and 4-tab dock", async () => {
     stubMatchMedia(false);
     window.history.replaceState({}, "", "/?day=2026-08-21");
     stubPlant(200, snapshot);
     render(<App />);
     expect(await screen.findByText("Plant now")).toBeTruthy();
-    expect(screen.getByRole("navigation", { name: "Pages" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Glance" }).getAttribute("aria-current")).toBe(
+    expect(screen.getByRole("tablist", { name: "Mobile views" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: /Glance/i }).getAttribute("aria-selected")).toBe(
       "true",
     );
-    expect(screen.getByRole("link", { name: "Power" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Day" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Month" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Year" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: /Power/i })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: /History/i })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: /Insights/i })).toBeTruthy();
     expect(screen.queryByRole("navigation", { name: "Grain" })).toBeNull();
     expect(screen.getByText("50 W")).toBeTruthy();
   });
 
-  it("opens the Day snap on a narrow viewport without a Grain switcher", async () => {
+  it("opens the Day snap in History tab on a narrow viewport with day grain", async () => {
     stubMatchMedia(false);
     window.history.replaceState({}, "", "/?day=2026-08-21&unit=day");
     stubPlant(200, snapshot);
@@ -605,19 +604,46 @@ describe("Plant view", () => {
     expect(screen.queryByText("Plant now")).toBeNull();
     expect(screen.queryByRole("navigation", { name: "Grain" })).toBeNull();
     expect(screen.getByRole("button", { name: "Each" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: /History/i }).getAttribute("aria-selected")).toBe("true");
   });
 
-  it("keeps day when moving from the glance to Power", async () => {
+  it("keeps day when moving from the glance to Power tab", async () => {
     stubMatchMedia(false);
     window.history.replaceState({}, "", "/?day=2026-08-21");
     stubPlant(200, snapshot);
     render(<App />);
     await screen.findByText("Plant now");
     const push = vi.spyOn(window.history, "pushState");
-    fireEvent.click(screen.getByRole("link", { name: "Power" }));
+    fireEvent.click(screen.getByRole("tab", { name: /Power/i }));
     const pushed = String(push.mock.calls[0]?.[2]);
     expect(pushed).toContain("day=2026-08-21");
     expect(pushed).toContain("unit=time");
+  });
+
+  it("renders the Azulejo Moderno theme toggle and switches theme", async () => {
+    stubPlant(200, snapshot);
+    render(<App />);
+    expect(await screen.findByText("Today so far")).toBeTruthy();
+    const toggleBtn = screen.getByRole("button", { name: /Switch to (dark|light) mode/i });
+    expect(toggleBtn).toBeTruthy();
+
+    fireEvent.click(toggleBtn);
+    expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+
+    fireEvent.click(toggleBtn);
+    expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+  });
+
+  it("renders 4-metric KPI grid and diagnostics panel on desktop", async () => {
+    stubPlant(200, snapshot);
+    render(<App />);
+    expect(await screen.findByText("Today so far")).toBeTruthy();
+    expect(screen.getByText("Current Power")).toBeTruthy();
+    expect(screen.getByText("Lifetime energy")).toBeTruthy();
+    expect(screen.getByText("Solar Envelope")).toBeTruthy();
+    expect(
+      screen.getByText("Production Intelligence & Solar Diagnostics (ADR 0032)"),
+    ).toBeTruthy();
   });
 
   it("keeps desktop Grain nav and no glance on a wide viewport", async () => {

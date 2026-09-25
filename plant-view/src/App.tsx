@@ -27,6 +27,10 @@ import {
 import type { Grain, PlantPayload } from "./types";
 import { useWideViewport } from "./useWideViewport";
 import { applySample, formatTimeOfDay } from "./liveStream";
+import { DesktopPlantView } from "./components/desktop/DesktopPlantView";
+import { MobilePlantView } from "./components/mobile/MobilePlantView";
+import type { ConnectionStatus } from "./components/LiveStatusBadge";
+import { useTheme } from "./useTheme";
 
 type ViewState =
   | { kind: "loading" }
@@ -216,127 +220,20 @@ function Plant({
   payload,
   busy,
   offline,
+  status,
 }: {
   payload: Extract<PlantPayload, { empty: false }>;
   busy: boolean;
   offline?: boolean;
+  status?: ConnectionStatus;
 }) {
-  const unit = payload.unit;
-  const snapshot = payload;
-  const [mode, setMode] = useState<ChartMode>(() => readChartMode(window.localStorage));
-  const [hidden, setHidden] = useState<Set<string>>(() => new Set());
-  const [idealEnvelope, setIdealEnvelope] = useState(() => {
-    try {
-      return window.localStorage.getItem("wattloft.ideal-envelope") === "true";
-    } catch {
-      return false;
-    }
-  });
-  const toggleIdealEnvelope = () => {
-    setIdealEnvelope((prev) => {
-      const next = !prev;
-      try {
-        window.localStorage.setItem("wattloft.ideal-envelope", String(next));
-      } catch {}
-      return next;
-    });
-  };
-  const names =
-    unit === "time" && snapshot.curve.length === 0
-      ? []
-      : mode === "stack"
-        ? stackLoggerNames(snapshot)
-        : unit === "time"
-          ? overlayTimeNames(snapshot)
-          : [];
-  const visible = new Set(names.filter((name) => !hidden.has(name)));
-  const today =
-    snapshot.today_energy_kwh === null ? "-" : formatKwh(snapshot.today_energy_kwh);
-  const period = stepper(snapshot, snapshot.selected_day, unit, localDayOf(new Date().toISOString()));
-  useEffect(() => {
-    setHidden(new Set());
-  }, [payload.selected_day, payload.unit]);
   return (
-    <main aria-busy={busy ? true : undefined}>
-      <a className="skip" href="#plant-chart">
-        Skip to chart
-      </a>
-      <PlantHeader />
-      {offline ? (
-        <p className="offline-banner" role="status">
-          Offline · Showing cached plant state as of {formatTimeOfDay(snapshot.current_power_at)}
-        </p>
-      ) : null}
-      <dl className="kpis">
-        <div>
-          <dt>Today so far</dt>
-          <dd>{today}</dd>
-        </div>
-        <div>
-          <dt>Current Power</dt>
-          <dd>{formatWatts(snapshot.current_power_w)}</dd>
-        </div>
-        <div>
-          <dt>Lifetime energy</dt>
-          <dd>{lifetimeKwh(snapshot.lifetime_energy_kwh)}</dd>
-        </div>
-        <div>
-          <dt>Last sample</dt>
-          <dd>
-            <LastSample at={snapshot.current_power_at} />
-          </dd>
-        </div>
-      </dl>
-      <PeriodStepper
-        label={period.label}
-        prevHref={period.prevHref}
-        nextHref={period.nextHref}
-        hideChevrons={unit === "year" && !period.prevHref && !period.nextHref}
-      />
-      <nav className="grain" aria-label="Grain">
-        {(["time", "day", "month", "year"] as const).map((grain) => (
-          <a
-            key={grain}
-            href={href(snapshot.selected_day, grain)}
-            aria-current={grain === unit ? "true" : undefined}
-            aria-label={
-              grain === "time" ? "Power curve for this Local day" : undefined
-            }
-          >
-            {GRAIN_LABEL[grain]}
-          </a>
-        ))}
-      </nav>
-      <ChartModeBar
-        mode={mode}
-        onChoose={(next) => chooseChartMode(next, setMode)}
-        unit={unit}
-        idealEnvelope={idealEnvelope}
-        onToggleIdealEnvelope={toggleIdealEnvelope}
-      />
-      <Chart
-        snapshot={snapshot}
-        unit={unit}
-        mode={mode}
-        visible={visible}
-        idealEnvelope={idealEnvelope}
-        chips={
-          <SeriesChips
-            snapshot={snapshot}
-            names={names}
-            hidden={hidden}
-            onToggle={(name) => {
-              setHidden((prev) => {
-                const next = new Set(prev);
-                if (next.has(name)) next.delete(name);
-                else next.add(name);
-                return next;
-              });
-            }}
-          />
-        }
-      />
-    </main>
+    <DesktopPlantView
+      payload={payload}
+      busy={busy}
+      offline={offline}
+      status={status}
+    />
   );
 }
 
@@ -374,6 +271,9 @@ export function App() {
   const [busy, setBusy] = useState(false);
   const [isOffline, setIsOffline] = useState(() => typeof navigator !== "undefined" && !navigator.onLine);
   const [fallbackPolling, setFallbackPolling] = useState(() => typeof EventSource === "undefined");
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(() =>
+    typeof EventSource === "undefined" ? "polling" : "live",
+  );
   const stateRef = useRef(state);
   stateRef.current = state;
 
@@ -391,10 +291,12 @@ export function App() {
   useEffect(() => {
     const onOnline = () => {
       setIsOffline(false);
+      setConnectionStatus("live");
       setTick((n) => n + 1);
     };
     const onOffline = () => {
       setIsOffline(true);
+      setConnectionStatus("offline");
     };
     window.addEventListener("online", onOnline);
     window.addEventListener("offline", onOffline);
@@ -508,6 +410,7 @@ export function App() {
       es.onopen = () => {
         retryCount = 0;
         setFallbackPolling(false);
+        setConnectionStatus("live");
       };
 
       es.addEventListener("snapshot", (event: MessageEvent) => {
@@ -563,6 +466,9 @@ export function App() {
         retryCount++;
         if (retryCount > 3) {
           setFallbackPolling(true);
+          setConnectionStatus("polling");
+        } else {
+          setConnectionStatus("reconnecting");
         }
         const backoffMs = Math.min(1000 * Math.pow(2, retryCount - 1), 16000);
         reconnectTimeout = setTimeout(() => {
@@ -619,9 +525,19 @@ export function App() {
   }
   if (state.kind === "plant") {
     return wide ? (
-      <Plant payload={state.payload} busy={busy} offline={isOffline} />
+      <DesktopPlantView
+        payload={state.payload}
+        busy={busy}
+        offline={isOffline}
+        status={connectionStatus}
+      />
     ) : (
-      <PlantMobile payload={state.payload} busy={busy} offline={isOffline} />
+      <MobilePlantView
+        payload={state.payload}
+        busy={busy}
+        offline={isOffline}
+        status={connectionStatus}
+      />
     );
   }
   return <main />;

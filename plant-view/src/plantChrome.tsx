@@ -18,6 +18,9 @@ import {
 import { lifetimeKwh } from "./LastSample";
 import type { Grain, PlantSnapshot } from "./types";
 
+import { LiveStatusBadge, type ConnectionStatus } from "./components/LiveStatusBadge";
+import { useTheme, type Theme } from "./useTheme";
+
 export const GRAIN_LABEL: Record<Grain, string> = {
   time: "Power",
   day: "Day",
@@ -25,7 +28,19 @@ export const GRAIN_LABEL: Record<Grain, string> = {
   year: "Year",
 };
 
-export function PlantHeader() {
+export function PlantHeader({
+  status = "live",
+  theme: propTheme,
+  onToggleTheme: propToggleTheme,
+}: {
+  status?: ConnectionStatus;
+  theme?: Theme;
+  onToggleTheme?: () => void;
+} = {}) {
+  const localTheme = useTheme();
+  const theme = propTheme ?? localTheme.theme;
+  const toggleTheme = propToggleTheme ?? localTheme.toggleTheme;
+
   const onLogout = () => {
     if (typeof caches !== "undefined") {
       caches.keys().then((keys) => {
@@ -35,10 +50,24 @@ export function PlantHeader() {
   };
   return (
     <header className="plant-header">
-      <h1>Plant</h1>
-      <form className="logout" method="post" action="/logout" onSubmit={onLogout}>
-        <button type="submit">Log out</button>
-      </form>
+      <div className="header-brand-group">
+        <h1>Plant</h1>
+        <LiveStatusBadge status={status} />
+      </div>
+      <div className="header-actions">
+        <button
+          type="button"
+          className="theme-toggle-btn"
+          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          onClick={toggleTheme}
+        >
+          {theme === "dark" ? "☼" : "☾"}
+        </button>
+        <form className="logout" method="post" action="/logout" onSubmit={onLogout}>
+          <button type="submit">Log out</button>
+        </form>
+      </div>
     </header>
   );
 }
