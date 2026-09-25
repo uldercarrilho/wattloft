@@ -176,6 +176,24 @@ def _snapshot_payload(snapshot: PlantSnapshot, selected_day: date) -> dict[str, 
             }
             for row in snapshot.loggers_now
         ],
+        "envelope_calibration": (
+            {
+                "calibrated": snapshot.envelope_calibration.calibrated,
+                "sunny_days_count": snapshot.envelope_calibration.sunny_days_count,
+                "last_calibrated_at": (
+                    snapshot.envelope_calibration.last_calibrated_at.isoformat()
+                    if snapshot.envelope_calibration.last_calibrated_at
+                    else None
+                ),
+                "scale": snapshot.envelope_calibration.scale,
+                "tilt_deg": snapshot.envelope_calibration.tilt_deg,
+                "azimuth_offset_deg": snapshot.envelope_calibration.azimuth_offset_deg,
+                "elevation_cutoff_deg": snapshot.envelope_calibration.elevation_cutoff_deg,
+                "ac_cap_w": snapshot.envelope_calibration.ac_cap_w,
+            }
+            if snapshot.envelope_calibration is not None
+            else None
+        ),
     }
 
 
@@ -234,8 +252,29 @@ def create_app(
             admitted_logger_serials,
             on_sample=event_bus.publish,
         )
-        async with server:
-            yield
+
+        async def _calibration_worker() -> None:
+            from wattloft.solar import run_calibration
+
+            try:
+                await asyncio.to_thread(run_calibration, database_url)
+            except Exception:
+                pass
+            while True:
+                try:
+                    await asyncio.sleep(3600)
+                    await asyncio.to_thread(run_calibration, database_url)
+                except asyncio.CancelledError:
+                    break
+                except Exception:
+                    pass
+
+        cal_task = asyncio.create_task(_calibration_worker())
+        try:
+            async with server:
+                yield
+        finally:
+            cal_task.cancel()
 
     return Starlette(
         routes=[
