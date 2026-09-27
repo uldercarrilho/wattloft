@@ -90,3 +90,58 @@ def test_no_drift_when_baseline_under_60_days() -> None:
     result = evaluate_drift(history, names)
 
     assert result.detected is False
+    assert result.threshold_pct == 5
+
+
+def test_drift_triggers_at_five_percent_variance() -> None:
+    # 60 days baseline, then sustained 6% underperformance for 35 days
+    total_days = 95
+    east_mods = [1.0] * 60 + [0.94] * 35
+    history = _generate_history(
+        total_days,
+        east_base=5.0,
+        west_base=5.0,
+        east_modifier=east_mods,
+    )
+    names = {"1000000001": "East", "1000000002": "West"}
+    result = evaluate_drift(history, names)
+
+    assert result.detected is True
+    assert result.drift_pct == 6
+    assert result.threshold_pct == 5
+    assert "East array underperforming relative to West by 6%" in (result.advisory or "")
+
+
+def test_no_drift_below_five_percent_variance() -> None:
+    # 60 days baseline, then sustained 4% divergence (under the 5% threshold)
+    total_days = 95
+    east_mods = [1.0] * 60 + [0.96] * 35
+    history = _generate_history(
+        total_days,
+        east_base=5.0,
+        west_base=5.0,
+        east_modifier=east_mods,
+    )
+    names = {"1000000001": "East", "1000000002": "West"}
+    result = evaluate_drift(history, names)
+
+    assert result.detected is False
+    assert result.threshold_pct == 5
+
+
+def test_custom_drift_threshold_override() -> None:
+    # 6% divergence with a custom 8% threshold should not trigger
+    total_days = 95
+    east_mods = [1.0] * 60 + [0.94] * 35
+    history = _generate_history(
+        total_days,
+        east_base=5.0,
+        west_base=5.0,
+        east_modifier=east_mods,
+    )
+    names = {"1000000001": "East", "1000000002": "West"}
+    result = evaluate_drift(history, names, threshold=0.08)
+
+    assert result.detected is False
+    assert result.threshold_pct == 8
+

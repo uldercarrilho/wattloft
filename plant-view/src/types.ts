@@ -56,6 +56,7 @@ export type DriftInfo = {
   drift_pct: number | null;
   baseline_ratio?: number | null;
   rolling_ratio?: number | null;
+  threshold_pct?: number | null;
 };
 
 export type EnvelopeCalibration = {
