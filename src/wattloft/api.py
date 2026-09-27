@@ -164,6 +164,7 @@ def _snapshot_payload(snapshot: PlantSnapshot, selected_day: date) -> dict[str, 
                 "drift_pct": snapshot.drift.drift_pct,
                 "baseline_ratio": snapshot.drift.baseline_ratio,
                 "rolling_ratio": snapshot.drift.rolling_ratio,
+                "threshold_pct": snapshot.drift.threshold_pct,
             }
             if snapshot.drift is not None
             else None

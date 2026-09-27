@@ -35,7 +35,7 @@ export function MobileInsightsTab({ snapshot }: { snapshot: PlantSnapshot }) {
                 {diag.arrayBalance.advisory}
               </span>
             ) : (
-              "Symmetric physical string yields within nominal variance (<12%)."
+              `Symmetric physical string yields within nominal variance (<${diag.arrayBalance.thresholdPct}%).`
             )
           }
           badge={

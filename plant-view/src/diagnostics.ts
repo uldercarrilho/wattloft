@@ -6,6 +6,7 @@ export type DiagnosticsSummary = {
     baselineRatio: number | null;
     rollingRatio: number | null;
     driftPct: number | null;
+    thresholdPct: number;
     advisory: string | null;
     affectedLogger: string | null;
     status: "balanced" | "divergent" | "unavailable";
@@ -52,6 +53,7 @@ export function computeDiagnostics(snapshot: PlantSnapshot): DiagnosticsSummary 
   const baselineRatio = drift?.baseline_ratio ?? null;
   const rollingRatio = drift?.rolling_ratio ?? null;
   const driftPct = drift?.drift_pct ?? null;
+  const thresholdPct = drift?.threshold_pct ?? 5;
   const advisory = drift?.advisory ?? null;
   const affectedLogger = drift?.affected_logger ?? null;
 
@@ -122,6 +124,7 @@ export function computeDiagnostics(snapshot: PlantSnapshot): DiagnosticsSummary 
       baselineRatio,
       rollingRatio,
       driftPct,
+      thresholdPct,
       advisory,
       affectedLogger,
       status: balanceStatus,

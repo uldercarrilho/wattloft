@@ -4,6 +4,8 @@ import statistics
 from dataclasses import dataclass
 from datetime import date
 
+from wattloft.config import DRIFT_VARIANCE_THRESHOLD
+
 
 @dataclass(frozen=True)
 class DriftResult:
@@ -13,11 +15,14 @@ class DriftResult:
     drift_pct: int | None
     baseline_ratio: float | None = None
     rolling_ratio: float | None = None
+    threshold_pct: int = 5
 
 
 def evaluate_drift(
     by_bar_day: dict[date, dict[str, float]],
     logger_display_names: dict[str, str],
+    *,
+    threshold: float | None = None,
 ) -> DriftResult:
     """Evaluate array balance and drift over daily logger production history.
 
@@ -26,16 +31,32 @@ def evaluate_drift(
       Ratio(d) = TodayEnergy_East(d) / TodayEnergy_West(d)
     - Baseline R_base = median of first 60 days of monitoring.
     - 30-day rolling median R_30(d) compared against R_base.
-    - If |R_30(d) - R_base| / R_base > 0.12 continuously for 14 Local Days:
+    - If |R_30(d) - R_base| / R_base > threshold (default 0.05 / 5%) continuously for 14 Local Days:
       Advisory badge: '{Name} array underperforming relative to {Other} by X% (check for soiling or obstruction)'
     """
+    variance_threshold = threshold if threshold is not None else DRIFT_VARIANCE_THRESHOLD
+    th_pct = round(variance_threshold * 100)
+
     if not by_bar_day:
-        return DriftResult(detected=False, advisory=None, affected_logger=None, drift_pct=None)
+        return DriftResult(
+            detected=False,
+            advisory=None,
+            affected_logger=None,
+            drift_pct=None,
+            threshold_pct=th_pct,
+        )
+
 
     # Determine serials for Array A and Array B (prefer East as A, West as B if names match)
     all_serials = sorted({s for day_dict in by_bar_day.values() for s in day_dict})
     if len(all_serials) < 2:
-        return DriftResult(detected=False, advisory=None, affected_logger=None, drift_pct=None)
+        return DriftResult(
+            detected=False,
+            advisory=None,
+            affected_logger=None,
+            drift_pct=None,
+            threshold_pct=th_pct,
+        )
 
     serial_a = all_serials[0]
     serial_b = all_serials[1]
@@ -62,12 +83,24 @@ def evaluate_drift(
 
     # Baseline requires first 60 days of monitoring
     if len(valid_days) < 60:
-        return DriftResult(detected=False, advisory=None, affected_logger=None, drift_pct=None)
+        return DriftResult(
+            detected=False,
+            advisory=None,
+            affected_logger=None,
+            drift_pct=None,
+            threshold_pct=th_pct,
+        )
 
     first_60_ratios = [r for _, r in valid_days[:60]]
     r_base = statistics.median(first_60_ratios)
     if r_base <= 0:
-        return DriftResult(detected=False, advisory=None, affected_logger=None, drift_pct=None)
+        return DriftResult(
+            detected=False,
+            advisory=None,
+            affected_logger=None,
+            drift_pct=None,
+            threshold_pct=th_pct,
+        )
 
     # Calculate 30-day rolling median for each day i >= 29
     rolling_medians: list[tuple[date, float, float]] = []  # (day, r_30, rel_drift)
@@ -86,11 +119,12 @@ def evaluate_drift(
             affected_logger=None,
             drift_pct=None,
             baseline_ratio=round(r_base, 3),
+            threshold_pct=th_pct,
         )
 
-    # Check if relative drift > 0.12 continuously for the last 14 Local Days
+    # Check if relative drift > variance_threshold continuously for the last 14 Local Days
     last_14 = rolling_medians[-14:]
-    sustained = all(drift > 0.12 for _, _, drift in last_14)
+    sustained = all(drift > variance_threshold for _, _, drift in last_14)
 
     latest_day, latest_r_30, latest_drift = rolling_medians[-1]
 
@@ -102,6 +136,7 @@ def evaluate_drift(
             drift_pct=None,
             baseline_ratio=round(r_base, 3),
             rolling_ratio=round(latest_r_30, 3),
+            threshold_pct=th_pct,
         )
 
     # Determine which array is underperforming
@@ -130,4 +165,5 @@ def evaluate_drift(
         drift_pct=drift_pct,
         baseline_ratio=round(r_base, 3),
         rolling_ratio=round(latest_r_30, 3),
+        threshold_pct=th_pct,
     )

@@ -64,4 +64,32 @@ describe("computeDiagnostics - Hybrid Solar Envelope Calibration", () => {
     expect(diag.solarEnvelope.calibration?.sunnyDaysCount).toBe(4);
     expect(diag.solarEnvelope.calibration?.lastCalibratedAt).toBe("2026-09-24T23:59:00");
   });
+
+  it("computes array balance with default and custom thresholdPct", () => {
+    // Default fallback to 5%
+    const diagDefault = computeDiagnostics(baseSnapshot);
+    expect(diagDefault.arrayBalance.thresholdPct).toBe(5);
+    expect(diagDefault.arrayBalance.status).toBe("balanced");
+    expect(diagDefault.arrayBalance.ratio).toBe(1.02);
+
+    // Custom threshold from drift payload
+    const snapshotWithDrift: PlantSnapshot = {
+      ...baseSnapshot,
+      drift: {
+        detected: true,
+        advisory: "East array underperforming relative to West by 6% (check for soiling or obstruction)",
+        affected_logger: "East",
+        drift_pct: 6,
+        baseline_ratio: 1.0,
+        rolling_ratio: 0.94,
+        threshold_pct: 5,
+      },
+    };
+    const diagDrift = computeDiagnostics(snapshotWithDrift);
+    expect(diagDrift.arrayBalance.thresholdPct).toBe(5);
+    expect(diagDrift.arrayBalance.status).toBe("divergent");
+    expect(diagDrift.arrayBalance.driftPct).toBe(6);
+    expect(diagDrift.arrayBalance.advisory).toContain("underperforming");
+  });
 });
+

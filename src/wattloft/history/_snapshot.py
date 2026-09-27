@@ -6,6 +6,7 @@ from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 from wattloft.config import (
+    DRIFT_VARIANCE_THRESHOLD,
     LOGGER_DISPLAY_NAMES,
     MICROINVERTER_NAMEPLATE_W,
     PLANT_LATITUDE,
@@ -273,7 +274,9 @@ def _make_snapshot(
     )
 
     # Array balance & drift tracker
-    drift_result = evaluate_drift(by_bar_day, LOGGER_DISPLAY_NAMES)
+    drift_result = evaluate_drift(
+        by_bar_day, LOGGER_DISPLAY_NAMES, threshold=DRIFT_VARIANCE_THRESHOLD
+    )
 
     return PlantSnapshot(
         today_energy_kwh=(
@@ -312,7 +315,15 @@ def _make_snapshot(
         ),
         ideal_curve=ideal_curve,
         clipping=plant_clipping if plant_clipping.clipped else None,
-        drift=drift_result if drift_result.detected else None,
+        drift=(
+            drift_result
+            if (
+                drift_result.detected
+                or drift_result.baseline_ratio is not None
+                or len(LOGGER_DISPLAY_NAMES) >= 2
+            )
+            else None
+        ),
         envelope_calibration=cal,
     )
 
