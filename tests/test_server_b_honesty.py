@@ -22,9 +22,9 @@ _CONTROL_HELLO = 0x4110
 _CONTROL_HEARTBEAT = 0x4710
 _UNKNOWN_SERIAL = 1111111111
 # Proven 23-byte ACK: 10 zero-byte payload, control 0x1110, same sequence and logger serial.
-_EXPECTED_HELLO_ACK = bytes.fromhex("a50a0010110400195403e9000000000000000000008815")
+_EXPECTED_HELLO_ACK = bytes.fromhex("a50a001011040001ca9a3b00000000000000000000cf15")
 # Proven 23-byte ACK: 10 zero-byte payload, control 0x1710, same sequence and logger serial.
-_EXPECTED_HEARTBEAT_ACK = bytes.fromhex("a50a0010170400195403e9000000000000000000008e15")
+_EXPECTED_HEARTBEAT_ACK = bytes.fromhex("a50a001017040001ca9a3b00000000000000000000d515")
 
 
 def _no_ack(sock: socket.socket) -> bytes:
