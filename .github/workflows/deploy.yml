@@ -202,7 +202,9 @@ jobs:
       GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN || secrets.GITHUB_TOKEN }}
       GHCR_USERNAME: ${{ github.actor }}
       WATTLOFT_HOSTNAME: ${{ vars.WATTLOFT_HOSTNAME }}
-      WATTLOFT_RESERVED_IPV4: ${{ vars.WATTLOFT_RESERVED_IPV4 }}
+      WATTLOFT_RESERVED_IPV4: ${{ secrets.WATTLOFT_RESERVED_IPV4 || vars.WATTLOFT_RESERVED_IPV4 }}
+      WATTLOFT_ADMITTED_LOGGER_SERIALS: ${{ secrets.WATTLOFT_ADMITTED_LOGGER_SERIALS }}
+      WATTLOFT_LOGGER_DISPLAY_NAMES: ${{ secrets.WATTLOFT_LOGGER_DISPLAY_NAMES }}
       WATTLOFT_IMAGE: ghcr.io/uldercarrilho/wattloft:${{ github.sha }}
       WATTLOFT_PLANT_VIEW_IMAGE: ghcr.io/uldercarrilho/wattloft-plant-view:${{ github.sha }}
       DESEC_TOKEN: ${{ secrets.DESEC_TOKEN }}

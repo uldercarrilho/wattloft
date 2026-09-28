@@ -8,7 +8,7 @@
 
 **Tech Stack:** React 19, TypeScript, Chart.js 4.5, Vitest, React Testing Library, CSS Custom Properties.
 
-**Spec:** [2026-09-24-ui-ux-revamp-design.md](../docs/superpowers/specs/2026-09-24-ui-ux-revamp-design.md)
+**Spec:** [2026-09-24-ui-ux-revamp-design.md](../specs/2026-09-24-ui-ux-revamp-design.md)
 
 ## Global Constraints
 

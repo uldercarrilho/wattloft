@@ -172,8 +172,8 @@ describe("grains", () => {
   it("lists Stack Logger names from bars and curve, excluding Plant", () => {
     expect(stackLoggerNames(snapshot)).toEqual([
       "1000000001",
-      "1000000003",
       "1000000002",
+      "1000000003",
     ]);
   });
 

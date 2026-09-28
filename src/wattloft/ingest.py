@@ -16,6 +16,12 @@ from wattloft.v5 import (
 
 IDLE_TIMEOUT_S = 300
 MAX_BUF = 65536
+MAX_CONCURRENT_CONNECTIONS = 20
+
+
+def max_concurrent_connections() -> int:
+    raw = os.environ.get("INGEST_MAX_CONCURRENT_CONNECTIONS")
+    return int(raw) if raw is not None else MAX_CONCURRENT_CONNECTIONS
 
 
 def idle_timeout_s() -> float:
@@ -117,12 +123,27 @@ async def start_ingest(
     *,
     on_sample: Callable[[dict[str, object]], None] | None = None,
 ) -> asyncio.Server:
+    max_connections = max_concurrent_connections()
+    active_connections = 0
+    lock = asyncio.Lock()
+
     async def _client(
         reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ) -> None:
-        await serve_logger(
-            reader, writer, database_url, admitted_logger_serials, on_sample=on_sample
-        )
+        nonlocal active_connections
+        async with lock:
+            if active_connections >= max_connections:
+                writer.close()
+                await writer.wait_closed()
+                return
+            active_connections += 1
+        try:
+            await serve_logger(
+                reader, writer, database_url, admitted_logger_serials, on_sample=on_sample
+            )
+        finally:
+            async with lock:
+                active_connections -= 1
 
     return await asyncio.start_server(_client, host, port)
 

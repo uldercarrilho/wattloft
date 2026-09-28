@@ -48,6 +48,36 @@ describe("Operator BFF", () => {
     expect(rejected.headers.getSetCookie().join()).not.toContain("wattloft=");
   });
 
+  it("enforces rate limiting after repeated failed login attempts", async () => {
+    const testApp = createApp({
+      operatorPassword: PASSWORD,
+      apiUrl: "http://127.0.0.1:9",
+      cookieSecure: false,
+      documentHtml: DOCUMENT,
+      loginRateLimitMax: 3,
+      loginRateLimitWindowMs: 60_000,
+    });
+    for (let i = 0; i < 3; i++) {
+      const res = await testApp.request("/login", {
+        method: "POST",
+        headers: { Accept: "application/json" },
+        body: new URLSearchParams({ password: "wrong" }),
+      });
+      expect(res.status).toBe(401);
+    }
+    const blocked = await testApp.request("/login", {
+      method: "POST",
+      headers: { Accept: "application/json" },
+      body: new URLSearchParams({ password: "wrong" }),
+    });
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get("retry-after")).toBeDefined();
+    expect(await blocked.json()).toEqual({
+      error: "too-many-requests",
+      message: "Too many failed login attempts. Please try again later.",
+    });
+  });
+
   it("sets a session cookie and redirects after the correct password", async () => {
     const granted = await app().request("/login", {
       method: "POST",

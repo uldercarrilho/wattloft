@@ -72,7 +72,7 @@ def test_handle_frame_unadmitted_serial_does_not_invoke_on_sample(
 ) -> None:
     monkeypatch.setattr("wattloft.ingest.record_sample", lambda *args, **kwargs: None)
     samples: list[dict[str, object]] = []
-    frame = _sample_v5_frame(1111111111)
+    frame = _sample_v5_frame(2000000000)
 
     ack = handle_frame(
         "mysql://dummy",

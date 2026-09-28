@@ -4,11 +4,30 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-ADMITTED_LOGGER_SERIALS = frozenset({"1000000001", "1000000002"})
-LOGGER_DISPLAY_NAMES = {
-    "1000000001": "East",
-    "1000000002": "West",
-}
+def _parse_admitted_serials() -> frozenset[str]:
+    raw = os.environ.get("WATTLOFT_ADMITTED_LOGGER_SERIALS")
+    if raw:
+        return frozenset(s.strip() for s in raw.split(",") if s.strip())
+    return frozenset({"1000000001", "1000000002"})
+
+
+def _parse_display_names() -> dict[str, str]:
+    raw = os.environ.get("WATTLOFT_LOGGER_DISPLAY_NAMES")
+    if raw:
+        names: dict[str, str] = {}
+        for part in raw.split(","):
+            if ":" in part:
+                serial, name = part.split(":", 1)
+                names[serial.strip()] = name.strip()
+        return names
+    return {
+        "1000000001": "East",
+        "1000000002": "West",
+    }
+
+
+ADMITTED_LOGGER_SERIALS = _parse_admitted_serials()
+LOGGER_DISPLAY_NAMES = _parse_display_names()
 
 PLANT_LATITUDE = float(os.environ.get("WATTLOFT_PLANT_LATITUDE", "-23.5505"))
 PLANT_LONGITUDE = float(os.environ.get("WATTLOFT_PLANT_LONGITUDE", "-46.6333"))

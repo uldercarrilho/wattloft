@@ -72,6 +72,8 @@ export type CreateAppOptions = {
   sentAlertKeys?: Set<string>;
   onStallAlert?: (alert: StallAlert) => void;
   heartbeatIntervalMs?: number;
+  loginRateLimitMax?: number;
+  loginRateLimitWindowMs?: number;
 };
 
 function sessionHmac(password: string, issuedAt: number): string {
@@ -257,16 +259,75 @@ export function createApp(opts: CreateAppOptions): Hono {
     }
   });
 
+  const maxLoginAttempts = opts.loginRateLimitMax ?? 5;
+  const loginWindowMs = opts.loginRateLimitWindowMs ?? 60_000;
+  const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+
+  function clientIp(c: Context): string {
+    const forwarded = c.req.header("x-forwarded-for");
+    if (forwarded) {
+      return forwarded.split(",")[0]!.trim();
+    }
+    return (
+      c.req.header("x-real-ip") ??
+      c.req.header("cf-connecting-ip") ??
+      "127.0.0.1"
+    );
+  }
+
+  function checkLoginRateLimit(c: Context): Response | null {
+    const ip = clientIp(c);
+    const now = Date.now();
+    const entry = loginAttempts.get(ip);
+    if (entry && entry.resetAt > now && entry.count >= maxLoginAttempts) {
+      const retryAfter = Math.max(1, Math.ceil((entry.resetAt - now) / 1000));
+      c.header("Retry-After", String(retryAfter));
+      const accept = c.req.header("accept") ?? "";
+      if (accept.includes("application/json")) {
+        return c.json(
+          {
+            error: "too-many-requests",
+            message: "Too many failed login attempts. Please try again later.",
+          },
+          429,
+        );
+      }
+      return c.text("Too many failed login attempts. Please try again later.", 429);
+    }
+    return null;
+  }
+
+  function recordLoginFailure(c: Context): void {
+    const ip = clientIp(c);
+    const now = Date.now();
+    const entry = loginAttempts.get(ip);
+    if (!entry || entry.resetAt <= now) {
+      loginAttempts.set(ip, { count: 1, resetAt: now + loginWindowMs });
+    } else {
+      entry.count += 1;
+    }
+  }
+
+  function recordLoginSuccess(c: Context): void {
+    loginAttempts.delete(clientIp(c));
+  }
+
   app.post("/login", async (c) => {
+    const rateLimitResponse = checkLoginRateLimit(c);
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
     const text = await c.req.text();
     const offered = new URLSearchParams(text).get("password") ?? "";
     if (!passwordsEqual(offered, opts.operatorPassword)) {
+      recordLoginFailure(c);
       const accept = c.req.header("accept") ?? "";
       if (accept.includes("application/json")) {
         return c.json({ error: "not-accepted" }, 401);
       }
       return c.html(opts.documentHtml, 401);
     }
+    recordLoginSuccess(c);
     return grantLogin(c, opts);
   });
 
@@ -289,6 +350,10 @@ export function createApp(opts: CreateAppOptions): Hono {
     if (!opts.passkey) {
       return c.json({ error: "unavailable" }, 404);
     }
+    const rateLimitResponse = checkLoginRateLimit(c);
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
     const challenge = readPasskeyChallenge(
       opts.operatorPassword,
       cookieValue(c.req.header("cookie"), PASSKEY_COOKIE),
@@ -297,6 +362,7 @@ export function createApp(opts: CreateAppOptions): Hono {
     try {
       assertion = (await c.req.json()) as PasskeyAssertion;
     } catch {
+      recordLoginFailure(c);
       return c.json({ error: "not-accepted" }, 401);
     }
     const origin = requestOrigin(c, opts.cookieSecure);
@@ -308,8 +374,10 @@ export function createApp(opts: CreateAppOptions): Hono {
       typeof assertion.response.signature !== "string" ||
       !verifyPasskeyAssertion(opts.passkey, assertion, challenge, origin)
     ) {
+      recordLoginFailure(c);
       return c.json({ error: "not-accepted" }, 401);
     }
+    recordLoginSuccess(c);
     return grantLogin(c, opts);
   });
 
