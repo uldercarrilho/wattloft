@@ -11,10 +11,10 @@ _LOCAL = ZoneInfo("America/Sao_Paulo")
 _START = 0xA5
 _END = 0x15
 _CONTROL_DATA = 0x4210
-_ADMITTED_SERIAL = 3909309465
+_ADMITTED_SERIAL = 1000000001
 _SEQUENCE = 4
 # Proven 23-byte ACK: 10 zero-byte payload, control 0x1210, same sequence and logger serial.
-_EXPECTED_ACK = bytes.fromhex("a50a0010120400195403e9000000000000000000008915")
+_EXPECTED_ACK = bytes.fromhex("a50a001012040001ca9a3b00000000000000000000d015")
 
 
 def _v5_frame(control: int, sequence: int, logger_serial: int, payload: bytes) -> bytes:
@@ -33,7 +33,7 @@ def _v5_frame(control: int, sequence: int, logger_serial: int, payload: bytes) -
 
 def _live_shaped_upload_header() -> bytes:
     payload = bytearray(534)
-    payload[21:31] = b"2301296636"
+    payload[21:31] = b"1234567890"
     payload[33:35] = (110).to_bytes(2, "little")
     payload[37:41] = (56354).to_bytes(4, "little")
     payload[59:63] = (625).to_bytes(4, "little")

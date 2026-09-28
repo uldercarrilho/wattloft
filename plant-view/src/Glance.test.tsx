@@ -9,14 +9,14 @@ const healthy: GlanceView = {
   banner: null,
   loggers: [
     {
-      name: "3909309465",
+      name: "1000000001",
       displayName: "East",
       reporting: true,
       wattsLabel: "210 W",
       ageLabel: "1 minute ago",
     },
     {
-      name: "3913630013",
+      name: "1000000002",
       displayName: "West",
       reporting: true,
       wattsLabel: "202 W",
@@ -58,14 +58,14 @@ describe("Glance", () => {
           banner: "West silent · last Sample 41 minutes ago",
           loggers: [
             {
-              name: "3909309465",
+              name: "1000000001",
               displayName: "East",
               reporting: true,
               wattsLabel: "210 W",
               ageLabel: "1 minute ago",
             },
             {
-              name: "3913630013",
+              name: "1000000002",
               displayName: "West",
               reporting: false,
               wattsLabel: "last 202 W",

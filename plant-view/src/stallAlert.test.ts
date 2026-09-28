@@ -4,7 +4,7 @@ import type { LoggerNow } from "./types";
 
 describe("stallAlert", () => {
   const EAST: LoggerNow = {
-    name: "3909309465",
+    name: "1000000001",
     display_name: "East",
     last_success_at: "2026-09-09T14:32:00-03:00",
     power_w: 420,
@@ -23,7 +23,7 @@ describe("stallAlert", () => {
     // 06:59 Sao Paulo time
     const dawn = new Date("2026-09-09T06:59:00-03:00");
     const westStalled: LoggerNow = {
-      name: "3913630013",
+      name: "1000000002",
       display_name: "West",
       last_success_at: "2026-09-09T06:20:00-03:00",
       power_w: 0,
@@ -43,7 +43,7 @@ describe("stallAlert", () => {
   it("does not alert when silent duration is 20 minutes or less", () => {
     const now = new Date("2026-09-09T12:00:00-03:00");
     const west20m: LoggerNow = {
-      name: "3913630013",
+      name: "1000000002",
       display_name: "West",
       last_success_at: "2026-09-09T11:40:00-03:00", // exactly 20m
       power_w: 0,
@@ -59,7 +59,7 @@ describe("stallAlert", () => {
   it("does not alert when sibling power is 50 W or less", () => {
     const now = new Date("2026-09-09T12:00:00-03:00");
     const westStalled: LoggerNow = {
-      name: "3913630013",
+      name: "1000000002",
       display_name: "West",
       last_success_at: "2026-09-09T11:30:00-03:00", // 30m silent
       power_w: 0,
@@ -75,7 +75,7 @@ describe("stallAlert", () => {
   it("fires alert when silent > 20m during daylight with sibling producing > 50 W", () => {
     const now = new Date("2026-09-09T14:32:00-03:00");
     const westStalled: LoggerNow = {
-      name: "3913630013",
+      name: "1000000002",
       display_name: "West",
       last_success_at: "2026-09-09T14:11:00-03:00", // 21 minutes silent
       power_w: 0,
@@ -88,7 +88,7 @@ describe("stallAlert", () => {
 
     const alert = evaluateStallAlert(now, [westStalled, eastActive], new Set());
     expect(alert).not.toBeNull();
-    expect(alert!.key).toBe("2026-09-09:3913630013");
+    expect(alert!.key).toBe("2026-09-09:1000000002");
     expect(alert!.minutesSilent).toBe(21);
     expect(alert!.notification.title).toBe("Wattloft · Logger Stall");
     expect(alert!.notification.body).toBe(
@@ -100,7 +100,7 @@ describe("stallAlert", () => {
   it("suppresses duplicate alert on the same Local day", () => {
     const now = new Date("2026-09-09T14:32:00-03:00");
     const westStalled: LoggerNow = {
-      name: "3913630013",
+      name: "1000000002",
       display_name: "West",
       last_success_at: "2026-09-09T14:11:00-03:00",
       power_w: 0,
@@ -111,7 +111,7 @@ describe("stallAlert", () => {
       power_w: 420,
     };
 
-    const sentKeys = new Set(["2026-09-09:3913630013"]);
+    const sentKeys = new Set(["2026-09-09:1000000002"]);
     expect(evaluateStallAlert(now, [westStalled, eastActive], sentKeys)).toBeNull();
 
     // Next local day: can fire again if sibling is active tomorrow
@@ -126,6 +126,6 @@ describe("stallAlert", () => {
     };
     const tomorrowAlert = evaluateStallAlert(tomorrow, [westTomorrow, eastTomorrow], sentKeys);
     expect(tomorrowAlert).not.toBeNull();
-    expect(tomorrowAlert!.key).toBe("2026-09-10:3913630013");
+    expect(tomorrowAlert!.key).toBe("2026-09-10:1000000002");
   });
 });

@@ -38,7 +38,7 @@ def test_clipping_detected_on_sunny_plateau() -> None:
         points.append((t, w))
 
     summary = detect_clipping_for_series(
-        serial="3909309465",
+        serial="1000000001",
         points=points,
         nameplate_w=nameplate_w,
         latitude_deg=-23.5505,
@@ -67,7 +67,7 @@ def test_no_clipping_when_plateau_is_too_short() -> None:
         points.append((t, 998.0))
 
     summary = detect_clipping_for_series(
-        serial="3909309465",
+        serial="1000000001",
         points=points,
         nameplate_w=nameplate_w,
         latitude_deg=-23.5505,
@@ -91,7 +91,7 @@ def test_no_clipping_when_fluctuation_is_too_wide() -> None:
         points.append((t, w))
 
     summary = detect_clipping_for_series(
-        serial="3909309465",
+        serial="1000000001",
         points=points,
         nameplate_w=nameplate_w,
         latitude_deg=-23.5505,
@@ -112,7 +112,7 @@ def test_no_clipping_below_90_percent_nameplate() -> None:
         points.append((t, 700.0))
 
     summary = detect_clipping_for_series(
-        serial="3909309465",
+        serial="1000000001",
         points=points,
         nameplate_w=nameplate_w,
         latitude_deg=-23.5505,

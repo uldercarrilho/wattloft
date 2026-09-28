@@ -19,8 +19,8 @@ def _generate_history(
         e_mod = east_modifier[i] if east_modifier and i < len(east_modifier) else 1.0
         w_mod = west_modifier[i] if west_modifier and i < len(west_modifier) else 1.0
         history[d] = {
-            "3909309465": round(east_base * e_mod, 2),
-            "3913630013": round(west_base * w_mod, 2),
+            "1000000001": round(east_base * e_mod, 2),
+            "1000000002": round(west_base * w_mod, 2),
         }
     return history
 
@@ -38,11 +38,11 @@ def test_drift_triggers_on_sustained_single_string_soiling() -> None:
         east_modifier=east_mods,
     )
 
-    names = {"3909309465": "East", "3913630013": "West"}
+    names = {"1000000001": "East", "1000000002": "West"}
     result = evaluate_drift(history, names)
 
     assert result.detected is True
-    assert result.affected_logger == "3909309465"
+    assert result.affected_logger == "1000000001"
     assert result.drift_pct == 14
     assert result.advisory == "East array underperforming relative to West by 14% (check for soiling or obstruction)"
 
@@ -59,7 +59,7 @@ def test_no_drift_on_symmetric_weather_or_season_drop() -> None:
         west_modifier=both_mods,
     )
 
-    names = {"3909309465": "East", "3913630013": "West"}
+    names = {"1000000001": "East", "1000000002": "West"}
     result = evaluate_drift(history, names)
 
     assert result.detected is False
@@ -77,7 +77,7 @@ def test_no_drift_when_divergence_is_transient() -> None:
         east_modifier=east_mods,
     )
 
-    names = {"3909309465": "East", "3913630013": "West"}
+    names = {"1000000001": "East", "1000000002": "West"}
     result = evaluate_drift(history, names)
 
     assert result.detected is False
@@ -86,7 +86,7 @@ def test_no_drift_when_divergence_is_transient() -> None:
 def test_no_drift_when_baseline_under_60_days() -> None:
     # Only 40 days of history total
     history = _generate_history(40, east_base=4.0, west_base=5.0)
-    names = {"3909309465": "East", "3913630013": "West"}
+    names = {"1000000001": "East", "1000000002": "West"}
     result = evaluate_drift(history, names)
 
     assert result.detected is False
@@ -103,7 +103,7 @@ def test_drift_triggers_at_five_percent_variance() -> None:
         west_base=5.0,
         east_modifier=east_mods,
     )
-    names = {"3909309465": "East", "3913630013": "West"}
+    names = {"1000000001": "East", "1000000002": "West"}
     result = evaluate_drift(history, names)
 
     assert result.detected is True
@@ -122,7 +122,7 @@ def test_no_drift_below_five_percent_variance() -> None:
         west_base=5.0,
         east_modifier=east_mods,
     )
-    names = {"3909309465": "East", "3913630013": "West"}
+    names = {"1000000001": "East", "1000000002": "West"}
     result = evaluate_drift(history, names)
 
     assert result.detected is False
@@ -139,7 +139,7 @@ def test_custom_drift_threshold_override() -> None:
         west_base=5.0,
         east_modifier=east_mods,
     )
-    names = {"3909309465": "East", "3913630013": "West"}
+    names = {"1000000001": "East", "1000000002": "West"}
     result = evaluate_drift(history, names, threshold=0.08)
 
     assert result.detected is False

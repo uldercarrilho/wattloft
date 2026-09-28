@@ -48,6 +48,36 @@ describe("Operator BFF", () => {
     expect(rejected.headers.getSetCookie().join()).not.toContain("wattloft=");
   });
 
+  it("enforces rate limiting after repeated failed login attempts", async () => {
+    const testApp = createApp({
+      operatorPassword: PASSWORD,
+      apiUrl: "http://127.0.0.1:9",
+      cookieSecure: false,
+      documentHtml: DOCUMENT,
+      loginRateLimitMax: 3,
+      loginRateLimitWindowMs: 60_000,
+    });
+    for (let i = 0; i < 3; i++) {
+      const res = await testApp.request("/login", {
+        method: "POST",
+        headers: { Accept: "application/json" },
+        body: new URLSearchParams({ password: "wrong" }),
+      });
+      expect(res.status).toBe(401);
+    }
+    const blocked = await testApp.request("/login", {
+      method: "POST",
+      headers: { Accept: "application/json" },
+      body: new URLSearchParams({ password: "wrong" }),
+    });
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get("retry-after")).toBeDefined();
+    expect(await blocked.json()).toEqual({
+      error: "too-many-requests",
+      message: "Too many failed login attempts. Please try again later.",
+    });
+  });
+
   it("sets a session cookie and redirects after the correct password", async () => {
     const granted = await app().request("/login", {
       method: "POST",
@@ -367,7 +397,7 @@ describe("Live Telemetry & Notifications", () => {
     // Broadcast a sample
     await sampleHub.broadcast({
       type: "sample",
-      logger_serial: "3909309465",
+      logger_serial: "1000000001",
       received_at: "2026-09-09T14:32:00Z",
       ac_power_w: 412.5,
       today_energy_kwh: 3.82,
@@ -438,7 +468,7 @@ describe("Live Telemetry & Notifications", () => {
       },
       cachedLoggersNow: [
         {
-          name: "3913630013",
+          name: "1000000002",
           display_name: "West",
           last_success_at: "2026-09-09T14:00:00-03:00",
           power_w: 0,
@@ -449,7 +479,7 @@ describe("Live Telemetry & Notifications", () => {
     // East reports at 14:32 (32m after West silent) with 420 W
     await sampleHub.broadcast({
       type: "sample",
-      logger_serial: "3909309465",
+      logger_serial: "1000000001",
       received_at: "2026-09-09T14:32:00-03:00",
       ac_power_w: 420,
       today_energy_kwh: 3.5,

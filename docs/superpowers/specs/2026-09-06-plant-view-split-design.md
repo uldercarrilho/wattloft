@@ -80,7 +80,7 @@ JSON object (snake_case):
   ],
   "curve": [
     {
-      "name": "3909309465",
+      "name": "1000000001",
       "points": [
         {"at": "2026-08-21T10:00:00", "watts": 50.0, "lifetime_kwh": 1.1}
       ]

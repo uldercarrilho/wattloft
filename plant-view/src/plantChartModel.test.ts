@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { buildPlantChartModel, energyReadout, hourTickLabel, niceYMax, parkedMinute, timeReadout, type ChartDataset, type TimeChartModel } from "./plantChartModel";
 import type { PlantSnapshot } from "./types";
 
-const loggerA = "3909309465";
-const loggerB = "3909310155";
+const loggerA = "1000000001";
+const loggerB = "1000000003";
 
 function snapshot(curve: PlantSnapshot["curve"]): PlantSnapshot {
   return {

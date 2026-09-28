@@ -24,19 +24,19 @@ def test_snapshot_payload_includes_display_name_and_history_start() -> None:
                 local_day=date(2026, 8, 21),
                 today_energy_kwh=3.9,
                 loggers=(
-                    LoggerEnergy(name="3909309465", today_energy_kwh=2.1),
-                    LoggerEnergy(name="3913630013", today_energy_kwh=1.8),
+                    LoggerEnergy(name="1000000001", today_energy_kwh=2.1),
+                    LoggerEnergy(name="1000000002", today_energy_kwh=1.8),
                 ),
             ),
             LocalDayBar(
                 local_day=date(2026, 8, 22),
                 today_energy_kwh=0.2,
-                loggers=(LoggerEnergy(name="3909309465", today_energy_kwh=0.2),),
+                loggers=(LoggerEnergy(name="1000000001", today_energy_kwh=0.2),),
             ),
         ),
         curve=(
             CurveSeries(
-                name="3909309465",
+                name="1000000001",
                 points=(
                     CurvePoint(
                         at=datetime(2026, 8, 21, 15, 0),
@@ -53,15 +53,15 @@ def test_snapshot_payload_includes_display_name_and_history_start() -> None:
     )
     body = _snapshot_payload(snapshot, date(2026, 8, 21))
     assert body["history_start"] == "2026-08-21"
-    logger_one = next(series for series in body["curve"] if series["name"] == "3909309465")
+    logger_one = next(series for series in body["curve"] if series["name"] == "1000000001")
     assert logger_one["display_name"] == "East"
     plant = next(series for series in body["curve"] if series["name"] == "Plant")
     assert "display_name" not in plant
     loggers = body["local_day_bars"][0]["loggers"]
     assert isinstance(loggers, list)
     by_name = {part["name"]: part for part in loggers}
-    assert by_name["3909309465"]["display_name"] == "East"
-    assert by_name["3913630013"]["display_name"] == "West"
+    assert by_name["1000000001"]["display_name"] == "East"
+    assert by_name["1000000002"]["display_name"] == "West"
     assert body["loggers_now"] == []
 
 
@@ -103,23 +103,23 @@ def test_snapshot_payload_serializes_loggers_now() -> None:
             LocalDayBar(
                 local_day=date(2026, 9, 7),
                 today_energy_kwh=0.2,
-                loggers=(LoggerEnergy(name="3909309465", today_energy_kwh=0.2),),
+                loggers=(LoggerEnergy(name="1000000001", today_energy_kwh=0.2),),
             ),
         ),
         curve=(
             CurveSeries(
-                name="3909309465",
+                name="1000000001",
                 points=(CurvePoint(at=datetime(2026, 9, 7, 13, 0), watts=210.0),),
             ),
         ),
         loggers_now=(
             LoggerNow(
-                name="3909309465",
+                name="1000000001",
                 last_success_at=datetime(2026, 9, 7, 16, 3, tzinfo=timezone.utc),
                 power_w=210.0,
             ),
             LoggerNow(
-                name="3913630013",
+                name="1000000002",
                 last_success_at=datetime(2026, 9, 7, 16, 3, tzinfo=timezone.utc),
                 power_w=0.0,
             ),
@@ -129,11 +129,11 @@ def test_snapshot_payload_serializes_loggers_now() -> None:
     rows = body["loggers_now"]
     assert isinstance(rows, list)
     by_name = {row["name"]: row for row in rows}
-    assert by_name["3909309465"]["display_name"] == "East"
-    assert by_name["3909309465"]["last_success_at"] == "2026-09-07T16:03:00+00:00"
-    assert by_name["3909309465"]["power_w"] == 210.0
-    assert by_name["3913630013"]["display_name"] == "West"
-    assert by_name["3913630013"]["power_w"] == 0.0
+    assert by_name["1000000001"]["display_name"] == "East"
+    assert by_name["1000000001"]["last_success_at"] == "2026-09-07T16:03:00+00:00"
+    assert by_name["1000000001"]["power_w"] == 210.0
+    assert by_name["1000000002"]["display_name"] == "West"
+    assert by_name["1000000002"]["power_w"] == 0.0
 
 
 def test_snapshot_payload_serializes_diagnostics_and_comparisons() -> None:
@@ -148,7 +148,7 @@ def test_snapshot_payload_serializes_diagnostics_and_comparisons() -> None:
             LocalDayBar(
                 local_day=date(2026, 9, 9),
                 today_energy_kwh=5.0,
-                loggers=(LoggerEnergy(name="3909309465", today_energy_kwh=5.0),),
+                loggers=(LoggerEnergy(name="1000000001", today_energy_kwh=5.0),),
                 prev_year_today_energy_kwh=4.6,
             ),
         ),
@@ -162,7 +162,7 @@ def test_snapshot_payload_serializes_diagnostics_and_comparisons() -> None:
             estimated_clipped_kwh=0.35,
             plateaus=(
                 ClippingPlateau(
-                    logger_serial="3909309465",
+                    logger_serial="1000000001",
                     start_minute=720,
                     end_minute=795,
                     start_at=datetime(2026, 9, 9, 12, 0),
@@ -175,7 +175,7 @@ def test_snapshot_payload_serializes_diagnostics_and_comparisons() -> None:
         drift=DriftResult(
             detected=True,
             advisory="East array underperforming relative to West by 14% (check for soiling or obstruction)",
-            affected_logger="3909309465",
+            affected_logger="1000000001",
             drift_pct=14,
             baseline_ratio=1.0,
             rolling_ratio=0.86,

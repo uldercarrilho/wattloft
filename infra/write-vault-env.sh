@@ -48,6 +48,12 @@ build_body() {
     if [[ -n "${PASSKEY:-}" ]]; then
       printf 'OPERATOR_PASSKEY_CREDENTIAL=%s\n' "$PASSKEY"
     fi
+    if [[ -n "${ADMITTED_SERIALS:-}" ]]; then
+      printf 'WATTLOFT_ADMITTED_LOGGER_SERIALS=%s\n' "$ADMITTED_SERIALS"
+    fi
+    if [[ -n "${DISPLAY_NAMES:-}" ]]; then
+      printf 'WATTLOFT_LOGGER_DISPLAY_NAMES=%s\n' "$DISPLAY_NAMES"
+    fi
   }
 }
 
@@ -106,9 +112,13 @@ SECRET_ID=$(ociq vault secret list --compartment-id "$COMP" \
   --raw-output)
 
 PASSKEY="${OPERATOR_PASSKEY_CREDENTIAL:-}"
-if [[ -z "$PASSKEY" && -n "$SECRET_ID" && "$SECRET_ID" != "null" ]]; then
+ADMITTED_SERIALS="${WATTLOFT_ADMITTED_LOGGER_SERIALS:-}"
+DISPLAY_NAMES="${WATTLOFT_LOGGER_DISPLAY_NAMES:-}"
+if [[ -n "$SECRET_ID" && "$SECRET_ID" != "null" ]]; then
   if current=$(current_secret_body "$SECRET_ID"); then
-    PASSKEY=$(extract_env_key OPERATOR_PASSKEY_CREDENTIAL "$current" || true)
+    [[ -z "$PASSKEY" ]] && PASSKEY=$(extract_env_key OPERATOR_PASSKEY_CREDENTIAL "$current" || true)
+    [[ -z "$ADMITTED_SERIALS" ]] && ADMITTED_SERIALS=$(extract_env_key WATTLOFT_ADMITTED_LOGGER_SERIALS "$current" || true)
+    [[ -z "$DISPLAY_NAMES" ]] && DISPLAY_NAMES=$(extract_env_key WATTLOFT_LOGGER_DISPLAY_NAMES "$current" || true)
   fi
 fi
 

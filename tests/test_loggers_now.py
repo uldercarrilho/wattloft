@@ -7,8 +7,8 @@ from wattloft.history._snapshot import build_plant_snapshot
 from wattloft.history._store import _SampleRow
 
 _LOCAL = ZoneInfo("America/Sao_Paulo")
-_LOGGER = "3909309465"
-_OTHER = "3913630013"
+_LOGGER = "1000000001"
+_OTHER = "1000000002"
 
 
 def _at(stamp: str) -> datetime:

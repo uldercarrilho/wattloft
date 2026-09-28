@@ -51,7 +51,7 @@ const snapshot: Extract<PlantPayload, { empty: false }> = {
   ],
   curve: [
     {
-      name: "3909309465",
+      name: "1000000001",
       display_name: "East",
       points: [{ at: "2026-08-21T15:00:00", watts: 625, lifetime_kwh: 5635.4 }],
     },
@@ -357,14 +357,14 @@ describe("Plant view", () => {
           local_day: "2026-08-21",
           today_energy_kwh: 3.9,
           loggers: [
-            { name: "3909309465", today_energy_kwh: 2.1 },
-            { name: "3909310155", today_energy_kwh: 1.8 },
+            { name: "1000000001", today_energy_kwh: 2.1 },
+            { name: "1000000003", today_energy_kwh: 1.8 },
           ],
         },
         {
           local_day: "2026-08-22",
           today_energy_kwh: 0.2,
-          loggers: [{ name: "3909309465", today_energy_kwh: 0.2 }],
+          loggers: [{ name: "1000000001", today_energy_kwh: 0.2 }],
         },
         { local_day: "2026-09-01", today_energy_kwh: 0.2 },
       ],
@@ -373,15 +373,15 @@ describe("Plant view", () => {
     stubPlant(200, withLoggers);
     render(<App />);
     await screen.findAllByText("21 Aug 3.90 kWh");
-    expect(screen.queryByRole("button", { name: "3909309465" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "1000000001" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "By Logger" }));
-    expect(screen.getByRole("button", { name: "3909310155" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "1000000003" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "East" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "East" }).getAttribute("data-series")).toBe(
-      "3909309465",
+      "1000000001",
     );
     expect(screen.getByRole("button", { name: "East" }).getAttribute("title")).toBe(
-      "3909309465",
+      "1000000001",
     );
     expect(screen.getByRole("img", { name: "Energy bars" })).toBeTruthy();
   });
@@ -403,14 +403,14 @@ describe("Plant view", () => {
           local_day: "2026-08-21",
           today_energy_kwh: 3.9,
           loggers: [
-            { name: "3909309465", today_energy_kwh: 2.1 },
-            { name: "3909310155", today_energy_kwh: 1.8 },
+            { name: "1000000001", today_energy_kwh: 2.1 },
+            { name: "1000000003", today_energy_kwh: 1.8 },
           ],
         },
         {
           local_day: "2026-08-22",
           today_energy_kwh: 0.2,
-          loggers: [{ name: "3909309465", today_energy_kwh: 0.2 }],
+          loggers: [{ name: "1000000001", today_energy_kwh: 0.2 }],
         },
         { local_day: "2026-09-01", today_energy_kwh: 0.2 },
       ],
@@ -420,7 +420,7 @@ describe("Plant view", () => {
     stubPlant(200, withLoggers);
     render(<App />);
     expect((await screen.findAllByText("21 Aug 3.90 kWh")).length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole("button", { name: "3909310155" }));
+    fireEvent.click(screen.getByRole("button", { name: "1000000003" }));
     expect(screen.getAllByText("21 Aug 2.10 kWh").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Plant" })).toBeNull();
   });
@@ -574,7 +574,7 @@ describe("Plant view", () => {
     expect(body).not.toContain("Tap a name");
     expect(body).toContain("interpolated");
     expect(screen.getByRole("button", { name: "East" }).getAttribute("data-series")).toBe(
-      "3909309465",
+      "1000000001",
     );
   });
 
@@ -654,7 +654,7 @@ describe("Plant view", () => {
       ...snapshot,
       loggers_now: [
         {
-          name: "3909309465",
+          name: "1000000001",
           display_name: "East",
           last_success_at: "2026-08-22T13:00:00+00:00",
           power_w: 50,
@@ -737,7 +737,7 @@ describe("Plant view", () => {
     act(() => {
       es.emit("sample", {
         type: "sample",
-        logger_serial: "3909309465",
+        logger_serial: "1000000001",
         received_at: "2026-08-22T13:05:00+00:00",
         ac_power_w: 780,
         today_energy_kwh: 0.8,

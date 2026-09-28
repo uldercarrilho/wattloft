@@ -43,8 +43,8 @@ vi.mock("chart.js", () => {
 
 import { PlantChart } from "./PlantChart";
 
-const loggerA = "3909309465";
-const loggerB = "3913630013";
+const loggerA = "1000000001";
+const loggerB = "1000000002";
 
 const energySnapshot: PlantSnapshot = {
   selected_day: "2026-08-21",

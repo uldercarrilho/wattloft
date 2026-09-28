@@ -14,7 +14,7 @@ from test_admitted_logger_sample import (
     _v5_frame,
 )
 
-_SECOND_SERIAL = 3913630013
+_SECOND_SERIAL = 1000000002
 
 
 def _upload_header(*, today_cents: int, lifetime_tenths: int, watts: int) -> bytes:
@@ -81,7 +81,7 @@ def test_time_grain_selected_day_curve_is_that_local_day(
         process.stop()
 
     assert body["selected_day"] == "2026-08-21"
-    assert _names(body) == {"Plant", "3909309465", "3913630013"}
+    assert _names(body) == {"Plant", "1000000001", "1000000002"}
     plant = curve_series(body, "Plant")
     ats = [point["at"] for point in plant["points"]]
     assert "2026-08-21T15:00:00" in ats
@@ -243,8 +243,8 @@ def test_selected_local_day_power_curve_shows_each_logger_and_plant(
     finally:
         process.stop()
 
-    first = curve_series(body, "3909309465")["points"]
-    second = curve_series(body, "3913630013")["points"]
+    first = curve_series(body, "1000000001")["points"]
+    second = curve_series(body, "1000000002")["points"]
     plant = curve_series(body, "Plant")["points"]
     assert first == [
         {"at": "2026-08-21T15:00:00", "watts": 625, "lifetime_kwh": 5635.4}
@@ -303,10 +303,10 @@ def test_time_curve_samples_carry_lifetime_energy(mysql_url: str) -> None:
     finally:
         process.stop()
 
-    assert curve_series(body, "3909309465")["points"] == [
+    assert curve_series(body, "1000000001")["points"] == [
         {"at": "2026-08-21T15:00:00", "watts": 625, "lifetime_kwh": 5635.4}
     ]
-    assert curve_series(body, "3913630013")["points"] == [
+    assert curve_series(body, "1000000002")["points"] == [
         {"at": "2026-08-21T15:01:00", "watts": 400, "lifetime_kwh": 100.0}
     ]
     assert "lifetime_kwh" not in curve_series(body, "Plant")["points"][0]
@@ -356,7 +356,7 @@ def test_failure_hole_keeps_raw_points_without_inventing_zero_watts(
     body = _long_gap_snapshot(
         mysql_url, later_lifetime_tenths=1000, hole_logger=True
     )
-    logger = curve_series(body, "3909309465")["points"]
+    logger = curve_series(body, "1000000001")["points"]
     plant = curve_series(body, "Plant")["points"]
     assert logger == [
         {"at": "2026-08-21T10:00:00", "watts": 400, "lifetime_kwh": 100.0},
@@ -374,7 +374,7 @@ def test_lifetime_backed_gap_keeps_endpoint_points(
     body = _long_gap_snapshot(
         mysql_url, later_lifetime_tenths=1003, hole_logger=False
     )
-    logger = curve_series(body, "3909309465")["points"]
+    logger = curve_series(body, "1000000001")["points"]
     assert logger[0]["watts"] == 400
     assert logger[-1]["watts"] == 400
     assert logger[-1]["lifetime_kwh"] == 100.3

@@ -102,13 +102,13 @@ Login, empty History (“This Plant has no History yet.”), and 502 (“Plant v
 {
   "loggers_now": [
     {
-      "name": "3909309465",
+      "name": "1000000001",
       "display_name": "East",
       "last_success_at": "2026-09-07T16:03:00+00:00",
       "power_w": 210.0
     },
     {
-      "name": "3909310155",
+      "name": "1000000003",
       "display_name": "West",
       "last_success_at": "2026-09-07T16:03:00+00:00",
       "power_w": 202.0

@@ -25,8 +25,8 @@ from wattloft.ingest import handle_frame
 from wattloft.v5 import CONTROL_DATA, build_v5_frame
 
 _LOCAL = ZoneInfo("America/Sao_Paulo")
-_EAST = "3909309465"
-_WEST = "3913630013"
+_EAST = "1000000001"
+_WEST = "1000000002"
 
 
 @pytest.fixture

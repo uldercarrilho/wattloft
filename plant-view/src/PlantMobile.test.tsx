@@ -37,20 +37,20 @@ const snapshot: Extract<PlantPayload, { empty: false }> = {
       today_energy_kwh: 3.9,
       prev_year_today_energy_kwh: 3.5,
       loggers: [
-        { name: "3909309465", display_name: "East", today_energy_kwh: 2.0 },
-        { name: "3913630013", display_name: "West", today_energy_kwh: 1.9 },
+        { name: "1000000001", display_name: "East", today_energy_kwh: 2.0 },
+        { name: "1000000002", display_name: "West", today_energy_kwh: 1.9 },
       ],
     },
   ],
   loggers_now: [
     {
-      name: "3909309465",
+      name: "1000000001",
       display_name: "East",
       last_success_at: "2026-08-21T14:30:00+00:00",
       power_w: 230,
     },
     {
-      name: "3913630013",
+      name: "1000000002",
       display_name: "West",
       last_success_at: "2026-08-21T14:30:00+00:00",
       power_w: 220,
@@ -58,12 +58,12 @@ const snapshot: Extract<PlantPayload, { empty: false }> = {
   ],
   curve: [
     {
-      name: "3909309465",
+      name: "1000000001",
       display_name: "East",
       points: [{ at: "2026-08-21T14:30:00", watts: 230, lifetime_kwh: 5635.4 }],
     },
     {
-      name: "3913630013",
+      name: "1000000002",
       display_name: "West",
       points: [{ at: "2026-08-21T14:30:00", watts: 220, lifetime_kwh: 5410.2 }],
     },
@@ -78,7 +78,7 @@ const snapshot: Extract<PlantPayload, { empty: false }> = {
     estimated_clipped_kwh: 0.25,
     plateaus: [
       {
-        logger_serial: "3909309465",
+        logger_serial: "1000000001",
         start_minute: 720,
         end_minute: 765,
         start_at: "2026-08-21T12:00:00",
@@ -193,13 +193,13 @@ describe("MobilePlantView (Azulejo Moderno 4-Tab Dock)", () => {
       ...snapshot,
       loggers_now: [
         {
-          name: "3909309465",
+          name: "1000000001",
           display_name: "East",
           last_success_at: "2026-08-21T14:30:00+00:00",
           power_w: 230,
         },
         {
-          name: "3913630013",
+          name: "1000000002",
           display_name: "West",
           last_success_at: "2026-08-21T13:45:00+00:00", // 45m silent
           power_w: 0,

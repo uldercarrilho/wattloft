@@ -17,8 +17,8 @@ from wattloft.history._store import (
 )
 
 _LOCAL = ZoneInfo("America/Sao_Paulo")
-_EAST = "3909309465"
-_WEST = "3913630013"
+_EAST = "1000000001"
+_WEST = "1000000002"
 
 
 @pytest.fixture

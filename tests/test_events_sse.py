@@ -11,9 +11,9 @@ from wattloft.ingest import handle_frame
 from wattloft.v5 import CONTROL_DATA, build_v5_frame
 
 
-def _sample_v5_frame(serial: int = 3909309465, power_w: int = 625) -> bytes:
+def _sample_v5_frame(serial: int = 1000000001, power_w: int = 625) -> bytes:
     payload = bytearray(534)
-    payload[21:31] = b"2301296636"
+    payload[21:31] = b"1234567890"
     payload[33:35] = (110).to_bytes(2, "little")  # 1.1 kWh
     payload[37:41] = (56354).to_bytes(4, "little")  # 5635.4 kWh
     payload[59:63] = (power_w).to_bytes(4, "little")  # 625 W
@@ -29,7 +29,7 @@ async def test_event_broadcaster_subscribe_publish_unsubscribe() -> None:
 
     event = {
         "type": "sample",
-        "logger_serial": "3909309465",
+        "logger_serial": "1000000001",
         "received_at": "2026-09-09T14:32:00Z",
         "ac_power_w": 412.5,
         "today_energy_kwh": 3.82,
@@ -48,11 +48,11 @@ async def test_event_broadcaster_subscribe_publish_unsubscribe() -> None:
 def test_handle_frame_invokes_on_sample(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("wattloft.ingest.record_sample", lambda *args, **kwargs: None)
     samples: list[dict[str, object]] = []
-    frame = _sample_v5_frame(3909309465, power_w=450)
+    frame = _sample_v5_frame(1000000001, power_w=450)
 
     ack = handle_frame(
         "mysql://dummy",
-        frozenset({"3909309465"}),
+        frozenset({"1000000001"}),
         frame,
         on_sample=samples.append,
     )
@@ -60,7 +60,7 @@ def test_handle_frame_invokes_on_sample(monkeypatch: pytest.MonkeyPatch) -> None
     assert len(samples) == 1
     sample = samples[0]
     assert sample["type"] == "sample"
-    assert sample["logger_serial"] == "3909309465"
+    assert sample["logger_serial"] == "1000000001"
     assert sample["ac_power_w"] == 450.0
     assert sample["today_energy_kwh"] == 1.1
     assert sample["lifetime_energy_kwh"] == 5635.4
@@ -72,11 +72,11 @@ def test_handle_frame_unadmitted_serial_does_not_invoke_on_sample(
 ) -> None:
     monkeypatch.setattr("wattloft.ingest.record_sample", lambda *args, **kwargs: None)
     samples: list[dict[str, object]] = []
-    frame = _sample_v5_frame(1111111111)
+    frame = _sample_v5_frame(2000000000)
 
     ack = handle_frame(
         "mysql://dummy",
-        frozenset({"3909309465"}),
+        frozenset({"1000000001"}),
         frame,
         on_sample=samples.append,
     )
@@ -110,7 +110,7 @@ async def test_events_route_creates_streaming_response() -> None:
     # Publish an event
     broadcaster.publish({
         "type": "sample",
-        "logger_serial": "3909309465",
+        "logger_serial": "1000000001",
         "received_at": "2026-09-09T14:32:00Z",
         "ac_power_w": 412.5,
         "today_energy_kwh": 3.82,
@@ -123,7 +123,7 @@ async def test_events_route_creates_streaming_response() -> None:
     assert chunk.startswith("data: ")
     data = json.loads(chunk[6:].strip())
     assert data["type"] == "sample"
-    assert data["logger_serial"] == "3909309465"
+    assert data["logger_serial"] == "1000000001"
     assert data["ac_power_w"] == 412.5
 
     # Close generator

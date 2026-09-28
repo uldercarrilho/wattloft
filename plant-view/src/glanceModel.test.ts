@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { computeClearSkyInstant, glanceModel } from "./glanceModel";
 import type { LoggerNow } from "./types";
 
-const EAST = "3909309465";
-const WEST = "3913630013";
+const EAST = "1000000001";
+const WEST = "1000000002";
 const NOW = new Date("2026-09-07T16:04:00.000Z");
 
 function logger(

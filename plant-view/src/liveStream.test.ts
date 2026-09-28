@@ -14,13 +14,13 @@ describe("liveStream", () => {
     local_day_bars: [],
     loggers_now: [
       {
-        name: "3909309465",
+        name: "1000000001",
         display_name: "East",
         last_success_at: "2026-09-09T14:10:00-03:00",
         power_w: 400,
       },
       {
-        name: "3913630013",
+        name: "1000000002",
         display_name: "West",
         last_success_at: "2026-09-09T14:20:00-03:00",
         power_w: 300,
@@ -28,7 +28,7 @@ describe("liveStream", () => {
     ],
     curve: [
       {
-        name: "3909309465",
+        name: "1000000001",
         points: [{ at: "2026-09-09T14:10:00-03:00", watts: 400 }],
       },
       {
@@ -50,7 +50,7 @@ describe("liveStream", () => {
   it("applies sample updating Current Power, current_power_at, and loggers_now", () => {
     const updated = applySample(baseState, {
       type: "sample",
-      logger_serial: "3909309465",
+      logger_serial: "1000000001",
       received_at: "2026-09-09T14:32:00-03:00",
       ac_power_w: 450,
       today_energy_kwh: 3.8,
@@ -61,12 +61,12 @@ describe("liveStream", () => {
     // East = 450, West = 300 (fresh <= 15m) -> 750 W
     expect(updated.current_power_w).toBe(750);
 
-    const east = updated.loggers_now?.find((l) => l.name === "3909309465");
+    const east = updated.loggers_now?.find((l) => l.name === "1000000001");
     expect(east?.power_w).toBe(450);
     expect(east?.last_success_at).toBe("2026-09-09T14:32:00-03:00");
 
     // Curve point appended for new minute
-    const eastCurve = updated.curve.find((c) => c.name === "3909309465");
+    const eastCurve = updated.curve.find((c) => c.name === "1000000001");
     expect(eastCurve?.points).toHaveLength(2);
     expect(eastCurve?.points[1]?.watts).toBe(450);
   });
@@ -74,7 +74,7 @@ describe("liveStream", () => {
   it("updates existing minute point if multiple samples arrive in the same minute", () => {
     const step1 = applySample(baseState, {
       type: "sample",
-      logger_serial: "3909309465",
+      logger_serial: "1000000001",
       received_at: "2026-09-09T14:32:10-03:00",
       ac_power_w: 450,
       today_energy_kwh: 3.8,
@@ -83,14 +83,14 @@ describe("liveStream", () => {
 
     const step2 = applySample(step1, {
       type: "sample",
-      logger_serial: "3909309465",
+      logger_serial: "1000000001",
       received_at: "2026-09-09T14:32:45-03:00",
       ac_power_w: 460,
       today_energy_kwh: 3.8,
       lifetime_energy_kwh: 5001,
     });
 
-    const eastCurve = step2.curve.find((c) => c.name === "3909309465");
+    const eastCurve = step2.curve.find((c) => c.name === "1000000001");
     expect(eastCurve?.points).toHaveLength(2); // not 3
     expect(eastCurve?.points[1]?.watts).toBe(460);
   });

@@ -56,8 +56,8 @@ KPIs (Today energy, Current Power, Lifetime energy, Last sample) always show sna
   "local_day": "2026-08-21",
   "today_energy_kwh": 3.9,
   "loggers": [
-    { "name": "3909309465", "today_energy_kwh": 2.1 },
-    { "name": "3909310155", "today_energy_kwh": 1.8 }
+    { "name": "1000000001", "today_energy_kwh": 2.1 },
+    { "name": "1000000003", "today_energy_kwh": 1.8 }
   ]
 }
 ```

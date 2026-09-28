@@ -27,23 +27,23 @@ const snapshot: PlantSnapshot = {
       local_day: "2026-08-21",
       today_energy_kwh: 3.9,
       loggers: [
-        { name: "3909309465", today_energy_kwh: 2.1 },
-        { name: "3909310155", today_energy_kwh: 1.8 },
+        { name: "1000000001", today_energy_kwh: 2.1 },
+        { name: "1000000003", today_energy_kwh: 1.8 },
       ],
     },
     {
       local_day: "2026-08-22",
       today_energy_kwh: 0.2,
-      loggers: [{ name: "3909309465", today_energy_kwh: 0.2 }],
+      loggers: [{ name: "1000000001", today_energy_kwh: 0.2 }],
     },
     {
       local_day: "2026-09-01",
       today_energy_kwh: 0.2,
-      loggers: [{ name: "3909309465", today_energy_kwh: 0.2 }],
+      loggers: [{ name: "1000000001", today_energy_kwh: 0.2 }],
     },
   ],
   curve: [
-    { name: "3913630013", points: [{ at: "2026-08-21T15:00:00", watts: 10 }] },
+    { name: "1000000002", points: [{ at: "2026-08-21T15:00:00", watts: 10 }] },
     { name: "Plant", points: [{ at: "2026-08-21T15:00:00", watts: 10 }] },
   ],
 };
@@ -137,43 +137,43 @@ describe("grains", () => {
   });
 
   it("Stack Day bars split a row by Logger and omit a hidden Logger from the total", () => {
-    const both = new Set(["3909309465", "3909310155"]);
+    const both = new Set(["1000000001", "1000000003"]);
     const stacked = dayEnergyBars(snapshot, "2026-08-21", both);
     expect(stacked[0]?.kwh).toBe(3.9);
     expect(stacked[0]?.label).toBe("2026-08-21 3.90 kWh");
     expect(stacked[0]?.segments.map((part) => part.name)).toEqual([
-      "3909309465",
-      "3909310155",
+      "1000000001",
+      "1000000003",
     ]);
     expect(stacked[0]?.segments.reduce((sum, part) => sum + part.width, 0)).toBe(100);
 
-    const one = dayEnergyBars(snapshot, "2026-08-21", new Set(["3909309465"]));
+    const one = dayEnergyBars(snapshot, "2026-08-21", new Set(["1000000001"]));
     expect(one[0]?.kwh).toBe(2.1);
     expect(one[0]?.label).toBe("2026-08-21 2.10 kWh");
     expect(one[0]?.segments).toEqual([
-      { name: "3909309465", kwh: 2.1, width: 100 },
+      { name: "1000000001", kwh: 2.1, width: 100 },
     ]);
     expect(one[0]?.width).toBe(100);
     expect(one[1]?.width).toBeGreaterThanOrEqual(12);
   });
 
   it("Stack Month sums Logger segments across Local days", () => {
-    const both = new Set(["3909309465", "3909310155"]);
+    const both = new Set(["1000000001", "1000000003"]);
     const bars = monthEnergyBars(snapshot, "2026-08-21", both);
     const august = bars.find((bar) => bar.label.startsWith("2026-08 "));
     expect(august?.kwh).toBe(4.1);
     expect(august?.label).toBe("2026-08 4.10 kWh");
     expect(august?.segments).toEqual([
-      { name: "3909309465", kwh: 2.3, width: (2.3 / 4.1) * 100 },
-      { name: "3909310155", kwh: 1.8, width: (1.8 / 4.1) * 100 },
+      { name: "1000000001", kwh: 2.3, width: (2.3 / 4.1) * 100 },
+      { name: "1000000003", kwh: 1.8, width: (1.8 / 4.1) * 100 },
     ]);
   });
 
   it("lists Stack Logger names from bars and curve, excluding Plant", () => {
     expect(stackLoggerNames(snapshot)).toEqual([
-      "3909309465",
-      "3909310155",
-      "3913630013",
+      "1000000001",
+      "1000000002",
+      "1000000003",
     ]);
   });
 
@@ -199,10 +199,10 @@ describe("grains", () => {
         {
           local_day: "2026-08-22",
           today_energy_kwh: 0.2,
-          loggers: [{ name: "3909309465", display_name: "East", today_energy_kwh: 0.2 }],
+          loggers: [{ name: "1000000001", display_name: "East", today_energy_kwh: 0.2 }],
         },
       ],
     };
-    expect(displayNameOf(late, "3909309465")).toBe("East");
+    expect(displayNameOf(late, "1000000001")).toBe("East");
   });
 });
