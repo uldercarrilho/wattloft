@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from queue import Queue
 from unittest.mock import MagicMock, patch
 
 import pytest
