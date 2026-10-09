@@ -17,7 +17,11 @@ import {
   type OperatorPasskey,
   type PasskeyAssertion,
 } from "./passkey";
-import { PushSubscriptionStore, type PushSubscriptionRecord } from "./pushStore";
+import {
+  isAllowedPushEndpoint,
+  PushSubscriptionStore,
+  type PushSubscriptionRecord,
+} from "./pushStore";
 import { evaluateStallAlert, type StallAlert } from "./stallAlert";
 import type { LoggerNow } from "./types";
 
@@ -196,6 +200,14 @@ export function createApp(opts: CreateAppOptions): Hono {
   const app = new Hono();
   app.use(
     secureHeaders({
+      contentSecurityPolicy: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        connectSrc: ["'self'"],
+        imgSrc: ["'self'", "data:"],
+      },
       permissionsPolicy: {
         camera: [],
         microphone: [],
@@ -209,6 +221,9 @@ export function createApp(opts: CreateAppOptions): Hono {
   const sentAlertKeys = opts.sentAlertKeys ?? new Set<string>();
 
   async function sendPushNotification(sub: PushSubscriptionRecord, payload: string): Promise<void> {
+    if (!isAllowedPushEndpoint(sub.endpoint)) {
+      return;
+    }
     if (opts.sendNotification) {
       return opts.sendNotification(sub, payload);
     }
@@ -264,12 +279,15 @@ export function createApp(opts: CreateAppOptions): Hono {
   const loginAttempts = new Map<string, { count: number; resetAt: number }>();
 
   function clientIp(c: Context): string {
+    const realIp = c.req.header("x-real-ip");
+    if (realIp) {
+      return realIp.trim();
+    }
     const forwarded = c.req.header("x-forwarded-for");
     if (forwarded) {
       return forwarded.split(",")[0]!.trim();
     }
     return (
-      c.req.header("x-real-ip") ??
       c.req.header("cf-connecting-ip") ??
       "127.0.0.1"
     );

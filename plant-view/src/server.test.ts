@@ -492,11 +492,35 @@ describe("Live Telemetry & Notifications", () => {
     expect(notification.body).toContain("West logger has been silent");
   });
 
+  it("rejects untrusted push subscription endpoints (SSRF prevention)", async () => {
+    const pushStore = new PushSubscriptionStore();
+    const client = createApp({
+      operatorPassword: PASSWORD,
+      apiUrl: "http://127.0.0.1:9",
+      cookieSecure: false,
+      documentHtml: DOCUMENT,
+      pushStore,
+    });
+    const cookie = operatorSessionCookie(Math.floor(Date.now() / 1000));
+    const badRes = await client.request("/api/notifications/subscribe", {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({
+        endpoint: "http://169.254.169.254/opc/v2/instance/",
+        keys: { p256dh: "key-data", auth: "auth-data" },
+      }),
+    });
+    expect(badRes.status).toBe(400);
+    expect(await badRes.json()).toEqual({ error: "invalid-subscription" });
+    expect(pushStore.list()).toHaveLength(0);
+  });
+
   it("serves HTTP security headers", async () => {
     const res = await app().request("/");
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
     expect(res.headers.get("x-frame-options")).toBe("SAMEORIGIN");
     expect(res.headers.get("permissions-policy")).toBe("camera=(), microphone=(), geolocation=()");
+    expect(res.headers.get("content-security-policy")).toContain("default-src 'self'");
   });
 });
 

@@ -6,5 +6,17 @@
 }
 
 {$WATTLOFT_HOSTNAME} {
-	reverse_proxy 127.0.0.1:{$PLANT_VIEW_PORT:8000}
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+	reverse_proxy 127.0.0.1:{$PLANT_VIEW_PORT:3000} {
+		header_up Host {host}
+		header_up X-Real-IP {remote_host}
+	}
+	log {
+		output file /var/log/caddy/access.log
+	}
 }

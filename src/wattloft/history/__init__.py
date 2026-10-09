@@ -4,7 +4,13 @@ from wattloft.history._store import (
     record_sample,
     restore_history,
 )
-from wattloft.history._snapshot import CurvePoint, CurveSeries, PlantSnapshot, plant_snapshot
+from wattloft.history._snapshot import (
+    CurvePoint,
+    CurveSeries,
+    PlantSnapshot,
+    plant_snapshot,
+    sync_day_summary_clipping,
+)
 
 __all__ = [
     "CurvePoint",
@@ -15,4 +21,5 @@ __all__ = [
     "plant_snapshot",
     "record_sample",
     "restore_history",
+    "sync_day_summary_clipping",
 ]

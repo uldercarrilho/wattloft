@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import date, datetime
@@ -254,21 +255,28 @@ def create_app(
             on_sample=event_bus.publish,
         )
 
+        logger = logging.getLogger("wattloft.api")
+
         async def _calibration_worker() -> None:
+            from wattloft.history import sync_day_summary_clipping
             from wattloft.solar import run_calibration
 
-            try:
+            async def _run_tasks() -> None:
                 await asyncio.to_thread(run_calibration, database_url)
+                await asyncio.to_thread(sync_day_summary_clipping, database_url)
+
+            try:
+                await _run_tasks()
             except Exception:
-                pass
+                logger.exception("Initial calibration/clipping task failed")
             while True:
                 try:
                     await asyncio.sleep(3600)
-                    await asyncio.to_thread(run_calibration, database_url)
+                    await _run_tasks()
                 except asyncio.CancelledError:
                     break
                 except Exception:
-                    pass
+                    logger.exception("Scheduled calibration/clipping task failed")
 
         cal_task = asyncio.create_task(_calibration_worker())
         try:

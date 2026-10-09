@@ -408,7 +408,7 @@ def plant_snapshot(
     local_today = now_utc().astimezone(_LOCAL).date()
     curve_day = selected_day or local_today
     calibration = load_calibration(database_url)
-    snapshot = _snapshot_from_parts(
+    return _snapshot_from_parts(
         summaries,
         load_samples_for_local_day(database_url, curve_day),
         load_latest_logger_samples(database_url),
@@ -416,7 +416,15 @@ def plant_snapshot(
         curve_day=curve_day,
         calibration=calibration,
     )
+
+
+def sync_day_summary_clipping(
+    database_url: str, selected_day: date | None = None
+) -> None:
+    snapshot = plant_snapshot(database_url, selected_day=selected_day)
     if snapshot and snapshot.clipping and snapshot.clipping.clipped:
+        local_today = now_utc().astimezone(_LOCAL).date()
+        curve_day = selected_day or local_today
         for p in snapshot.clipping.plateaus:
             try:
                 update_day_summary_clipping(
@@ -426,6 +434,5 @@ def plant_snapshot(
                     clipped_minutes=p.end_minute - p.start_minute + 1,
                     estimated_clipped_kwh=p.estimated_clipped_kwh,
                 )
-            except Exception:
+            except Exception:  # nosec B110
                 pass
-    return snapshot

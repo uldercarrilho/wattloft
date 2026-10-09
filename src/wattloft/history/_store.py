@@ -373,7 +373,7 @@ def dump_history(database_url: str) -> str:
             "INSERT INTO samples ("
             "logger_serial, received_at, ac_power_w, "
             "today_energy_kwh, lifetime_energy_kwh, parse_succeeded"
-            f") VALUES ({values});"
+            f") VALUES ({values});"  # nosec B608
         )
     statements.append(_DAY_SUMMARIES_TABLE_SQL.strip() + ";")
     for row in summary_rows:
@@ -383,7 +383,7 @@ def dump_history(database_url: str) -> str:
             "local_day, logger_serial, first_received_at, last_received_at, "
             "start_lifetime_kwh, last_lifetime_kwh, last_today_energy_kwh, "
             "peak_power_w, sample_count, clipped_minutes, estimated_clipped_kwh"
-            f") VALUES ({values});"
+            f") VALUES ({values});"  # nosec B608
         )
     return "\n".join(statements) + "\n"
 

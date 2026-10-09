@@ -12,7 +12,12 @@ OBJECT="samples-${STAMP}.sql.gz"
 
 # shellcheck disable=SC1090
 set -a
-source "$ENV_FILE"
+src=$(mktemp)
+trap 'rm -f "$src"' EXIT
+grep -vE '^OPERATOR_PASSKEY_CREDENTIAL=' "$ENV_FILE" > "$src" || true
+source "$src"
+rm -f "$src"
+trap - EXIT
 set +a
 
 tmp=$(mktemp)

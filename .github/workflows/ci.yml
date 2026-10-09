@@ -77,12 +77,12 @@ jobs:
         run: |
           pip install bandit
           mkdir -p sast-reports
-          bandit -r src/ -s B104 -f txt -o sast-reports/bandit.txt || true
+          bandit -r src/ -s B104 -f txt -o sast-reports/bandit.txt
           cat sast-reports/bandit.txt
       - name: Polyglot Semgrep SAST
         run: |
           docker run --rm -v "${{ github.workspace }}:/src" semgrep/semgrep \
-            semgrep scan --config "p/security-audit" --config "p/secrets" --json -o /src/sast-reports/semgrep.json || true
+            semgrep scan --config "p/security-audit" --config "p/secrets" --json -o /src/sast-reports/semgrep.json
       - name: Upload SAST Reports
         uses: actions/upload-artifact@v7
         if: always()

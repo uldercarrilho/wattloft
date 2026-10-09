@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 import threading
 from collections.abc import Iterator
@@ -34,7 +35,14 @@ def _connect(database_url: str, *, use_database: bool = True) -> Connection:
     database = _database_name(database_url) if use_database else None
     ssl: dict[str, object] | None = None
     if query.get("ssl", "").lower() in {"1", "true", "required"}:
-        ssl = {"check_hostname": False}
+        ca_bundle = os.environ.get("WATTLOFT_DB_SSL_CA") or (
+            "/etc/ssl/certs/ca-certificates.crt"
+            if os.path.exists("/etc/ssl/certs/ca-certificates.crt")
+            else None
+        )
+        ssl = {"check_hostname": True}
+        if ca_bundle:
+            ssl["ca"] = ca_bundle
     connect_timeout = (
         int(query["connect_timeout"]) if "connect_timeout" in query else 10
     )
@@ -58,7 +66,7 @@ class _ConnectionPool:
         self._created = 0
         self._lock = threading.Lock()
 
-    def acquire(self) -> Connection:
+    def acquire(self, timeout: float = 10.0) -> Connection:
         while True:
             try:
                 conn = self._idle.get_nowait()
@@ -74,7 +82,12 @@ class _ConnectionPool:
                     except Exception:
                         self._created -= 1
                         raise
-            return self._checked(self._idle.get())
+            try:
+                return self._checked(self._idle.get(timeout=timeout))
+            except Empty as err:
+                raise TimeoutError(
+                    "Timed out waiting for an idle database connection from pool"
+                ) from err
 
     def _checked(self, conn: Connection) -> Connection:
         try:
@@ -84,7 +97,7 @@ class _ConnectionPool:
             try:
                 conn.close()
             except Exception:
-                pass
+                pass  # nosec B110
             return _connect(self._database_url)
 
     def release(self, conn: Connection, *, discard: bool = False) -> None:
@@ -98,7 +111,7 @@ class _ConnectionPool:
         try:
             conn.close()
         except Exception:
-            pass
+            pass  # nosec B110
         with self._lock:
             self._created = max(0, self._created - 1)
 
@@ -111,7 +124,7 @@ class _ConnectionPool:
             try:
                 conn.close()
             except Exception:
-                pass
+                pass  # nosec B110
         with self._lock:
             self._created = 0
 
