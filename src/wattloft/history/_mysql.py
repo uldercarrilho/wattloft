@@ -25,6 +25,30 @@ def _database_name(database_url: str) -> str:
     return name
 
 
+def _ssl_config(database_url: str) -> dict[str, object] | None:
+    parsed = urlparse(database_url)
+    query = {key: values[-1] for key, values in parse_qs(parsed.query).items()}
+    if query.get("ssl", "").lower() not in {"1", "true", "required"}:
+        return None
+    explicit_check = query.get("check_hostname", "").lower()
+    ca_bundle = os.environ.get("WATTLOFT_DB_SSL_CA")
+    if ca_bundle and os.path.exists(ca_bundle):
+        check = explicit_check not in {"0", "false"}
+        ssl_dict: dict[str, object] = {"ca": ca_bundle, "check_hostname": check}
+        return ssl_dict
+    if explicit_check in {"1", "true"}:
+        ca_fallback = (
+            "/etc/ssl/certs/ca-certificates.crt"
+            if os.path.exists("/etc/ssl/certs/ca-certificates.crt")
+            else None
+        )
+        ssl_dict = {"check_hostname": True}
+        if ca_fallback:
+            ssl_dict["ca"] = ca_fallback
+        return ssl_dict
+    return {"check_hostname": False}
+
+
 def _connect(database_url: str, *, use_database: bool = True) -> Connection:
     parsed = urlparse(database_url)
     query = {key: values[-1] for key, values in parse_qs(parsed.query).items()}
@@ -33,16 +57,7 @@ def _connect(database_url: str, *, use_database: bool = True) -> Connection:
     user = unquote(parsed.username or "")
     password = unquote(parsed.password or "")
     database = _database_name(database_url) if use_database else None
-    ssl: dict[str, object] | None = None
-    if query.get("ssl", "").lower() in {"1", "true", "required"}:
-        ca_bundle = os.environ.get("WATTLOFT_DB_SSL_CA") or (
-            "/etc/ssl/certs/ca-certificates.crt"
-            if os.path.exists("/etc/ssl/certs/ca-certificates.crt")
-            else None
-        )
-        ssl = {"check_hostname": True}
-        if ca_bundle:
-            ssl["ca"] = ca_bundle
+    ssl = _ssl_config(database_url)
     connect_timeout = (
         int(query["connect_timeout"]) if "connect_timeout" in query else 10
     )
