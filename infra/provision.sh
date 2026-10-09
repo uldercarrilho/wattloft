@@ -215,7 +215,7 @@ if ! ociq iam policy list --compartment-id "$COMP" \
     --name "$POLICY_NAME" \
     --description "Vault read and History dumps for the pet VM" \
     --statements "[
-      \"Allow dynamic-group ${DYN_GROUP_NAME} to read secret-family in compartment wattloft\",
+      \"Allow dynamic-group ${DYN_GROUP_NAME} to read secret-family in compartment wattloft where target.secret.name='${SECRET_NAME}'\",
       \"Allow dynamic-group ${DYN_GROUP_NAME} to manage objects in compartment wattloft where target.bucket.name='${BUCKET_NAME}'\",
       \"Allow dynamic-group ${DYN_GROUP_NAME} to read buckets in compartment wattloft\"
     ]" >/dev/null
@@ -324,12 +324,20 @@ echo "→ Bastion (no public TCP 22 on the VM)"
 if ! BASTION_ID=$(ociq bastion bastion list --compartment-id "$COMP" --all \
   --query "data[?name=='${BASTION_NAME}' && \"lifecycle-state\"!='DELETED'].id | [0]" --raw-output) \
   || [[ -z "$BASTION_ID" || "$BASTION_ID" == "null" ]]; then
+  BASTION_CLIENT_CIDRS="${BASTION_CLIENT_CIDR_LIST:-${OPERATOR_CLIENT_CIDR:-${OPERATOR_CIDR:-}}}"
+  if [[ -n "$BASTION_CLIENT_CIDRS" ]]; then
+    if [[ "$BASTION_CLIENT_CIDRS" != \[* ]]; then
+      BASTION_CLIENT_CIDRS="[\"${BASTION_CLIENT_CIDRS}\"]"
+    fi
+  else
+    BASTION_CLIENT_CIDRS='["198.51.100.0/24"]'
+  fi
   BASTION_ID=$(ociq bastion bastion create \
     --bastion-type STANDARD \
     --compartment-id "$COMP" \
     --target-subnet-id "$PUBLIC_SUBNET" \
     --name "$BASTION_NAME" \
-    --client-cidr-list '["0.0.0.0/0"]' \
+    --client-cidr-list "$BASTION_CLIENT_CIDRS" \
     --query "data.id" --raw-output)
   echo "  creating ${BASTION_ID}"
 fi
@@ -367,7 +375,8 @@ if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
   gh secret set OCI_SSH_PRIVATE_KEY < "$SSH_KEY"
   gh variable set OCI_BASTION_OCID --body "$BASTION_ID"
   gh variable set OCI_INSTANCE_OCID --body "$INSTANCE_ID"
-  gh variable set WATTLOFT_RESERVED_IPV4 --body "$PUBLIC_IPV4"
+  printf '%s' "$PUBLIC_IPV4" | gh secret set WATTLOFT_RESERVED_IPV4
+  gh variable delete WATTLOFT_RESERVED_IPV4 >/dev/null 2>&1 || true
   gh variable set OCI_VAULT_OCID --body "$VAULT_ID"
   gh variable set OCI_KEY_OCID --body "$KEY_ID"
 fi
