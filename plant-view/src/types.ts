@@ -81,6 +81,7 @@ export type PlantSnapshot = {
   curve: CurveSeries[];
   loggers_now?: LoggerNow[];
   ideal_curve?: CurvePoint[];
+  logger_ideal_curves?: Record<string, CurvePoint[]>;
   clipping?: ClippingInfo | null;
   drift?: DriftInfo | null;
   envelope_calibration?: EnvelopeCalibration | null;

@@ -609,6 +609,24 @@ describe("Ideal Envelope Model", () => {
     expect(ideal).toBeDefined();
     expect(ideal?.stacked).toBe(false);
   });
+
+  it("uses logger-specific ideal curve when single logger is isolated in overlay mode", () => {
+    const snapWithLoggerIdeal = {
+      ...snapWithIdeal,
+      logger_ideal_curves: {
+        [loggerA]: [
+          { at: "2026-08-21T06:00:00-03:00", watts: 80 },
+          { at: "2026-08-21T12:00:00-03:00", watts: 950 },
+        ],
+      },
+    };
+    const model = buildPlantChartModel(snapWithLoggerIdeal, "time", "overlay", new Set([loggerA]), true);
+    expect(model.kind).toBe("time");
+    if (model.kind !== "time") return;
+    const ideal = model.datasets.find((d) => d.role === "ideal");
+    expect(ideal).toBeDefined();
+    expect(ideal?.name).toBe(`${loggerA} envelope`);
+  });
 });
 
 describe("Clipping & Throttle Detection", () => {

@@ -168,15 +168,35 @@ function timeOverlay(
       values: plantValues,
     });
   }
-  if (idealEnvelope && snapshot.ideal_curve && snapshot.ideal_curve.length > 0) {
-    const idealMap = new Map(snapshot.ideal_curve.map((p) => [minuteOfDay(p.at), p.watts]));
-    datasets.push({
-      name: "Ideal envelope",
-      role: "ideal",
-      stacked: false,
-      swatch: "muted",
-      values: minutes.map((t) => idealMap.get(t) ?? null),
-    });
+  if (idealEnvelope) {
+    const visibleLoggers = Array.from(visible).filter((name) => name !== "Plant");
+    const singleIsolatedLogger = visibleLoggers.length === 1 && !visible.has("Plant") ? visibleLoggers[0] : null;
+
+    if (
+      singleIsolatedLogger &&
+      snapshot.logger_ideal_curves &&
+      snapshot.logger_ideal_curves[singleIsolatedLogger] &&
+      snapshot.logger_ideal_curves[singleIsolatedLogger].length > 0
+    ) {
+      const loggerCurve = snapshot.logger_ideal_curves[singleIsolatedLogger];
+      const idealMap = new Map(loggerCurve.map((p) => [minuteOfDay(p.at), p.watts]));
+      datasets.push({
+        name: `${singleIsolatedLogger} envelope`,
+        role: "ideal",
+        stacked: false,
+        swatch: "muted",
+        values: minutes.map((t) => idealMap.get(t) ?? null),
+      });
+    } else if (snapshot.ideal_curve && snapshot.ideal_curve.length > 0) {
+      const idealMap = new Map(snapshot.ideal_curve.map((p) => [minuteOfDay(p.at), p.watts]));
+      datasets.push({
+        name: "Ideal envelope",
+        role: "ideal",
+        stacked: false,
+        swatch: "muted",
+        values: minutes.map((t) => idealMap.get(t) ?? null),
+      });
+    }
   }
   return {
     kind: "time",

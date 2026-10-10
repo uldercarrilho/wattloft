@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
@@ -23,6 +23,16 @@ _LOCAL = ZoneInfo("America/Sao_Paulo")
 
 
 @dataclass(frozen=True)
+class ArrayParameters:
+    scale: float = 1.0
+    tilt_deg: float = 15.0
+    azimuth_deg: float = 90.0
+    elevation_cutoff_deg: float = 5.0
+    nameplate_dc_w: float = 1000.0
+    ac_cap_w: float = 1000.0
+
+
+@dataclass(frozen=True)
 class EnvelopeCalibration:
     calibrated: bool = False
     scale: float = 1.0
@@ -32,6 +42,7 @@ class EnvelopeCalibration:
     ac_cap_w: float = 2000.0
     sunny_days_count: int = 0
     last_calibrated_at: datetime | None = None
+    arrays: dict[str, ArrayParameters] = field(default_factory=dict)
 
 
 def is_clear_sky_day(
@@ -194,6 +205,25 @@ def calibrate_parameters(
                     best_azimuth = az_offset
                     best_scale = scale
 
+    default_arrays = {
+        "1000000001": ArrayParameters(
+            scale=round(best_scale, 2),
+            tilt_deg=round(best_tilt, 1),
+            azimuth_deg=round(90.0 + best_azimuth, 1),
+            elevation_cutoff_deg=round(cutoff_deg, 1),
+            nameplate_dc_w=MICROINVERTER_NAMEPLATE_W,
+            ac_cap_w=MICROINVERTER_NAMEPLATE_W,
+        ),
+        "1000000002": ArrayParameters(
+            scale=round(best_scale, 2),
+            tilt_deg=round(best_tilt, 1),
+            azimuth_deg=round(270.0 - best_azimuth, 1),
+            elevation_cutoff_deg=round(cutoff_deg, 1),
+            nameplate_dc_w=MICROINVERTER_NAMEPLATE_W,
+            ac_cap_w=MICROINVERTER_NAMEPLATE_W,
+        ),
+    }
+
     return EnvelopeCalibration(
         calibrated=True,
         scale=round(best_scale, 2),
@@ -203,6 +233,118 @@ def calibrate_parameters(
         ac_cap_w=ac_cap_w,
         sunny_days_count=len(reference_curves),
         last_calibrated_at=now_utc(),
+        arrays=default_arrays,
+    )
+
+
+def calibrate_array_parameters(
+    reference_curves: list[tuple[date, list[tuple[datetime, float]]]],
+    nameplate_dc_w: float = MICROINVERTER_NAMEPLATE_W,
+    ac_cap_w: float = MICROINVERTER_NAMEPLATE_W,
+    latitude_deg: float = PLANT_LATITUDE,
+    longitude_deg: float = PLANT_LONGITUDE,
+    expected_azimuth_deg: float = 90.0,
+) -> ArrayParameters:
+    """Calibrate Plane-of-Array (POA) parameters for a single string / microinverter."""
+    if not reference_curves:
+        return ArrayParameters(
+            scale=1.0,
+            tilt_deg=15.0,
+            azimuth_deg=expected_azimuth_deg,
+            elevation_cutoff_deg=5.0,
+            nameplate_dc_w=nameplate_dc_w,
+            ac_cap_w=ac_cap_w,
+        )
+
+    from wattloft.solar.clearsky import haurwitz_irradiance, plane_of_array_cos_incidence
+
+    # 1. Estimate cutoff elevation
+    elevations: list[float] = []
+    for _d, points in reference_curves:
+        active = [(dt, w) for dt, w in points if w >= 25.0]
+        if active:
+            first_dt = active[0][0]
+            last_dt = active[-1][0]
+            if first_dt.tzinfo is None:
+                first_dt = first_dt.replace(tzinfo=_LOCAL)
+            if last_dt.tzinfo is None:
+                last_dt = last_dt.replace(tzinfo=_LOCAL)
+            p_first = solar_position(first_dt, latitude_deg, longitude_deg)
+            p_last = solar_position(last_dt, latitude_deg, longitude_deg)
+            elevations.append(max(0.0, p_first.elevation_deg))
+            elevations.append(max(0.0, p_last.elevation_deg))
+
+    cutoff_deg = round(sum(elevations) / len(elevations), 1) if elevations else 5.0
+    cutoff_deg = max(2.0, min(15.0, cutoff_deg))
+
+    # 2. Candidate grids
+    tilt_candidates = [10.0, 15.0, 20.0, 25.0]
+    # Scan azimuth centered around expected azimuth (e.g. 90 or 270) +/- 30 deg
+    azimuth_candidates = [
+        round(expected_azimuth_deg + delta, 1)
+        for delta in [-30.0, -20.0, -10.0, 0.0, 10.0, 20.0, 30.0]
+    ]
+    scale_candidates = [0.80, 0.85, 0.90, 0.95, 1.00, 1.05, 1.10, 1.15]
+
+    samples_data: list[tuple[float, float, float]] = []
+    for _d, points in reference_curves:
+        for dt, obs_w in points:
+            if obs_w < 25.0:
+                continue
+            stamp = dt if dt.tzinfo is not None else dt.replace(tzinfo=_LOCAL)
+            pos = solar_position(stamp, latitude_deg, longitude_deg)
+            if pos.elevation_deg >= cutoff_deg:
+                samples_data.append((obs_w, pos.zenith_deg, pos.azimuth_deg))
+
+    if not samples_data:
+        return ArrayParameters(
+            scale=1.0,
+            tilt_deg=15.0,
+            azimuth_deg=expected_azimuth_deg,
+            elevation_cutoff_deg=cutoff_deg,
+            nameplate_dc_w=nameplate_dc_w,
+            ac_cap_w=ac_cap_w,
+        )
+
+    best_error = float("inf")
+    best_tilt = 15.0
+    best_azimuth = expected_azimuth_deg
+    best_scale = 1.0
+
+    for tilt in tilt_candidates:
+        for az in azimuth_candidates:
+            # Precompute unscaled POA
+            base_powers: list[float] = []
+            for _obs_w, zenith_deg, sol_az_deg in samples_data:
+                ghi = haurwitz_irradiance(zenith_deg)
+                if ghi <= 0.0:
+                    base_powers.append(0.0)
+                    continue
+                cos_inc = plane_of_array_cos_incidence(zenith_deg, sol_az_deg, tilt, az)
+                cos_th_z = max(0.08, math.cos(math.radians(zenith_deg)))
+                ratio = cos_inc / cos_th_z
+                p_unscaled = nameplate_dc_w * (ghi / 1000.0) * ratio
+                base_powers.append(p_unscaled)
+
+            for scale in scale_candidates:
+                err = 0.0
+                for (obs_w, _, _), p_unscaled in zip(samples_data, base_powers, strict=False):
+                    pred = min(p_unscaled * scale, ac_cap_w)
+                    diff = obs_w - pred
+                    err += diff * diff
+                if err < best_error:
+                    best_error = err
+                    best_tilt = tilt
+                    best_azimuth = az
+                    best_scale = scale
+
+    return ArrayParameters(
+        scale=round(best_scale, 2),
+        tilt_deg=round(best_tilt, 1),
+        azimuth_deg=round(best_azimuth, 1),
+        elevation_cutoff_deg=round(cutoff_deg, 1),
+        nameplate_dc_w=nameplate_dc_w,
+        ac_cap_w=ac_cap_w,
     )
 
 
@@ -226,6 +368,23 @@ def load_calibration_from_meta(meta: dict[str, str]) -> EnvelopeCalibration:
         except ValueError:
             pass
 
+    arrays: dict[str, ArrayParameters] = {}
+    for k, v in meta.items():
+        if k.startswith("envelope_array_"):
+            serial = k.removeprefix("envelope_array_")
+            try:
+                parts = dict(part.split("=") for part in v.split(",") if "=" in part)
+                arrays[serial] = ArrayParameters(
+                    scale=float(parts.get("scale", "1.0")),
+                    tilt_deg=float(parts.get("tilt", "15.0")),
+                    azimuth_deg=float(parts.get("azimuth", "90.0")),
+                    elevation_cutoff_deg=float(parts.get("cutoff", "5.0")),
+                    nameplate_dc_w=float(parts.get("nameplate", str(MICROINVERTER_NAMEPLATE_W))),
+                    ac_cap_w=float(parts.get("ac_cap", str(MICROINVERTER_NAMEPLATE_W))),
+                )
+            except Exception:
+                pass
+
     return EnvelopeCalibration(
         calibrated=True,
         scale=scale,
@@ -235,12 +394,13 @@ def load_calibration_from_meta(meta: dict[str, str]) -> EnvelopeCalibration:
         ac_cap_w=ac_cap_w,
         sunny_days_count=sunny_days_count,
         last_calibrated_at=last_calibrated_at,
+        arrays=arrays,
     )
 
 
 def calibration_to_meta(cal: EnvelopeCalibration) -> dict[str, str]:
     """Convert an EnvelopeCalibration to history_meta key-value mapping."""
-    return {
+    result = {
         "envelope_calibrated": "1" if cal.calibrated else "0",
         "envelope_scale": str(cal.scale),
         "envelope_tilt_deg": str(cal.tilt_deg),
@@ -252,6 +412,16 @@ def calibration_to_meta(cal: EnvelopeCalibration) -> dict[str, str]:
             cal.last_calibrated_at.isoformat() if cal.last_calibrated_at else ""
         ),
     }
+    for serial, arr in cal.arrays.items():
+        result[f"envelope_array_{serial}"] = (
+            f"scale={arr.scale:.2f},"
+            f"tilt={arr.tilt_deg:.1f},"
+            f"azimuth={arr.azimuth_deg:.1f},"
+            f"cutoff={arr.elevation_cutoff_deg:.1f},"
+            f"nameplate={arr.nameplate_dc_w:.1f},"
+            f"ac_cap={arr.ac_cap_w:.1f}"
+        )
+    return result
 
 
 def load_calibration(database_url: str) -> EnvelopeCalibration:

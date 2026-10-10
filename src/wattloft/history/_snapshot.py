@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
@@ -32,6 +32,7 @@ from wattloft.solar import (
     ideal_envelope_curve,
     load_calibration,
 )
+from wattloft.solar.clearsky import array_ideal_envelope_curve
 
 _LOCAL = ZoneInfo("America/Sao_Paulo")
 
@@ -80,6 +81,7 @@ class PlantSnapshot:
     curve: tuple[CurveSeries, ...]
     loggers_now: tuple[LoggerNow, ...] = ()
     ideal_curve: tuple[CurvePoint, ...] = ()
+    logger_ideal_curves: dict[str, tuple[CurvePoint, ...]] = field(default_factory=dict)
     clipping: ClippingSummary | None = None
     drift: DriftResult | None = None
     envelope_calibration: EnvelopeCalibration | None = None
@@ -261,6 +263,23 @@ def _make_snapshot(
     )
     ideal_curve = tuple(CurvePoint(at=dt, watts=w) for dt, w in envelope_pts)
 
+    logger_ideal_curves: dict[str, tuple[CurvePoint, ...]] = {}
+    if cal.arrays:
+        for serial, arr in cal.arrays.items():
+            pts = array_ideal_envelope_curve(
+                curve_day,
+                PLANT_LATITUDE,
+                PLANT_LONGITUDE,
+                arr.nameplate_dc_w,
+                arr.tilt_deg,
+                arr.azimuth_deg,
+                scale=arr.scale,
+                elevation_cutoff_deg=arr.elevation_cutoff_deg,
+                ac_cap_w=arr.ac_cap_w,
+                tz=_LOCAL,
+            )
+            logger_ideal_curves[serial] = tuple(CurvePoint(at=dt, watts=w) for dt, w in pts)
+
     # Inverter clipping detection
     points_by_logger: dict[str, list[tuple[datetime, float]]] = {}
     for (serial, minute), (watts, _) in curve_last.items():
@@ -314,6 +333,7 @@ def _make_snapshot(
             for serial in sorted(now_power)
         ),
         ideal_curve=ideal_curve,
+        logger_ideal_curves=logger_ideal_curves,
         clipping=plant_clipping if plant_clipping.clipped else None,
         drift=(
             drift_result

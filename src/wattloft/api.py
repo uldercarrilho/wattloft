@@ -136,6 +136,10 @@ def _snapshot_payload(snapshot: PlantSnapshot, selected_day: date) -> dict[str, 
         ],
         "curve": [_series_payload(series) for series in snapshot.curve],
         "ideal_curve": [_point_payload(point) for point in snapshot.ideal_curve],
+        "logger_ideal_curves": {
+            serial: [_point_payload(point) for point in pts]
+            for serial, pts in getattr(snapshot, "logger_ideal_curves", {}).items()
+        },
         "clipping": (
             {
                 "clipped": snapshot.clipping.clipped,

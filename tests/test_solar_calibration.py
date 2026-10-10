@@ -201,3 +201,94 @@ def test_snapshot_payload_contains_envelope_calibration() -> None:
     assert cal_payload["azimuth_offset_deg"] == 1.0
     assert cal_payload["elevation_cutoff_deg"] == 5.5
     assert cal_payload["ac_cap_w"] == 2000.0
+
+
+def test_plane_of_array_cos_incidence_east_vs_west() -> None:
+    from wattloft.solar import array_ideal_power_w, plane_of_array_cos_incidence
+
+    # Solar position in morning: sun is in northeast (azimuth ~ 60 deg, zenith ~ 45 deg)
+    zenith_morning = 45.0
+    azimuth_morning = 60.0
+    tilt = 15.0
+
+    # East plane: azimuth 90 deg; West plane: azimuth 270 deg
+    cos_east = plane_of_array_cos_incidence(zenith_morning, azimuth_morning, tilt, 90.0)
+    cos_west = plane_of_array_cos_incidence(zenith_morning, azimuth_morning, tilt, 270.0)
+
+    # In the morning, East plane has significantly greater incidence than West plane
+    assert cos_east > cos_west
+    assert cos_east > 0.70
+
+    # Solar position in afternoon: sun is in northwest (azimuth ~ 300 deg, zenith ~ 45 deg)
+    zenith_afternoon = 45.0
+    azimuth_afternoon = 300.0
+    cos_east_pm = plane_of_array_cos_incidence(zenith_afternoon, azimuth_afternoon, tilt, 90.0)
+    cos_west_pm = plane_of_array_cos_incidence(zenith_afternoon, azimuth_afternoon, tilt, 270.0)
+
+    # In the afternoon, West plane has significantly greater incidence than East plane
+    assert cos_west_pm > cos_east_pm
+    assert cos_west_pm > 0.70
+
+    # Test array ideal power capping at 1000 W nameplate
+    dt_morning = datetime(2026, 9, 25, 9, 0, tzinfo=_SP)
+    power_east = array_ideal_power_w(
+        dt_morning,
+        latitude_deg=-23.5505,
+        longitude_deg=-46.6333,
+        nameplate_dc_w=1000.0,
+        tilt_deg=15.0,
+        azimuth_deg=90.0,
+        ac_cap_w=1000.0,
+    )
+    assert 0.0 < power_east <= 1000.0
+
+
+def test_dual_array_calibration_persistence() -> None:
+    from wattloft.solar import (
+        ArrayParameters,
+        EnvelopeCalibration,
+        load_calibration_from_meta,
+    )
+
+    arrays = {
+        "1000000001": ArrayParameters(
+            scale=0.98,
+            tilt_deg=15.0,
+            azimuth_deg=85.0,
+            elevation_cutoff_deg=4.5,
+            nameplate_dc_w=1000.0,
+            ac_cap_w=1000.0,
+        ),
+        "1000000002": ArrayParameters(
+            scale=1.02,
+            tilt_deg=16.0,
+            azimuth_deg=265.0,
+            elevation_cutoff_deg=5.0,
+            nameplate_dc_w=1000.0,
+            ac_cap_w=1000.0,
+        ),
+    }
+
+    cal = EnvelopeCalibration(
+        calibrated=True,
+        scale=1.0,
+        tilt_deg=15.0,
+        azimuth_offset_deg=0.0,
+        elevation_cutoff_deg=5.0,
+        ac_cap_w=2000.0,
+        sunny_days_count=6,
+        last_calibrated_at=datetime(2026, 9, 25, 2, 0, tzinfo=_SP),
+        arrays=arrays,
+    )
+
+    meta = calibration_to_meta(cal)
+    assert "envelope_array_1000000001" in meta
+    assert "envelope_array_1000000002" in meta
+
+    loaded = load_calibration_from_meta(meta)
+    assert loaded.calibrated is True
+    assert "1000000001" in loaded.arrays
+    assert "1000000002" in loaded.arrays
+    assert loaded.arrays["1000000001"].azimuth_deg == 85.0
+    assert loaded.arrays["1000000002"].azimuth_deg == 265.0
+
