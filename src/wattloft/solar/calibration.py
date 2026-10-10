@@ -382,7 +382,7 @@ def load_calibration_from_meta(meta: dict[str, str]) -> EnvelopeCalibration:
                     nameplate_dc_w=float(parts.get("nameplate", str(MICROINVERTER_NAMEPLATE_W))),
                     ac_cap_w=float(parts.get("ac_cap", str(MICROINVERTER_NAMEPLATE_W))),
                 )
-            except Exception:
+            except Exception:  # nosec B110
                 pass
 
     return EnvelopeCalibration(
