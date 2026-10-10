@@ -128,3 +128,19 @@ async def test_events_route_creates_streaming_response() -> None:
 
     # Close generator
     await gen.aclose()
+
+
+@pytest.mark.anyio
+async def test_healthz_endpoint() -> None:
+    starlette_app = create_app("mysql://localhost/test")
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "path": "/healthz",
+        "headers": [],
+    }
+    req = Request(scope)
+    res = await starlette_app.routes[0].endpoint(req)
+    assert res.status_code == 200
+    assert json.loads(res.body.decode("utf-8")) == {"status": "ok"}
+

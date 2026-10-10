@@ -330,6 +330,8 @@ export function createApp(opts: CreateAppOptions): Hono {
     loginAttempts.delete(clientIp(c));
   }
 
+  app.get("/healthz", (c) => c.json({ status: "ok" }));
+
   app.post("/login", async (c) => {
     const rateLimitResponse = checkLoginRateLimit(c);
     if (rateLimitResponse) {

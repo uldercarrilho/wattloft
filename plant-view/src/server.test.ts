@@ -27,6 +27,12 @@ function app(fetchImpl?: typeof fetch) {
 }
 
 describe("Operator BFF", () => {
+  it("responds with ok on /healthz probe", async () => {
+    const res = await app().request("/healthz");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ status: "ok" });
+  });
+
   it("rejects the wrong Operator password", async () => {
     const rejected = await app().request("/login", {
       method: "POST",

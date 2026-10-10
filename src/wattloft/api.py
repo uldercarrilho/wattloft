@@ -209,6 +209,9 @@ def create_app(
 ) -> Starlette:
     event_bus = broadcaster if broadcaster is not None else EventBroadcaster()
 
+    async def healthz(_request: Request) -> Response:
+        return JSONResponse({"status": "ok"})
+
     async def snapshot(request: Request) -> Response:
         day_raw = request.query_params.get("day")
         requested = _parse_day(day_raw)
@@ -287,6 +290,7 @@ def create_app(
 
     return Starlette(
         routes=[
+            Route("/healthz", healthz),
             Route("/snapshot", snapshot),
             Route("/events", events),
         ],
