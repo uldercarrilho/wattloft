@@ -10,6 +10,8 @@ services:
       WATTLOFT_API_PORT: "8000"
       INGEST_HOST: "0.0.0.0"
       INGEST_PORT: "10000"
+      INGEST_MAX_CONNECTIONS_PER_IP: "10"
+      INGEST_IDLE_TIMEOUT_S: "60"
   plant-view:
     image: ${WATTLOFT_PLANT_VIEW_IMAGE:-ghcr.io/uldercarrilho/wattloft-plant-view:main}
     network_mode: host
