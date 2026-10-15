@@ -77,9 +77,11 @@ export function MobileInsightsTab({ snapshot }: { snapshot: PlantSnapshot }) {
               : "Calculated"
           }
           secondary={
-            diag.solarEnvelope.idealPeakW !== null
-              ? `Peak: ${formatWatts(diag.solarEnvelope.actualPeakW)} / ${formatWatts(diag.solarEnvelope.idealPeakW)} ideal`
-              : `Observed Peak: ${formatWatts(diag.solarEnvelope.actualPeakW)}`
+            diag.solarEnvelope.actualKwh !== null && diag.solarEnvelope.idealKwh !== null
+              ? `${formatKwh(diag.solarEnvelope.actualKwh)} / ${formatKwh(diag.solarEnvelope.idealKwh)} ideal`
+              : diag.solarEnvelope.idealPeakW !== null
+                ? `Peak: ${formatWatts(diag.solarEnvelope.actualPeakW)} / ${formatWatts(diag.solarEnvelope.idealPeakW)} ideal`
+                : `Observed Peak: ${formatWatts(diag.solarEnvelope.actualPeakW)}`
           }
           subtext={
             diag.solarEnvelope.calibration?.calibrated

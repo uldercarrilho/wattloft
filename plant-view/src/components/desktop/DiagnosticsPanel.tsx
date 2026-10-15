@@ -58,9 +58,11 @@ export function DiagnosticsPanel({ snapshot }: { snapshot: PlantSnapshot }) {
               : "Calculated"}
           </div>
           <div className="diag-sub">
-            {diag.solarEnvelope.idealPeakW !== null
-              ? `Peak: ${formatWatts(diag.solarEnvelope.actualPeakW)} (ideal: ${formatWatts(diag.solarEnvelope.idealPeakW)})`
-              : `Observed: ${formatWatts(diag.solarEnvelope.actualPeakW)}`}
+            {diag.solarEnvelope.actualKwh !== null && diag.solarEnvelope.idealKwh !== null
+              ? `${formatKwh(diag.solarEnvelope.actualKwh)} (ideal: ${formatKwh(diag.solarEnvelope.idealKwh)})`
+              : diag.solarEnvelope.idealPeakW !== null
+                ? `Peak: ${formatWatts(diag.solarEnvelope.actualPeakW)} (ideal: ${formatWatts(diag.solarEnvelope.idealPeakW)})`
+                : `Observed: ${formatWatts(diag.solarEnvelope.actualPeakW)}`}
           </div>
           <div className="diag-detail" style={{ fontSize: "0.75rem", opacity: 0.8, marginTop: "0.25rem" }}>
             {diag.solarEnvelope.calibration?.calibrated

@@ -1,4 +1,6 @@
-import type { PlantSnapshot } from "./types";
+import { localMinuteOfDay } from "./glanceModel";
+import { localDayOf } from "./grains";
+import type { CurvePoint, PlantSnapshot } from "./types";
 
 export type DiagnosticsSummary = {
   arrayBalance: {
@@ -20,6 +22,8 @@ export type DiagnosticsSummary = {
   solarEnvelope: {
     actualPeakW: number;
     idealPeakW: number | null;
+    actualKwh: number | null;
+    idealKwh: number | null;
     efficiencyPct: number | null;
     status: "optimal" | "reduced" | "unavailable";
     calibration?: {
@@ -34,6 +38,58 @@ export type DiagnosticsSummary = {
     deltaPct: number | null;
   };
 };
+
+export function integrateCurveKwh(
+  points: CurvePoint[] | undefined,
+  cutoffIso?: string,
+): number | null {
+  if (!points || points.length === 0) {
+    return null;
+  }
+
+  const cutoffMinute = cutoffIso ? localMinuteOfDay(cutoffIso) : null;
+
+  const validPoints = points
+    .map((p) => ({
+      minute: localMinuteOfDay(p.at),
+      watts: Math.max(0, p.watts),
+    }))
+    .filter(
+      (p): p is { minute: number; watts: number } =>
+        p.minute !== null &&
+        (cutoffMinute === null || p.minute <= cutoffMinute),
+    )
+    .sort((a, b) => a.minute - b.minute);
+
+  if (validPoints.length === 0) {
+    return null;
+  }
+
+  const deduped: { minute: number; watts: number }[] = [];
+  for (const p of validPoints) {
+    if (deduped.length > 0 && deduped[deduped.length - 1].minute === p.minute) {
+      deduped[deduped.length - 1].watts = p.watts;
+    } else {
+      deduped.push({ ...p });
+    }
+  }
+
+  if (deduped.length === 1) {
+    return Number((deduped[0].watts / 60000).toFixed(2));
+  }
+
+  let totalKwh = 0;
+  for (let i = 0; i < deduped.length - 1; i++) {
+    const p1 = deduped[i];
+    const p2 = deduped[i + 1];
+    const deltaM = p2.minute - p1.minute;
+    if (deltaM > 0) {
+      totalKwh += ((p1.watts + p2.watts) / 2) * (deltaM / 60000);
+    }
+  }
+
+  return Number(totalKwh.toFixed(2));
+}
 
 export function computeDiagnostics(snapshot: PlantSnapshot): DiagnosticsSummary {
   // 1. Array Balance (ADR 0032)
@@ -90,9 +146,31 @@ export function computeDiagnostics(snapshot: PlantSnapshot): DiagnosticsSummary 
     }
   }
 
+  // Constrain ideal curve up to current power timestamp if observing today in progress
+  const nowDay = snapshot.current_power_at ? localDayOf(snapshot.current_power_at) : null;
+  const isCurrentDay = nowDay !== null && snapshot.selected_day === nowDay;
+  const cutoffIso = isCurrentDay ? snapshot.current_power_at : undefined;
+
+  let idealKwh = integrateCurveKwh(snapshot.ideal_curve, cutoffIso);
+  let actualKwh: number | null = selectedBar?.today_energy_kwh ?? snapshot.today_energy_kwh ?? null;
+
+  if (actualKwh === null || actualKwh === 0) {
+    const plantSeries = snapshot.curve.find((s) => s.name === "Plant");
+    if (plantSeries && plantSeries.points.length > 0) {
+      const integratedActual = integrateCurveKwh(plantSeries.points, cutoffIso);
+      if (integratedActual !== null && integratedActual > 0) {
+        actualKwh = integratedActual;
+      }
+    }
+  }
+
   let efficiencyPct: number | null = null;
   let envelopeStatus: "optimal" | "reduced" | "unavailable" = "unavailable";
-  if (idealPeakW && idealPeakW > 0) {
+
+  if (idealKwh !== null && idealKwh >= 0.05 && actualKwh !== null && actualKwh >= 0) {
+    efficiencyPct = Math.min(100, Math.round((actualKwh / idealKwh) * 100));
+    envelopeStatus = efficiencyPct >= 80 ? "optimal" : "reduced";
+  } else if (idealPeakW !== null && idealPeakW > 0 && actualPeakW > 0) {
     efficiencyPct = Math.min(100, Math.round((actualPeakW / idealPeakW) * 100));
     envelopeStatus = efficiencyPct >= 80 ? "optimal" : "reduced";
   }
@@ -138,6 +216,8 @@ export function computeDiagnostics(snapshot: PlantSnapshot): DiagnosticsSummary 
     solarEnvelope: {
       actualPeakW,
       idealPeakW,
+      actualKwh,
+      idealKwh,
       efficiencyPct,
       status: envelopeStatus,
       calibration: calibrationInfo,
