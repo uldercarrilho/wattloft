@@ -18,13 +18,18 @@ import type { ClippingPlateau, CurveSeries, Grain, PlantSnapshot } from "./types
 export const GAP_MIN = 15;
 const POWER_FLOOR = 1.0;
 
-export function niceYMax(peak: number): number {
+export function niceYMax(peak: number, unit: "W" | "kWh" = "W"): number {
   if (!(peak > 0) || peak <= 1) return 1;
-  const exp = Math.floor(Math.log10(peak));
-  const base = 10 ** exp;
-  const frac = peak / base;
-  const nice = frac <= 1 ? 1 : frac <= 2 ? 2 : frac <= 2.5 ? 2.5 : frac <= 5 ? 5 : 10;
-  return nice * base;
+  const target = peak * 1.1;
+  if (unit === "W") {
+    return Math.max(100, Math.ceil(target / 100) * 100);
+  }
+  if (target <= 1) return 1;
+  if (target <= 5) return Math.ceil(target * 2) / 2;
+  if (target <= 20) return Math.ceil(target);
+  if (target <= 100) return Math.ceil(target / 5) * 5;
+  if (target <= 1000) return Math.ceil(target / 50) * 50;
+  return Math.ceil(target / 100) * 100;
 }
 
 export type ChartDataset = {
@@ -295,7 +300,10 @@ function energyModel(
           bars.findIndex((bar) => bar.href.includes(`day=${snapshot.selected_day}`)),
         )
       : Math.max(0, bars.findIndex((bar) => bar.current));
-  const yMax = niceYMax(Math.max(1, ...bars.map((bar) => Math.max(bar.kwh, bar.prevYearKwh ?? 0))));
+  const yMax = niceYMax(
+    Math.max(1, ...bars.map((bar) => Math.max(bar.kwh, bar.prevYearKwh ?? 0))),
+    "kWh",
+  );
   const useStack = stacked && bars.some((bar) => bar.segments.length > 0);
   const ordered = stackLoggerNames(snapshot);
   const datasets: ChartDataset[] = useStack

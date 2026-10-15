@@ -156,7 +156,7 @@ describe("buildPlantChartModel Time Stack", () => {
     const at105 = model.minutes.indexOf(105);
     expect(model.datasets[0]?.values[at105]).toBe(150);
     expect(model.datasets[1]?.values[at105]).toBe(50);
-    expect(model.yMax).toBe(250);
+    expect(model.yMax).toBe(300);
   });
 
   it("omits a hidden Logger and a null minute instead of a 0 slab", () => {
@@ -275,7 +275,7 @@ describe("buildPlantChartModel energy Overlay", () => {
     expect(model.readoutLabels).toEqual(["21 Aug 3.90 kWh", "22 Aug 0.20 kWh"]);
     expect(model.hrefs).toEqual(["/?day=2026-08-21&unit=time", "/?day=2026-08-22&unit=time"]);
     expect(model.currentIndex).toBe(0);
-    expect(model.yMax).toBe(5);
+    expect(model.yMax).toBe(4.5);
     expect(model.yUnit).toBe("kWh");
     expect(model.partial).toEqual([false, true]);
     expect(model.datasets).toEqual([
@@ -314,7 +314,7 @@ describe("buildPlantChartModel energy Stack", () => {
     expect(model.datasets.every((d) => d.stacked && d.role === "logger")).toBe(true);
     expect(model.datasets[0]?.values).toEqual([2.1, 0.2]);
     expect(model.datasets[1]?.values).toEqual([1.8, null]);
-    expect(model.yMax).toBe(5);
+    expect(model.yMax).toBe(4.5);
   });
 
   it("uses visible totals for yMax and a Plant column when loggers are missing", () => {
@@ -552,12 +552,13 @@ describe("energyReadout", () => {
 });
 
 describe("niceYMax and hour ticks", () => {
-  it("rounds peaks onto a 1-2-2.5-5-10 ladder", () => {
+  it("rounds peaks with 10% headroom onto neat increments", () => {
     expect(niceYMax(0)).toBe(1);
     expect(niceYMax(1)).toBe(1);
-    expect(niceYMax(3.9)).toBe(5);
-    expect(niceYMax(250)).toBe(250);
-    expect(niceYMax(2168)).toBe(2500);
+    expect(niceYMax(3.9, "kWh")).toBe(4.5);
+    expect(niceYMax(250)).toBe(300);
+    expect(niceYMax(2168)).toBe(2400);
+    expect(niceYMax(2600)).toBe(2900);
   });
 
   it("labels whole hours as HH:00", () => {

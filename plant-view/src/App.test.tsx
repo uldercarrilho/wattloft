@@ -644,7 +644,7 @@ describe("Plant view", () => {
     expect(screen.getByText("Lifetime energy")).toBeTruthy();
     expect(screen.getByText("Solar Envelope")).toBeTruthy();
     expect(
-      screen.getByText("Production Intelligence & Solar Diagnostics (ADR 0032)"),
+      screen.getByText("Production Intelligence & Solar Diagnostics"),
     ).toBeTruthy();
   });
 

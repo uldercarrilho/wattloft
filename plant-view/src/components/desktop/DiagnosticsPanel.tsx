@@ -8,7 +8,7 @@ export function DiagnosticsPanel({ snapshot }: { snapshot: PlantSnapshot }) {
   return (
     <details className="diagnostics-panel" open>
       <summary className="diagnostics-header">
-        <span>Production Intelligence & Solar Diagnostics (ADR 0032)</span>
+        <span>Production Intelligence & Solar Diagnostics</span>
         <span className="diag-toggle-icon" aria-hidden="true">▾</span>
       </summary>
       <div className="diagnostics-body">
