@@ -1,0 +1,1065 @@
+{
+  "total_commits": 135,
+  "authors": [
+    {
+      "name": "Ulder Carrilho Júnior",
+      "email": "uldercarrilho@gmail.com"
+    },
+    {
+      "name": "Ulder Carrilho Júnior",
+      "email": "uldercarrilho@users.noreply.github.com"
+    },
+    {
+      "name": "dependabot[bot]",
+      "email": "49699333+dependabot[bot]@users.noreply.github.com"
+    }
+  ],
+  "findings": {
+    "IPv4": {
+      "10.0.0.0": [
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "--cidr-block 10.0.0.0/16 \\"
+        },
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "--cidr-block 10.0.0.0/24 \\"
+        },
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "{\"direction\":\"INGRESS\",\"protocol\":\"6\",\"source\":\"10.0.0.0/16\",\"sourceType\":\"CIDR_BLOCK\",\"isStateless\":false,\"tcpOptions\":{\"destinationPortRange\":{\"min\":22,\"max\":22}}},"
+        },
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "{\\\"source\\\":\\\"10.0.0.0/24\\\",\\\"protocol\\\":\\\"6\\\",\\\"isStateless\\\":false,\\\"tcpOptions\\\":{\\\"destinationPortRange\\\":{\\\"min\\\":3306,\\\"max\\\":3306}}},"
+        },
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "{\\\"source\\\":\\\"10.0.0.0/24\\\",\\\"protocol\\\":\\\"6\\\",\\\"isStateless\\\":false,\\\"tcpOptions\\\":{\\\"destinationPortRange\\\":{\\\"min\\\":33060,\\\"max\\\":33060}}}"
+        }
+      ],
+      "10.0.1.0": [
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "--cidr-block 10.0.1.0/24 \\"
+        }
+      ]
+    },
+    "OCID": {
+      "ocid1.image.oc1.sa-saopaulo-1.aaaaaaaauynsc4hq5gh2pqes4op5ewmaaambnj6hhqht4b7vrnzu4f34qaca": [
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "IMAGE_A1=\"ocid1.image.oc1.sa-saopaulo-1.aaaaaaaauynsc4hq5gh2pqes4op5ewmaaambnj6hhqht4b7vrnzu4f34qaca\""
+        }
+      ],
+      "ocid1.image.oc1.sa-saopaulo-1.aaaaaaaak3ahcvhqirlkqrf65raspxiegcyqxkiu3cvcv4ha6rwebmnv3bgq": [
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "IMAGE_MICRO=\"ocid1.image.oc1.sa-saopaulo-1.aaaaaaaak3ahcvhqirlkqrf65raspxiegcyqxkiu3cvcv4ha6rwebmnv3bgq\""
+        }
+      ],
+      "ocid1.compartment.oc1.": [
+        {
+          "commit": "eaf0a8d0f7cf3a66a05f54beb445a06571fc77b1",
+          "subject": "chore(oci): add Always Free agent credential wizard",
+          "line": "step \"Create, then click wattloft and Copy the OCID (starts with ocid1.compartment.oc1.).\""
+        }
+      ],
+      "ocid1.compartment.": [
+        {
+          "commit": "eaf0a8d0f7cf3a66a05f54beb445a06571fc77b1",
+          "subject": "chore(oci): add Always Free agent credential wizard",
+          "line": "if [[ \"$OCI_COMPARTMENT_OCID\" != ocid1.compartment.* ]]; then"
+        }
+      ],
+      "ocid1.compartment.oc1....": [
+        {
+          "commit": "eaf0a8d0f7cf3a66a05f54beb445a06571fc77b1",
+          "subject": "chore(oci): add Always Free agent credential wizard",
+          "line": "warn \"That does not look like a compartment OCID (ocid1.compartment.oc1....).\""
+        }
+      ],
+      "ocid1.user.": [
+        {
+          "commit": "eaf0a8d0f7cf3a66a05f54beb445a06571fc77b1",
+          "subject": "chore(oci): add Always Free agent credential wizard",
+          "line": "if [[ \"$OCI_CLI_USER\" != ocid1.user.* || \"$OCI_CLI_TENANCY\" != ocid1.tenancy.* || -z \"$OCI_FINGERPRINT\" ]]; then"
+        }
+      ],
+      "ocid1.tenancy.": [
+        {
+          "commit": "eaf0a8d0f7cf3a66a05f54beb445a06571fc77b1",
+          "subject": "chore(oci): add Always Free agent credential wizard",
+          "line": "if [[ \"$OCI_CLI_USER\" != ocid1.user.* || \"$OCI_CLI_TENANCY\" != ocid1.tenancy.* || -z \"$OCI_FINGERPRINT\" ]]; then"
+        }
+      ],
+      "ocid1.user...": [
+        {
+          "commit": "eaf0a8d0f7cf3a66a05f54beb445a06571fc77b1",
+          "subject": "chore(oci): add Always Free agent credential wizard",
+          "line": "warn \"Need a user OCID (ocid1.user...), a tenancy OCID (ocid1.tenancy...), and a fingerprint.\""
+        }
+      ],
+      "ocid1.tenancy...": [
+        {
+          "commit": "eaf0a8d0f7cf3a66a05f54beb445a06571fc77b1",
+          "subject": "chore(oci): add Always Free agent credential wizard",
+          "line": "warn \"Need a user OCID (ocid1.user...), a tenancy OCID (ocid1.tenancy...), and a fingerprint.\""
+        }
+      ]
+    },
+    "Email": {
+      "operator@wattloft.dedyn.io": [
+        {
+          "commit": "e1b4c5daf605c201482b2b7604e022f96f194b1c",
+          "subject": "feat: live telemetry, zero-polling SSE, and PWA shell (v2.1)",
+          "line": "const vapidSubject = process.env.OPERATOR_VAPID_SUBJECT ?? \"mailto:operator@wattloft.dedyn.io\";"
+        }
+      ]
+    },
+    "PrivateKey": {},
+    "Certificate": {},
+    "deSEC_token": {},
+    "Password_assign": {
+      "PASSWORD,": [
+        {
+          "commit": "4398e0ccd68522095390a89f72e12f359a05888d",
+          "subject": "feat(security): harden repository for public showcase",
+          "line": "operatorPassword: PASSWORD,"
+        },
+        {
+          "commit": "e1b4c5daf605c201482b2b7604e022f96f194b1c",
+          "subject": "feat: live telemetry, zero-polling SSE, and PWA shell (v2.1)",
+          "line": "operatorPassword: PASSWORD,"
+        },
+        {
+          "commit": "e1b4c5daf605c201482b2b7604e022f96f194b1c",
+          "subject": "feat: live telemetry, zero-polling SSE, and PWA shell (v2.1)",
+          "line": "operatorPassword: PASSWORD,"
+        },
+        {
+          "commit": "e1b4c5daf605c201482b2b7604e022f96f194b1c",
+          "subject": "feat: live telemetry, zero-polling SSE, and PWA shell (v2.1)",
+          "line": "operatorPassword: PASSWORD,"
+        },
+        {
+          "commit": "de096771aa03b3d968f459c98c216eb585bb815c",
+          "subject": "feat(plant-view): tell History from Lifetime on a phone",
+          "line": "operatorPassword: PASSWORD,"
+        }
+      ],
+      "wrong": [
+        {
+          "commit": "4398e0ccd68522095390a89f72e12f359a05888d",
+          "subject": "feat(security): harden repository for public showcase",
+          "line": "body: new URLSearchParams({ password: \"wrong\" }),"
+        },
+        {
+          "commit": "4398e0ccd68522095390a89f72e12f359a05888d",
+          "subject": "feat(security): harden repository for public showcase",
+          "line": "body: new URLSearchParams({ password: \"wrong\" }),"
+        }
+      ],
+      "ci-dast-test-token": [
+        {
+          "commit": "e7948f2055fa027212f7144bc1416f580780aaf6",
+          "subject": "ci: add SAST, DAST, SCA, secret scanning and build caching",
+          "line": "-e OPERATOR_PASSWORD=ci-dast-test-token \\"
+        }
+      ],
+      "%s\\n": [
+        {
+          "commit": "61070de2a60281bfb11f17c92d91e14d2e2371f4",
+          "subject": "fix(infra): keep the Operator passkey across Vault writes",
+          "line": "printf 'OPERATOR_PASSWORD=%s\\n' \"$OPERATOR_PASSWORD\""
+        }
+      ],
+      "PASSWORD": [
+        {
+          "commit": "a87c1efff9273a47eeab012254039ac1f369bd83",
+          "subject": "fix(plant-view): grant SPA login without following a 303",
+          "line": "body: new URLSearchParams({ password: PASSWORD }),"
+        },
+        {
+          "commit": "869fd0227450171d72fded191192d0500868a9d8",
+          "subject": "feat(plant-view): add Operator BFF in front of snapshot API",
+          "line": "body: new URLSearchParams({ password: PASSWORD }),"
+        },
+        {
+          "commit": "869fd0227450171d72fded191192d0500868a9d8",
+          "subject": "feat(plant-view): add Operator BFF in front of snapshot API",
+          "line": "body: new URLSearchParams({ password: PASSWORD }),"
+        },
+        {
+          "commit": "869fd0227450171d72fded191192d0500868a9d8",
+          "subject": "feat(plant-view): add Operator BFF in front of snapshot API",
+          "line": "body: new URLSearchParams({ password: PASSWORD }),"
+        },
+        {
+          "commit": "869fd0227450171d72fded191192d0500868a9d8",
+          "subject": "feat(plant-view): add Operator BFF in front of snapshot API",
+          "line": "body: new URLSearchParams({ password: PASSWORD }),"
+        }
+      ],
+      "authenticates": [
+        {
+          "commit": "787da765d78f460328cd69f72eda2f90d1e1ee20",
+          "subject": "feat(plant-view): add passkey login as a Vault WebAuthn factor",
+          "line": "A password authenticates the Operator; a passkey may as well when Vault holds `OPERATOR_PASSKEY_CREDENTIAL`. Plant view is not served over HTTP."
+        },
+        {
+          "commit": "1f030efebf69db7f23af9d9bd18b550fd85d4b4d",
+          "subject": "docs: rewrite README to match the single-process Plant observer",
+          "line": "A password authenticates the Operator. Plant view is not served over HTTP."
+        }
+      ],
+      "Wattloft": [
+        {
+          "commit": "787da765d78f460328cd69f72eda2f90d1e1ee20",
+          "subject": "feat(plant-view): add passkey login as a Vault WebAuthn factor",
+          "line": "Plant view is on the public internet, so a secret URL is not access control. v1 authenticates the one Operator with a password Wattloft stores, and optionally a passkey. Google, Apple, and Cognito are deferred: they are an identity product for one human, not a cheaper login."
+        }
+      ],
+      "form.": [
+        {
+          "commit": "787da765d78f460328cd69f72eda2f90d1e1ee20",
+          "subject": "feat(plant-view): add passkey login as a Vault WebAuthn factor",
+          "line": "The passkey is not an IdP. It is a WebAuthn credential (credential id + public key) injected as `OPERATOR_PASSKEY_CREDENTIAL` from Vault, the same env file as `OPERATOR_PASSWORD`. `POST /login` remains the password form. `POST /login/passkey` verifies an assertion against that public key and sets the same session cookie. There is no Plant view settings page to register a passkey."
+        }
+      ],
+      "correct-horse": [
+        {
+          "commit": "787da765d78f460328cd69f72eda2f90d1e1ee20",
+          "subject": "feat(plant-view): add passkey login as a Vault WebAuthn factor",
+          "line": "const PASSWORD = \"correct-horse\";"
+        },
+        {
+          "commit": "869fd0227450171d72fded191192d0500868a9d8",
+          "subject": "feat(plant-view): add Operator BFF in front of snapshot API",
+          "line": "const PASSWORD = \"correct-horse\";"
+        },
+        {
+          "commit": "02e7d17f809e746393c1d64d3c0ae0a9c2f73541",
+          "subject": "feat(plant-view): let the Operator log in to an empty History Plant view",
+          "line": "OPERATOR_PASSWORD = \"correct-horse\""
+        }
+      ],
+      "string):": [
+        {
+          "commit": "787da765d78f460328cd69f72eda2f90d1e1ee20",
+          "subject": "feat(plant-view): add passkey login as a Vault WebAuthn factor",
+          "line": "export function issuePasskeyChallenge(password: string): { challenge: string; token: string } {"
+        },
+        {
+          "commit": "869fd0227450171d72fded191192d0500868a9d8",
+          "subject": "feat(plant-view): add Operator BFF in front of snapshot API",
+          "line": "function sign(password: string): string {"
+        },
+        {
+          "commit": "869fd0227450171d72fded191192d0500868a9d8",
+          "subject": "feat(plant-view): add Operator BFF in front of snapshot API",
+          "line": "function hasSession(cookieHeader: string | undefined, password: string): boolean {"
+        }
+      ],
+      "string,": [
+        {
+          "commit": "787da765d78f460328cd69f72eda2f90d1e1ee20",
+          "subject": "feat(plant-view): add passkey login as a Vault WebAuthn factor",
+          "line": "export function readPasskeyChallenge(password: string, token: string | null): string | null {"
+        },
+        {
+          "commit": "787da765d78f460328cd69f72eda2f90d1e1ee20",
+          "subject": "feat(plant-view): add passkey login as a Vault WebAuthn factor",
+          "line": "function challengeHmac(password: string, challenge: string, issuedAt: number): string {"
+        },
+        {
+          "commit": "787da765d78f460328cd69f72eda2f90d1e1ee20",
+          "subject": "feat(plant-view): add passkey login as a Vault WebAuthn factor",
+          "line": "function signChallenge(password: string, challenge: string, issuedAt: number): string {"
+        },
+        {
+          "commit": "6555cada58de0aa97d61e916e525d67c90526077",
+          "subject": "fix(plant-view): persist Operator session for 30 idle days",
+          "line": "function sessionHmac(password: string, issuedAt: number): string {"
+        },
+        {
+          "commit": "6555cada58de0aa97d61e916e525d67c90526077",
+          "subject": "fix(plant-view): persist Operator session for 30 idle days",
+          "line": "function sign(password: string, issuedAt: number): string {"
+        }
+      ],
+      "typeof": [
+        {
+          "commit": "aa9079af65c2b3b7aeadc4e3c6cb506b3893e064",
+          "subject": "fix(plant-view): show password error without wiping the form",
+          "line": "password: typeof password === \"string\" ? password : \"\","
+        }
+      ],
+      "string": [
+        {
+          "commit": "aa9079af65c2b3b7aeadc4e3c6cb506b3893e064",
+          "subject": "fix(plant-view): show password error without wiping the form",
+          "line": "password: typeof password === \"string\" ? password : \"\","
+        },
+        {
+          "commit": "869fd0227450171d72fded191192d0500868a9d8",
+          "subject": "feat(plant-view): add Operator BFF in front of snapshot API",
+          "line": "operatorPassword: string;"
+        }
+      ],
+      "not-the-password": [
+        {
+          "commit": "aa9079af65c2b3b7aeadc4e3c6cb506b3893e064",
+          "subject": "fix(plant-view): show password error without wiping the form",
+          "line": "body: new URLSearchParams({ password: \"not-the-password\" }),"
+        },
+        {
+          "commit": "869fd0227450171d72fded191192d0500868a9d8",
+          "subject": "feat(plant-view): add Operator BFF in front of snapshot API",
+          "line": "body: new URLSearchParams({ password: \"not-the-password\" }),"
+        }
+      ],
+      "form": [
+        {
+          "commit": "e19e7553c4c11985ca4a9dcc8980d2c42e59600a",
+          "subject": "feat(plant-view): render v1 Operator surfaces in React",
+          "line": "it(\"shows the password form when the Operator is not authenticated\", async () => {"
+        },
+        {
+          "commit": "5dffc7548bcb15f957167b747c609cb2f3ae2489",
+          "subject": "docs(plant-view): specify split into Node app and Python API",
+          "line": "`GET /` (and other non-API UI paths) always returns the React app **200**. The document is not access-controlled; `/api/plant` is. Unauthenticated Operator sees the password form because the app gets **401** from `/api/plant`."
+        }
+      ],
+      "<input": [
+        {
+          "commit": "e19e7553c4c11985ca4a9dcc8980d2c42e59600a",
+          "subject": "feat(plant-view): render v1 Operator surfaces in React",
+          "line": "Password <input type=\"password\" name=\"password\" required />"
+        },
+        {
+          "commit": "deb84cb9b526f90c2ccef045a62385bf6a10b165",
+          "subject": "feat(plant-view): wear Azulejo and show Last sample as a live relative age",
+          "line": "'<label>Password <input type=\"password\" name=\"password\" required></label>\\n'"
+        },
+        {
+          "commit": "02e7d17f809e746393c1d64d3c0ae0a9c2f73541",
+          "subject": "feat(plant-view): let the Operator log in to an empty History Plant view",
+          "line": "<label>Password <input type=\"password\" name=\"password\" required></label>"
+        }
+      ],
+      "process.env.OPERATOR_PASSWORD": [
+        {
+          "commit": "869fd0227450171d72fded191192d0500868a9d8",
+          "subject": "feat(plant-view): add Operator BFF in front of snapshot API",
+          "line": "const operatorPassword = process.env.OPERATOR_PASSWORD;"
+        }
+      ],
+      "required": [
+        {
+          "commit": "5dffc7548bcb15f957167b747c609cb2f3ae2489",
+          "subject": "docs(plant-view): specify split into Node app and Python API",
+          "line": "export DATABASE_URL=…   # no OPERATOR_PASSWORD required for wattloft"
+        }
+      ],
+      "%s\\nGHCR_PULL_TOKEN=%s\\nGHCR_USERNAME=%s\\nWATTLOFT_HOSTNAME=%s\\n": [
+        {
+          "commit": "fd7178f08d8d189deee6563546febf460c7b8b04",
+          "subject": "fix(oci): stop burning Vault versions on every deploy",
+          "line": "body=$(printf 'DATABASE_URL=%s\\nOPERATOR_PASSWORD=%s\\nGHCR_PULL_TOKEN=%s\\nGHCR_USERNAME=%s\\nWATTLOFT_HOSTNAME=%s\\n' \\"
+        }
+      ],
+      "unquote(parsed.password": [
+        {
+          "commit": "0f7c26e705d0f792c51cdbd0fdcfc9ce02d8e51d",
+          "subject": "refactor(history): split connect, store, and snapshot by reason to change",
+          "line": "password = unquote(parsed.password or \"\")"
+        },
+        {
+          "commit": "50c429f76ccdb5a0635831063c9d8117c3d4a63d",
+          "subject": "feat(history): speak MySQL so HeatWave can store Samples",
+          "line": "password = unquote(parsed.password or \"\")"
+        }
+      ],
+      "password,": [
+        {
+          "commit": "0f7c26e705d0f792c51cdbd0fdcfc9ce02d8e51d",
+          "subject": "refactor(history): split connect, store, and snapshot by reason to change",
+          "line": "password=password,"
+        },
+        {
+          "commit": "50c429f76ccdb5a0635831063c9d8117c3d4a63d",
+          "subject": "feat(history): speak MySQL so HeatWave can store Samples",
+          "line": "password=password,"
+        },
+        {
+          "commit": "50c429f76ccdb5a0635831063c9d8117c3d4a63d",
+          "subject": "feat(history): speak MySQL so HeatWave can store Samples",
+          "line": "password=password,"
+        }
+      ],
+      "yours": [
+        {
+          "commit": "d23b4f0540cbdd6a283f0d946c3889e193b5cbbe",
+          "subject": "chore(desec): add wizard to register the Plant view hostname",
+          "line": "step \"Password: yours; the later agent never needs it. Do not reuse a GitHub/OCI password.\""
+        }
+      ],
+      "true": [
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "lock_passwd: true"
+        }
+      ],
+      "upper,": [
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "# HeatWave admin password: upper, lower, digit, special, 8–32 chars."
+        }
+      ],
+      "$(cat": [
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "MYSQL_PASSWORD=$(cat \"$MYSQL_PASSWORD_FILE\")"
+        },
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "MYSQL_PASSWORD=$(cat \"$MYSQL_PASSWORD_FILE\")"
+        }
+      ],
+      "$(mysql_password)": [
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "MYSQL_PASSWORD=$(mysql_password)"
+        }
+      ],
+      "$MYSQL_PASSWORD": [
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "--admin-password \"$MYSQL_PASSWORD\" \\"
+        }
+      ],
+      "$(operator_password)": [
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "OPERATOR_PASSWORD=$(operator_password)"
+        }
+      ],
+      "$OPERATOR_PASSWORD": [
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "upsert_env OPERATOR_PASSWORD \"$OPERATOR_PASSWORD\""
+        }
+      ],
+      "%s\\nGHCR_PULL_TOKEN=%s\\nGHCR_USERNAME=%s\\nWATTLOFT_HOSTNAME=%s\\nWATTLOFT_IMAGE=%s\\n": [
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "body=$(printf 'DATABASE_URL=%s\\nOPERATOR_PASSWORD=%s\\nGHCR_PULL_TOKEN=%s\\nGHCR_USERNAME=%s\\nWATTLOFT_HOSTNAME=%s\\nWATTLOFT_IMAGE=%s\\n' \\"
+        }
+      ],
+      "str,": [
+        {
+          "commit": "ccb7c0baaa6f663872bd7614ae2f857a3112d0c7",
+          "subject": "feat(ingest): ACK an admitted Logger data frame onto Plant view",
+          "line": "operator_password: str,"
+        },
+        {
+          "commit": "02e7d17f809e746393c1d64d3c0ae0a9c2f73541",
+          "subject": "feat(plant-view): let the Operator log in to an empty History Plant view",
+          "line": "def create_app(operator_password: str, database_url: str) -> Starlette:"
+        }
+      ],
+      "os.environ[": [
+        {
+          "commit": "02e7d17f809e746393c1d64d3c0ae0a9c2f73541",
+          "subject": "feat(plant-view): let the Operator log in to an empty History Plant view",
+          "line": "operator_password = os.environ[\"OPERATOR_PASSWORD\"]"
+        }
+      ]
+    },
+    "Secret_assign": {
+      "Scanning,": [
+        {
+          "commit": "777b3c998153c140361f6394dde131b87c835656",
+          "subject": "chore(github): add contributing guide, codeowners, yaml issue forms, and dependabot auto-merge (#35)",
+          "line": "4. **CI Checks**: Ensure all CI gates pass (Lint & Typecheck, Unit & Integration Tests, SAST, Secret Scanning, SCA Audit)."
+        },
+        {
+          "commit": "23e9aca8cf6f784f12898ab6ed9ba287073a78b4",
+          "subject": "chore(github): add contributing guide, codeowners, yaml issue forms, and dependabot auto-merge",
+          "line": "4. **CI Checks**: Ensure all CI gates pass (Lint & Typecheck, Unit & Integration Tests, SAST, Secret Scanning, SCA Audit)."
+        }
+      ],
+      "Scanning**:": [
+        {
+          "commit": "83cb0603a9302c3dd1a9c41031406248ec661469",
+          "subject": "chore(github): configure workflows concurrency, dependabot, templates, and security policy (#32)",
+          "line": "- **Secret Scanning**: Gitleaks runs on every pull request and push to ensure secrets and private keys are never committed."
+        }
+      ],
+      "Scanning": [
+        {
+          "commit": "e7948f2055fa027212f7144bc1416f580780aaf6",
+          "subject": "ci: add SAST, DAST, SCA, secret scanning and build caching",
+          "line": "name: Secret Scanning (Gitleaks)"
+        }
+      ],
+      "resolution.": [
+        {
+          "commit": "00aee0053a2ef42eb24a0156532db8d9c10bef93",
+          "subject": "docs: add design spec for UI/UX revamp (Azulejo Moderno)",
+          "line": "- Update existing component tests for theme toggle presence and token resolution."
+        }
+      ],
+      "wattloft-env": [
+        {
+          "commit": "61070de2a60281bfb11f17c92d91e14d2e2371f4",
+          "subject": "fix(infra): keep the Operator passkey across Vault writes",
+          "line": "stage \"Write OCI Vault secret wattloft-env\""
+        }
+      ],
+      "signChallenge(password,": [
+        {
+          "commit": "787da765d78f460328cd69f72eda2f90d1e1ee20",
+          "subject": "feat(plant-view): add passkey login as a Vault WebAuthn factor",
+          "line": "return { challenge, token: signChallenge(password, challenge, issuedAt) };"
+        }
+      ],
+      "%s\\nGHCR_USERNAME=%s\\nWATTLOFT_HOSTNAME=%s\\n": [
+        {
+          "commit": "fd7178f08d8d189deee6563546febf460c7b8b04",
+          "subject": "fix(oci): stop burning Vault versions on every deploy",
+          "line": "body=$(printf 'DATABASE_URL=%s\\nOPERATOR_PASSWORD=%s\\nGHCR_PULL_TOKEN=%s\\nGHCR_USERNAME=%s\\nWATTLOFT_HOSTNAME=%s\\n' \\"
+        }
+      ],
+      "${SECRET_NAME}": [
+        {
+          "commit": "fd7178f08d8d189deee6563546febf460c7b8b04",
+          "subject": "fix(oci): stop burning Vault versions on every deploy",
+          "line": "echo \"Vault secret ${SECRET_NAME} unchanged\""
+        },
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "echo \"created Vault secret ${SECRET_NAME}\""
+        },
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "echo \"updated Vault secret ${SECRET_NAME}\""
+        }
+      ],
+      "update-base64": [
+        {
+          "commit": "fd7178f08d8d189deee6563546febf460c7b8b04",
+          "subject": "fix(oci): stop burning Vault versions on every deploy",
+          "line": "if ociq vault secret update-base64 \\"
+        },
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "ociq vault secret update-base64 \\"
+        }
+      ],
+      "${SECRET_NAME}:": [
+        {
+          "commit": "fd7178f08d8d189deee6563546febf460c7b8b04",
+          "subject": "fix(oci): stop burning Vault versions on every deploy",
+          "line": "echo \"Vault secret ${SECRET_NAME}: version limit exceeded after pruning; keeping the existing secret\" >&2"
+        }
+      ],
+      "──────────────────────────────────────────────": [
+        {
+          "commit": "d23b4f0540cbdd6a283f0d946c3889e193b5cbbe",
+          "subject": "chore(desec): add wizard to register the Plant view hostname",
+          "line": "# ── 3. Long-lived API token ──────────────────────────────────────────────"
+        }
+      ],
+      "Management": [
+        {
+          "commit": "d23b4f0540cbdd6a283f0d946c3889e193b5cbbe",
+          "subject": "chore(desec): add wizard to register the Plant view hostname",
+          "line": "step \"If you are not logged in, log in, then open Token Management again.\""
+        }
+      ],
+      "DESEC_TOKEN": [
+        {
+          "commit": "d23b4f0540cbdd6a283f0d946c3889e193b5cbbe",
+          "subject": "chore(desec): add wizard to register the Plant view hostname",
+          "line": "ask_secret DESEC_TOKEN \"Paste the token secret:\""
+        },
+        {
+          "commit": "d23b4f0540cbdd6a283f0d946c3889e193b5cbbe",
+          "subject": "chore(desec): add wizard to register the Plant view hostname",
+          "line": "set_secret DESEC_TOKEN \"$DESEC_TOKEN\""
+        },
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "ask_secret DESEC_TOKEN \"Paste the deSEC token:\""
+        },
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "set_secret DESEC_TOKEN \"$DESEC_TOKEN\""
+        }
+      ],
+      "$DESEC_TOKEN": [
+        {
+          "commit": "d23b4f0540cbdd6a283f0d946c3889e193b5cbbe",
+          "subject": "chore(desec): add wizard to register the Plant view hostname",
+          "line": "write_env DESEC_TOKEN \"$DESEC_TOKEN\""
+        },
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "write_env DESEC_TOKEN \"$DESEC_TOKEN\""
+        }
+      ],
+      "\\`DESEC_TOKEN\\`": [
+        {
+          "commit": "d23b4f0540cbdd6a283f0d946c3889e193b5cbbe",
+          "subject": "chore(desec): add wizard to register the Plant view hostname",
+          "line": "A/AAAA are empty until the reserved public IPv4 exists. GitHub variable \\`WATTLOFT_HOSTNAME\\`; secret \\`DESEC_TOKEN\\` (API token to publish the A record). DNS-only — no CDN proxy."
+        }
+      ],
+      "DESEC_TOKEN.\\n": [
+        {
+          "commit": "d23b4f0540cbdd6a283f0d946c3889e193b5cbbe",
+          "subject": "chore(desec): add wizard to register the Plant view hostname",
+          "line": "printf 'GitHub variable WATTLOFT_HOSTNAME; secret DESEC_TOKEN.\\n'"
+        }
+      ],
+      "-wattloft-env}": [
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "SECRET_NAME=\"${WATTLOFT_VAULT_SECRET:-wattloft-env}\""
+        }
+      ],
+      "${DESEC_TOKEN}": [
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "-H \"Authorization: Token ${DESEC_TOKEN}\" \\"
+        },
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "-H \"Authorization: Token ${DESEC_TOKEN}\" \\"
+        }
+      ],
+      "OPERATOR_PASSWORD.": [
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "echo \"Operator password is in ${ENV_FILE} and the GitHub secret OPERATOR_PASSWORD.\""
+        }
+      ],
+      "${GHCR_PULL_TOKEN:-}": [
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "TOKEN=\"${GHCR_PULL_TOKEN:-}\""
+        }
+      ],
+      "%s\\nGHCR_USERNAME=%s\\nWATTLOFT_HOSTNAME=%s\\nWATTLOFT_IMAGE=%s\\n": [
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "body=$(printf 'DATABASE_URL=%s\\nOPERATOR_PASSWORD=%s\\nGHCR_PULL_TOKEN=%s\\nGHCR_USERNAME=%s\\nWATTLOFT_HOSTNAME=%s\\nWATTLOFT_IMAGE=%s\\n' \\"
+        }
+      ],
+      "create-base64": [
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "ociq vault secret create-base64 \\"
+        }
+      ],
+      "─────────────────────────────────────────────────────────────": [
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "# ── 3. Token ─────────────────────────────────────────────────────────────"
+        }
+      ],
+      "OCI_CLI_USER": [
+        {
+          "commit": "eaf0a8d0f7cf3a66a05f54beb445a06571fc77b1",
+          "subject": "chore(oci): add Always Free agent credential wizard",
+          "line": "set_secret OCI_CLI_USER \"$OCI_CLI_USER\""
+        }
+      ],
+      "OCI_CLI_TENANCY": [
+        {
+          "commit": "eaf0a8d0f7cf3a66a05f54beb445a06571fc77b1",
+          "subject": "chore(oci): add Always Free agent credential wizard",
+          "line": "set_secret OCI_CLI_TENANCY \"$OCI_CLI_TENANCY\""
+        }
+      ],
+      "OCI_CLI_FINGERPRINT": [
+        {
+          "commit": "eaf0a8d0f7cf3a66a05f54beb445a06571fc77b1",
+          "subject": "chore(oci): add Always Free agent credential wizard",
+          "line": "set_secret OCI_CLI_FINGERPRINT \"$OCI_FINGERPRINT\""
+        }
+      ],
+      "OCI_CLI_REGION": [
+        {
+          "commit": "eaf0a8d0f7cf3a66a05f54beb445a06571fc77b1",
+          "subject": "chore(oci): add Always Free agent credential wizard",
+          "line": "set_secret OCI_CLI_REGION \"$REQUIRED_REGION\""
+        }
+      ],
+      "OCI_CLI_KEY_CONTENT": [
+        {
+          "commit": "eaf0a8d0f7cf3a66a05f54beb445a06571fc77b1",
+          "subject": "chore(oci): add Always Free agent credential wizard",
+          "line": "set_secret OCI_CLI_KEY_CONTENT \"$OCI_CLI_KEY_CONTENT\""
+        }
+      ],
+      "first**:": [
+        {
+          "commit": "2c4b99e7b97197d5b4947b53607355403380ec8a",
+          "subject": "chore(agents): vendor Matt Pocock skills and lockfile",
+          "line": "This skill has you show commands, outputs and captured artifacts. **Redact every secret first**: write `<REDACTED>` in its place. Build loops against env vars, so the credential stays in the environment rather than in what you show. Captured artifacts carry auth headers: quote only the lines that carry the signal."
+        }
+      ],
+      "STRIPE_SECRET_KEY": [
+        {
+          "commit": "2c4b99e7b97197d5b4947b53607355403380ec8a",
+          "subject": "chore(agents): vendor Matt Pocock skills and lockfile",
+          "line": "ask_secret STRIPE_SECRET_KEY \"Paste the secret key:\""
+        },
+        {
+          "commit": "2c4b99e7b97197d5b4947b53607355403380ec8a",
+          "subject": "chore(agents): vendor Matt Pocock skills and lockfile",
+          "line": "set_secret STRIPE_SECRET_KEY \"$STRIPE_SECRET_KEY\"   # CI needs this one"
+        }
+      ],
+      "optimisation:": [
+        {
+          "commit": "2c4b99e7b97197d5b4947b53607355403380ec8a",
+          "subject": "chore(agents): vendor Matt Pocock skills and lockfile",
+          "line": "**Progressive disclosure** is the move down the ladder (out of the main file and behind a pointer) so the top stays legible. Not primarily a token optimisation: it is how the hierarchy is protected. Branching is the cleanest disclosure test: inline what every branch needs, and push behind a pointer what only some branches reach. When a document has steps, in-file reference that should be disclosed buries them and turns attending to them into a coin-flip: a variance lever, not just a legibility one."
+        }
+      ]
+    },
+    "Database_url": {
+      "mysql://dummy": [
+        {
+          "commit": "e1b4c5daf605c201482b2b7604e022f96f194b1c",
+          "subject": "feat: live telemetry, zero-polling SSE, and PWA shell (v2.1)",
+          "line": "\"mysql://dummy\","
+        },
+        {
+          "commit": "e1b4c5daf605c201482b2b7604e022f96f194b1c",
+          "subject": "feat: live telemetry, zero-polling SSE, and PWA shell (v2.1)",
+          "line": "\"mysql://dummy\","
+        },
+        {
+          "commit": "e1b4c5daf605c201482b2b7604e022f96f194b1c",
+          "subject": "feat: live telemetry, zero-polling SSE, and PWA shell (v2.1)",
+          "line": "app = create_app(\"mysql://dummy\", ingest_port=0, broadcaster=broadcaster)"
+        }
+      ],
+      "mysql://…": [
+        {
+          "commit": "1f030efebf69db7f23af9d9bd18b550fd85d4b4d",
+          "subject": "docs: rewrite README to match the single-process Plant observer",
+          "line": "export DATABASE_URL=mysql://…"
+        }
+      ],
+      "mysql://wattloftadmin:$(": [
+        {
+          "commit": "400aa76f6d83cb97a83523e4f49e64d7ca95603c",
+          "subject": "feat(oci): keep History off the pet VM on Always Free HeatWave",
+          "line": "DATABASE_URL=\"mysql://wattloftadmin:$("
+        }
+      ],
+      "mysql://wattloft:wattloft@127.0.0.1:1/wattloft?connect_timeout=2": [
+        {
+          "commit": "50c429f76ccdb5a0635831063c9d8117c3d4a63d",
+          "subject": "feat(history): speak MySQL so HeatWave can store Samples",
+          "line": "\"mysql://wattloft:wattloft@127.0.0.1:1/wattloft?connect_timeout=2\""
+        }
+      ]
+    },
+    "Logger_serial": {
+      "1000000001": [
+        {
+          "commit": "4398e0ccd68522095390a89f72e12f359a05888d",
+          "subject": "feat(security): harden repository for public showcase",
+          "line": "{ \"name\": \"1000000001\", \"today_energy_kwh\": 2.1 },"
+        },
+        {
+          "commit": "4398e0ccd68522095390a89f72e12f359a05888d",
+          "subject": "feat(security): harden repository for public showcase",
+          "line": "\"name\": \"1000000001\","
+        },
+        {
+          "commit": "4398e0ccd68522095390a89f72e12f359a05888d",
+          "subject": "feat(security): harden repository for public showcase",
+          "line": "\"name\": \"1000000001\","
+        },
+        {
+          "commit": "4398e0ccd68522095390a89f72e12f359a05888d",
+          "subject": "feat(security): harden repository for public showcase",
+          "line": "\"logger_serial\": \"1000000001\","
+        },
+        {
+          "commit": "4398e0ccd68522095390a89f72e12f359a05888d",
+          "subject": "feat(security): harden repository for public showcase",
+          "line": "name: \"1000000001\","
+        }
+      ],
+      "1000000003": [
+        {
+          "commit": "4398e0ccd68522095390a89f72e12f359a05888d",
+          "subject": "feat(security): harden repository for public showcase",
+          "line": "{ \"name\": \"1000000003\", \"today_energy_kwh\": 1.8 }"
+        },
+        {
+          "commit": "4398e0ccd68522095390a89f72e12f359a05888d",
+          "subject": "feat(security): harden repository for public showcase",
+          "line": "\"name\": \"1000000003\","
+        },
+        {
+          "commit": "4398e0ccd68522095390a89f72e12f359a05888d",
+          "subject": "feat(security): harden repository for public showcase",
+          "line": "{ name: \"1000000003\", today_energy_kwh: 1.8 },"
+        },
+        {
+          "commit": "4398e0ccd68522095390a89f72e12f359a05888d",
+          "subject": "feat(security): harden repository for public showcase",
+          "line": "expect(screen.getByRole(\"button\", { name: \"1000000003\" })).toBeTruthy();"
+        },
+        {
+          "commit": "4398e0ccd68522095390a89f72e12f359a05888d",
+          "subject": "feat(security): harden repository for public showcase",
+          "line": "{ name: \"1000000003\", today_energy_kwh: 1.8 },"
+        }
+      ],
+      "1000000002": [
+        {
+          "commit": "4398e0ccd68522095390a89f72e12f359a05888d",
+          "subject": "feat(security): harden repository for public showcase",
+          "line": "name: \"1000000002\","
+        },
+        {
+          "commit": "4398e0ccd68522095390a89f72e12f359a05888d",
+          "subject": "feat(security): harden repository for public showcase",
+          "line": "name: \"1000000002\","
+        },
+        {
+          "commit": "4398e0ccd68522095390a89f72e12f359a05888d",
+          "subject": "feat(security): harden repository for public showcase",
+          "line": "const loggerB = \"1000000002\";"
+        },
+        {
+          "commit": "4398e0ccd68522095390a89f72e12f359a05888d",
+          "subject": "feat(security): harden repository for public showcase",
+          "line": "{ name: \"1000000002\", display_name: \"West\", today_energy_kwh: 1.9 },"
+        },
+        {
+          "commit": "4398e0ccd68522095390a89f72e12f359a05888d",
+          "subject": "feat(security): harden repository for public showcase",
+          "line": "name: \"1000000002\","
+        }
+      ],
+      "1234567890": [
+        {
+          "commit": "4398e0ccd68522095390a89f72e12f359a05888d",
+          "subject": "feat(security): harden repository for public showcase",
+          "line": "payload[21:31] = b\"1234567890\""
+        },
+        {
+          "commit": "4398e0ccd68522095390a89f72e12f359a05888d",
+          "subject": "feat(security): harden repository for public showcase",
+          "line": "payload[21:31] = b\"1234567890\""
+        }
+      ],
+      "2000000000": [
+        {
+          "commit": "4398e0ccd68522095390a89f72e12f359a05888d",
+          "subject": "feat(security): harden repository for public showcase",
+          "line": "frame = _sample_v5_frame(2000000000)"
+        }
+      ],
+      "3909309465": [
+        {
+          "commit": "a286cc96da7eca6e6acbfa9f952ff3e314b84a1a",
+          "subject": "feat(solar): reduce array balance variance threshold to 5%",
+          "line": "names = {\"3909309465\": \"East\", \"3913630013\": \"West\"}"
+        },
+        {
+          "commit": "a286cc96da7eca6e6acbfa9f952ff3e314b84a1a",
+          "subject": "feat(solar): reduce array balance variance threshold to 5%",
+          "line": "names = {\"3909309465\": \"East\", \"3913630013\": \"West\"}"
+        },
+        {
+          "commit": "a286cc96da7eca6e6acbfa9f952ff3e314b84a1a",
+          "subject": "feat(solar): reduce array balance variance threshold to 5%",
+          "line": "names = {\"3909309465\": \"East\", \"3913630013\": \"West\"}"
+        },
+        {
+          "commit": "3a3b2fdddcad962758b7a50bf09c9b8d69bfeb80",
+          "subject": "feat(plant-view): implement UI/UX revamp (Azulejo Moderno)",
+          "line": "{ name: \"3909309465\", display_name: \"East\", today_energy_kwh: 2.0 },"
+        },
+        {
+          "commit": "3a3b2fdddcad962758b7a50bf09c9b8d69bfeb80",
+          "subject": "feat(plant-view): implement UI/UX revamp (Azulejo Moderno)",
+          "line": "name: \"3909309465\","
+        }
+      ],
+      "3913630013": [
+        {
+          "commit": "a286cc96da7eca6e6acbfa9f952ff3e314b84a1a",
+          "subject": "feat(solar): reduce array balance variance threshold to 5%",
+          "line": "names = {\"3909309465\": \"East\", \"3913630013\": \"West\"}"
+        },
+        {
+          "commit": "a286cc96da7eca6e6acbfa9f952ff3e314b84a1a",
+          "subject": "feat(solar): reduce array balance variance threshold to 5%",
+          "line": "names = {\"3909309465\": \"East\", \"3913630013\": \"West\"}"
+        },
+        {
+          "commit": "a286cc96da7eca6e6acbfa9f952ff3e314b84a1a",
+          "subject": "feat(solar): reduce array balance variance threshold to 5%",
+          "line": "names = {\"3909309465\": \"East\", \"3913630013\": \"West\"}"
+        },
+        {
+          "commit": "35d4fccef4274ed3b9d8a72ac8c8a3562da19f80",
+          "subject": "feat(plant-view): refine decimal digits, chart cursor behavior, and history drilldown",
+          "line": "const loggerB = \"3913630013\";"
+        },
+        {
+          "commit": "3a3b2fdddcad962758b7a50bf09c9b8d69bfeb80",
+          "subject": "feat(plant-view): implement UI/UX revamp (Azulejo Moderno)",
+          "line": "{ name: \"3913630013\", display_name: \"West\", today_energy_kwh: 1.9 },"
+        }
+      ],
+      "0000001267": [
+        {
+          "commit": "221bb6ee8e7bb2b2300b3c234138615562e942ca",
+          "subject": "feat: solar diagnostics and production intelligence (v2.2)",
+          "line": "e = 0.016708634 - t * (0.000042037 + 0.0000001267 * t)"
+        }
+      ],
+      "2301296636": [
+        {
+          "commit": "e1b4c5daf605c201482b2b7604e022f96f194b1c",
+          "subject": "feat: live telemetry, zero-polling SSE, and PWA shell (v2.1)",
+          "line": "payload[21:31] = b\"2301296636\""
+        },
+        {
+          "commit": "ccb7c0baaa6f663872bd7614ae2f857a3112d0c7",
+          "subject": "feat(ingest): ACK an admitted Logger data frame onto Plant view",
+          "line": "payload[21:31] = b\"2301296636\""
+        }
+      ],
+      "1111111111": [
+        {
+          "commit": "e1b4c5daf605c201482b2b7604e022f96f194b1c",
+          "subject": "feat: live telemetry, zero-polling SSE, and PWA shell (v2.1)",
+          "line": "frame = _sample_v5_frame(1111111111)"
+        },
+        {
+          "commit": "a1872ae932c7913fba99d20856f2e48044ecd49b",
+          "subject": "test(ingest): lock Server B honesty at the process seam",
+          "line": "_UNKNOWN_SERIAL = 1111111111"
+        }
+      ],
+      "3909310155": [
+        {
+          "commit": "0b301cacb107fc153795c476d72565406780f026",
+          "subject": "docs(plant-view): spec a mobile glance and chart snaps",
+          "line": "\"name\": \"3909310155\","
+        },
+        {
+          "commit": "5a92df23ead41e554a95ac06cb9205aaaeb1f391",
+          "subject": "feat(plant-view): plot Overlay and Stack through PlantChart",
+          "line": "expect(screen.getByRole(\"button\", { name: \"3909310155\" })).toBeTruthy();"
+        },
+        {
+          "commit": "2bd0a3f1c39022b555f420974f967610168cc920",
+          "subject": "test(plant-view): cover Time Overlay curve-watts chart model",
+          "line": "const loggerB = \"3909310155\";"
+        },
+        {
+          "commit": "0b31883ac13f803ba376a59ef2ece8f097f8afb0",
+          "subject": "feat(plant-view): toggle Loggers across Stack grains",
+          "line": "{ name: \"3909310155\", today_energy_kwh: 1.8 },"
+        },
+        {
+          "commit": "0b31883ac13f803ba376a59ef2ece8f097f8afb0",
+          "subject": "feat(plant-view): toggle Loggers across Stack grains",
+          "line": "fireEvent.click(screen.getByRole(\"button\", { name: \"3909310155\" }));"
+        }
+      ],
+      "9999999999": [
+        {
+          "commit": "39d991ef2dc7f19f972b4e0227048ee5368c754e",
+          "subject": "feat(history): add logger display names and history_start to snapshot",
+          "line": "loggers=(LoggerEnergy(name=\"9999999999\", today_energy_kwh=1.0),),"
+        },
+        {
+          "commit": "39d991ef2dc7f19f972b4e0227048ee5368c754e",
+          "subject": "feat(history): add logger display names and history_start to snapshot",
+          "line": "name=\"9999999999\","
+        },
+        {
+          "commit": "39d991ef2dc7f19f972b4e0227048ee5368c754e",
+          "subject": "feat(history): add logger display names and history_start to snapshot",
+          "line": "assert series[\"name\"] == \"9999999999\""
+        }
+      ]
+    },
+    "Windows_path": {},
+    "Passkey_cred": {
+      "$current": [
+        {
+          "commit": "4398e0ccd68522095390a89f72e12f359a05888d",
+          "subject": "feat(security): harden repository for public showcase",
+          "line": "[[ -z \"$PASSKEY\" ]] && PASSKEY=$(extract_env_key OPERATOR_PASSKEY_CREDENTIAL \"$current\" || true)"
+        },
+        {
+          "commit": "61070de2a60281bfb11f17c92d91e14d2e2371f4",
+          "subject": "fix(infra): keep the Operator passkey across Vault writes",
+          "line": "PASSKEY=$(extract_env_key OPERATOR_PASSKEY_CREDENTIAL \"$current\" || true)"
+        }
+      ],
+      "$OPERATOR_PASSKEY_CREDENTIAL": [
+        {
+          "commit": "61070de2a60281bfb11f17c92d91e14d2e2371f4",
+          "subject": "fix(infra): keep the Operator passkey across Vault writes",
+          "line": "upsert_env OPERATOR_PASSKEY_CREDENTIAL \"$OPERATOR_PASSKEY_CREDENTIAL\""
+        },
+        {
+          "commit": "61070de2a60281bfb11f17c92d91e14d2e2371f4",
+          "subject": "fix(infra): keep the Operator passkey across Vault writes",
+          "line": "write_env OPERATOR_PASSKEY_CREDENTIAL \"$OPERATOR_PASSKEY_CREDENTIAL\""
+        }
+      ]
+    }
+  }
+}

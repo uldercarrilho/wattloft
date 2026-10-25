@@ -1,0 +1,291 @@
+Total commits analyzed: 135
+
+Authors:
+  Ulder Carrilho Júnior <uldercarrilho@gmail.com>
+  Ulder Carrilho Júnior <uldercarrilho@users.noreply.github.com>
+  dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>
+
+================== [IPv4] (2 unique values) ==================
+VALUE: 10.0.0.0
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): --cidr-block 10.0.0.0/16 \
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): --cidr-block 10.0.0.0/24 \
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): {"direction":"INGRESS","protocol":"6","source":"10.0.0.0/16","sourceType":"CIDR_BLOCK","isStateless":false,"tcpOptions":{"destinationPortRange":{"min":22,"max":22}}},
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): {\"source\":\"10.0.0.0/24\",\"protocol\":\"6\",\"isStateless\":false,\"tcpOptions\":{\"destinationPortRange\":{\"min\":3306,\"max\":3306}}},
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): {\"source\":\"10.0.0.0/24\",\"protocol\":\"6\",\"isStateless\":false,\"tcpOptions\":{\"destinationPortRange\":{\"min\":33060,\"max\":33060}}}
+VALUE: 10.0.1.0
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): --cidr-block 10.0.1.0/24 \
+
+================== [OCID] (9 unique values) ==================
+VALUE: ocid1.image.oc1.sa-saopaulo-1.aaaaaaaauynsc4hq5gh2pqes4op5ewmaaambnj6hhqht4b7vrnzu4f34qaca
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): IMAGE_A1="ocid1.image.oc1.sa-saopaulo-1.aaaaaaaauynsc4hq5gh2pqes4op5ewmaaambnj6hhqht4b7vrnzu4f34qaca"
+VALUE: ocid1.image.oc1.sa-saopaulo-1.aaaaaaaak3ahcvhqirlkqrf65raspxiegcyqxkiu3cvcv4ha6rwebmnv3bgq
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): IMAGE_MICRO="ocid1.image.oc1.sa-saopaulo-1.aaaaaaaak3ahcvhqirlkqrf65raspxiegcyqxkiu3cvcv4ha6rwebmnv3bgq"
+VALUE: ocid1.compartment.oc1.
+  Commit eaf0a8d (chore(oci): add Always Free agent credential wizard): step "Create, then click wattloft and Copy the OCID (starts with ocid1.compartment.oc1.)."
+VALUE: ocid1.compartment.
+  Commit eaf0a8d (chore(oci): add Always Free agent credential wizard): if [[ "$OCI_COMPARTMENT_OCID" != ocid1.compartment.* ]]; then
+VALUE: ocid1.compartment.oc1....
+  Commit eaf0a8d (chore(oci): add Always Free agent credential wizard): warn "That does not look like a compartment OCID (ocid1.compartment.oc1....)."
+VALUE: ocid1.user.
+  Commit eaf0a8d (chore(oci): add Always Free agent credential wizard): if [[ "$OCI_CLI_USER" != ocid1.user.* || "$OCI_CLI_TENANCY" != ocid1.tenancy.* || -z "$OCI_FINGERPRINT" ]]; then
+VALUE: ocid1.tenancy.
+  Commit eaf0a8d (chore(oci): add Always Free agent credential wizard): if [[ "$OCI_CLI_USER" != ocid1.user.* || "$OCI_CLI_TENANCY" != ocid1.tenancy.* || -z "$OCI_FINGERPRINT" ]]; then
+VALUE: ocid1.user...
+  Commit eaf0a8d (chore(oci): add Always Free agent credential wizard): warn "Need a user OCID (ocid1.user...), a tenancy OCID (ocid1.tenancy...), and a fingerprint."
+VALUE: ocid1.tenancy...
+  Commit eaf0a8d (chore(oci): add Always Free agent credential wizard): warn "Need a user OCID (ocid1.user...), a tenancy OCID (ocid1.tenancy...), and a fingerprint."
+
+================== [Email] (1 unique values) ==================
+VALUE: operator@wattloft.dedyn.io
+  Commit e1b4c5d (feat: live telemetry, zero-polling SSE, and PWA shell (v2.1)): const vapidSubject = process.env.OPERATOR_VAPID_SUBJECT ?? "mailto:operator@wattloft.dedyn.io";
+
+================== [PrivateKey] (0 unique values) ==================
+
+================== [Certificate] (0 unique values) ==================
+
+================== [deSEC_token] (0 unique values) ==================
+
+================== [Password_assign] (32 unique values) ==================
+VALUE: PASSWORD,
+  Commit 4398e0c (feat(security): harden repository for public showcase): operatorPassword: PASSWORD,
+  Commit e1b4c5d (feat: live telemetry, zero-polling SSE, and PWA shell (v2.1)): operatorPassword: PASSWORD,
+  Commit e1b4c5d (feat: live telemetry, zero-polling SSE, and PWA shell (v2.1)): operatorPassword: PASSWORD,
+  Commit e1b4c5d (feat: live telemetry, zero-polling SSE, and PWA shell (v2.1)): operatorPassword: PASSWORD,
+  Commit de09677 (feat(plant-view): tell History from Lifetime on a phone): operatorPassword: PASSWORD,
+VALUE: wrong
+  Commit 4398e0c (feat(security): harden repository for public showcase): body: new URLSearchParams({ password: "wrong" }),
+  Commit 4398e0c (feat(security): harden repository for public showcase): body: new URLSearchParams({ password: "wrong" }),
+VALUE: ci-dast-test-token
+  Commit e7948f2 (ci: add SAST, DAST, SCA, secret scanning and build caching): -e OPERATOR_PASSWORD=ci-dast-test-token \
+VALUE: %s\n
+  Commit 61070de (fix(infra): keep the Operator passkey across Vault writes): printf 'OPERATOR_PASSWORD=%s\n' "$OPERATOR_PASSWORD"
+VALUE: PASSWORD
+  Commit a87c1ef (fix(plant-view): grant SPA login without following a 303): body: new URLSearchParams({ password: PASSWORD }),
+  Commit 869fd02 (feat(plant-view): add Operator BFF in front of snapshot API): body: new URLSearchParams({ password: PASSWORD }),
+  Commit 869fd02 (feat(plant-view): add Operator BFF in front of snapshot API): body: new URLSearchParams({ password: PASSWORD }),
+  Commit 869fd02 (feat(plant-view): add Operator BFF in front of snapshot API): body: new URLSearchParams({ password: PASSWORD }),
+  Commit 869fd02 (feat(plant-view): add Operator BFF in front of snapshot API): body: new URLSearchParams({ password: PASSWORD }),
+VALUE: authenticates
+  Commit 787da76 (feat(plant-view): add passkey login as a Vault WebAuthn factor): A password authenticates the Operator; a passkey may as well when Vault holds `OPERATOR_PASSKEY_CREDENTIAL`. Plant view is not served over HTTP.
+  Commit 1f030ef (docs: rewrite README to match the single-process Plant observer): A password authenticates the Operator. Plant view is not served over HTTP.
+VALUE: Wattloft
+  Commit 787da76 (feat(plant-view): add passkey login as a Vault WebAuthn factor): Plant view is on the public internet, so a secret URL is not access control. v1 authenticates the one Operator with a password Wattloft stores, and optionally a passkey. Google, Apple, and Cognito are deferred: they are an identity product for one human, not a cheaper login.
+VALUE: form.
+  Commit 787da76 (feat(plant-view): add passkey login as a Vault WebAuthn factor): The passkey is not an IdP. It is a WebAuthn credential (credential id + public key) injected as `OPERATOR_PASSKEY_CREDENTIAL` from Vault, the same env file as `OPERATOR_PASSWORD`. `POST /login` remains the password form. `POST /login/passkey` verifies an assertion against that public key and sets the same session cookie. There is no Plant view settings page to register a passkey.
+VALUE: correct-horse
+  Commit 787da76 (feat(plant-view): add passkey login as a Vault WebAuthn factor): const PASSWORD = "correct-horse";
+  Commit 869fd02 (feat(plant-view): add Operator BFF in front of snapshot API): const PASSWORD = "correct-horse";
+  Commit 02e7d17 (feat(plant-view): let the Operator log in to an empty History Plant view): OPERATOR_PASSWORD = "correct-horse"
+VALUE: string):
+  Commit 787da76 (feat(plant-view): add passkey login as a Vault WebAuthn factor): export function issuePasskeyChallenge(password: string): { challenge: string; token: string } {
+  Commit 869fd02 (feat(plant-view): add Operator BFF in front of snapshot API): function sign(password: string): string {
+  Commit 869fd02 (feat(plant-view): add Operator BFF in front of snapshot API): function hasSession(cookieHeader: string | undefined, password: string): boolean {
+VALUE: string,
+  Commit 787da76 (feat(plant-view): add passkey login as a Vault WebAuthn factor): export function readPasskeyChallenge(password: string, token: string | null): string | null {
+  Commit 787da76 (feat(plant-view): add passkey login as a Vault WebAuthn factor): function challengeHmac(password: string, challenge: string, issuedAt: number): string {
+  Commit 787da76 (feat(plant-view): add passkey login as a Vault WebAuthn factor): function signChallenge(password: string, challenge: string, issuedAt: number): string {
+  Commit 6555cad (fix(plant-view): persist Operator session for 30 idle days): function sessionHmac(password: string, issuedAt: number): string {
+  Commit 6555cad (fix(plant-view): persist Operator session for 30 idle days): function sign(password: string, issuedAt: number): string {
+VALUE: typeof
+  Commit aa9079a (fix(plant-view): show password error without wiping the form): password: typeof password === "string" ? password : "",
+VALUE: string
+  Commit aa9079a (fix(plant-view): show password error without wiping the form): password: typeof password === "string" ? password : "",
+  Commit 869fd02 (feat(plant-view): add Operator BFF in front of snapshot API): operatorPassword: string;
+VALUE: not-the-password
+  Commit aa9079a (fix(plant-view): show password error without wiping the form): body: new URLSearchParams({ password: "not-the-password" }),
+  Commit 869fd02 (feat(plant-view): add Operator BFF in front of snapshot API): body: new URLSearchParams({ password: "not-the-password" }),
+VALUE: form
+  Commit e19e755 (feat(plant-view): render v1 Operator surfaces in React): it("shows the password form when the Operator is not authenticated", async () => {
+  Commit 5dffc75 (docs(plant-view): specify split into Node app and Python API): `GET /` (and other non-API UI paths) always returns the React app **200**. The document is not access-controlled; `/api/plant` is. Unauthenticated Operator sees the password form because the app gets **401** from `/api/plant`.
+VALUE: <input
+  Commit e19e755 (feat(plant-view): render v1 Operator surfaces in React): Password <input type="password" name="password" required />
+  Commit deb84cb (feat(plant-view): wear Azulejo and show Last sample as a live relative age): '<label>Password <input type="password" name="password" required></label>\n'
+  Commit 02e7d17 (feat(plant-view): let the Operator log in to an empty History Plant view): <label>Password <input type="password" name="password" required></label>
+VALUE: process.env.OPERATOR_PASSWORD
+  Commit 869fd02 (feat(plant-view): add Operator BFF in front of snapshot API): const operatorPassword = process.env.OPERATOR_PASSWORD;
+VALUE: required
+  Commit 5dffc75 (docs(plant-view): specify split into Node app and Python API): export DATABASE_URL=…   # no OPERATOR_PASSWORD required for wattloft
+VALUE: %s\nGHCR_PULL_TOKEN=%s\nGHCR_USERNAME=%s\nWATTLOFT_HOSTNAME=%s\n
+  Commit fd7178f (fix(oci): stop burning Vault versions on every deploy): body=$(printf 'DATABASE_URL=%s\nOPERATOR_PASSWORD=%s\nGHCR_PULL_TOKEN=%s\nGHCR_USERNAME=%s\nWATTLOFT_HOSTNAME=%s\n' \
+VALUE: unquote(parsed.password
+  Commit 0f7c26e (refactor(history): split connect, store, and snapshot by reason to change): password = unquote(parsed.password or "")
+  Commit 50c429f (feat(history): speak MySQL so HeatWave can store Samples): password = unquote(parsed.password or "")
+VALUE: password,
+  Commit 0f7c26e (refactor(history): split connect, store, and snapshot by reason to change): password=password,
+  Commit 50c429f (feat(history): speak MySQL so HeatWave can store Samples): password=password,
+  Commit 50c429f (feat(history): speak MySQL so HeatWave can store Samples): password=password,
+VALUE: yours
+  Commit d23b4f0 (chore(desec): add wizard to register the Plant view hostname): step "Password: yours; the later agent never needs it. Do not reuse a GitHub/OCI password."
+VALUE: true
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): lock_passwd: true
+VALUE: upper,
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): # HeatWave admin password: upper, lower, digit, special, 8–32 chars.
+VALUE: $(cat
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): MYSQL_PASSWORD=$(cat "$MYSQL_PASSWORD_FILE")
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): MYSQL_PASSWORD=$(cat "$MYSQL_PASSWORD_FILE")
+VALUE: $(mysql_password)
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): MYSQL_PASSWORD=$(mysql_password)
+VALUE: $MYSQL_PASSWORD
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): --admin-password "$MYSQL_PASSWORD" \
+VALUE: $(operator_password)
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): OPERATOR_PASSWORD=$(operator_password)
+VALUE: $OPERATOR_PASSWORD
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): upsert_env OPERATOR_PASSWORD "$OPERATOR_PASSWORD"
+VALUE: %s\nGHCR_PULL_TOKEN=%s\nGHCR_USERNAME=%s\nWATTLOFT_HOSTNAME=%s\nWATTLOFT_IMAGE=%s\n
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): body=$(printf 'DATABASE_URL=%s\nOPERATOR_PASSWORD=%s\nGHCR_PULL_TOKEN=%s\nGHCR_USERNAME=%s\nWATTLOFT_HOSTNAME=%s\nWATTLOFT_IMAGE=%s\n' \
+VALUE: str,
+  Commit ccb7c0b (feat(ingest): ACK an admitted Logger data frame onto Plant view): operator_password: str,
+  Commit 02e7d17 (feat(plant-view): let the Operator log in to an empty History Plant view): def create_app(operator_password: str, database_url: str) -> Starlette:
+VALUE: os.environ[
+  Commit 02e7d17 (feat(plant-view): let the Operator log in to an empty History Plant view): operator_password = os.environ["OPERATOR_PASSWORD"]
+
+================== [Secret_assign] (31 unique values) ==================
+VALUE: Scanning,
+  Commit 777b3c9 (chore(github): add contributing guide, codeowners, yaml issue forms, and dependabot auto-merge (#35)): 4. **CI Checks**: Ensure all CI gates pass (Lint & Typecheck, Unit & Integration Tests, SAST, Secret Scanning, SCA Audit).
+  Commit 23e9aca (chore(github): add contributing guide, codeowners, yaml issue forms, and dependabot auto-merge): 4. **CI Checks**: Ensure all CI gates pass (Lint & Typecheck, Unit & Integration Tests, SAST, Secret Scanning, SCA Audit).
+VALUE: Scanning**:
+  Commit 83cb060 (chore(github): configure workflows concurrency, dependabot, templates, and security policy (#32)): - **Secret Scanning**: Gitleaks runs on every pull request and push to ensure secrets and private keys are never committed.
+VALUE: Scanning
+  Commit e7948f2 (ci: add SAST, DAST, SCA, secret scanning and build caching): name: Secret Scanning (Gitleaks)
+VALUE: resolution.
+  Commit 00aee00 (docs: add design spec for UI/UX revamp (Azulejo Moderno)): - Update existing component tests for theme toggle presence and token resolution.
+VALUE: wattloft-env
+  Commit 61070de (fix(infra): keep the Operator passkey across Vault writes): stage "Write OCI Vault secret wattloft-env"
+VALUE: signChallenge(password,
+  Commit 787da76 (feat(plant-view): add passkey login as a Vault WebAuthn factor): return { challenge, token: signChallenge(password, challenge, issuedAt) };
+VALUE: %s\nGHCR_USERNAME=%s\nWATTLOFT_HOSTNAME=%s\n
+  Commit fd7178f (fix(oci): stop burning Vault versions on every deploy): body=$(printf 'DATABASE_URL=%s\nOPERATOR_PASSWORD=%s\nGHCR_PULL_TOKEN=%s\nGHCR_USERNAME=%s\nWATTLOFT_HOSTNAME=%s\n' \
+VALUE: ${SECRET_NAME}
+  Commit fd7178f (fix(oci): stop burning Vault versions on every deploy): echo "Vault secret ${SECRET_NAME} unchanged"
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): echo "created Vault secret ${SECRET_NAME}"
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): echo "updated Vault secret ${SECRET_NAME}"
+VALUE: update-base64
+  Commit fd7178f (fix(oci): stop burning Vault versions on every deploy): if ociq vault secret update-base64 \
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): ociq vault secret update-base64 \
+VALUE: ${SECRET_NAME}:
+  Commit fd7178f (fix(oci): stop burning Vault versions on every deploy): echo "Vault secret ${SECRET_NAME}: version limit exceeded after pruning; keeping the existing secret" >&2
+VALUE: ──────────────────────────────────────────────
+  Commit d23b4f0 (chore(desec): add wizard to register the Plant view hostname): # ── 3. Long-lived API token ──────────────────────────────────────────────
+VALUE: Management
+  Commit d23b4f0 (chore(desec): add wizard to register the Plant view hostname): step "If you are not logged in, log in, then open Token Management again."
+VALUE: DESEC_TOKEN
+  Commit d23b4f0 (chore(desec): add wizard to register the Plant view hostname): ask_secret DESEC_TOKEN "Paste the token secret:"
+  Commit d23b4f0 (chore(desec): add wizard to register the Plant view hostname): set_secret DESEC_TOKEN "$DESEC_TOKEN"
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): ask_secret DESEC_TOKEN "Paste the deSEC token:"
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): set_secret DESEC_TOKEN "$DESEC_TOKEN"
+VALUE: $DESEC_TOKEN
+  Commit d23b4f0 (chore(desec): add wizard to register the Plant view hostname): write_env DESEC_TOKEN "$DESEC_TOKEN"
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): write_env DESEC_TOKEN "$DESEC_TOKEN"
+VALUE: \`DESEC_TOKEN\`
+  Commit d23b4f0 (chore(desec): add wizard to register the Plant view hostname): A/AAAA are empty until the reserved public IPv4 exists. GitHub variable \`WATTLOFT_HOSTNAME\`; secret \`DESEC_TOKEN\` (API token to publish the A record). DNS-only — no CDN proxy.
+VALUE: DESEC_TOKEN.\n
+  Commit d23b4f0 (chore(desec): add wizard to register the Plant view hostname): printf 'GitHub variable WATTLOFT_HOSTNAME; secret DESEC_TOKEN.\n'
+VALUE: -wattloft-env}
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): SECRET_NAME="${WATTLOFT_VAULT_SECRET:-wattloft-env}"
+VALUE: ${DESEC_TOKEN}
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): -H "Authorization: Token ${DESEC_TOKEN}" \
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): -H "Authorization: Token ${DESEC_TOKEN}" \
+VALUE: OPERATOR_PASSWORD.
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): echo "Operator password is in ${ENV_FILE} and the GitHub secret OPERATOR_PASSWORD."
+VALUE: ${GHCR_PULL_TOKEN:-}
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): TOKEN="${GHCR_PULL_TOKEN:-}"
+VALUE: %s\nGHCR_USERNAME=%s\nWATTLOFT_HOSTNAME=%s\nWATTLOFT_IMAGE=%s\n
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): body=$(printf 'DATABASE_URL=%s\nOPERATOR_PASSWORD=%s\nGHCR_PULL_TOKEN=%s\nGHCR_USERNAME=%s\nWATTLOFT_HOSTNAME=%s\nWATTLOFT_IMAGE=%s\n' \
+VALUE: create-base64
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): ociq vault secret create-base64 \
+VALUE: ─────────────────────────────────────────────────────────────
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): # ── 3. Token ─────────────────────────────────────────────────────────────
+VALUE: OCI_CLI_USER
+  Commit eaf0a8d (chore(oci): add Always Free agent credential wizard): set_secret OCI_CLI_USER "$OCI_CLI_USER"
+VALUE: OCI_CLI_TENANCY
+  Commit eaf0a8d (chore(oci): add Always Free agent credential wizard): set_secret OCI_CLI_TENANCY "$OCI_CLI_TENANCY"
+VALUE: OCI_CLI_FINGERPRINT
+  Commit eaf0a8d (chore(oci): add Always Free agent credential wizard): set_secret OCI_CLI_FINGERPRINT "$OCI_FINGERPRINT"
+VALUE: OCI_CLI_REGION
+  Commit eaf0a8d (chore(oci): add Always Free agent credential wizard): set_secret OCI_CLI_REGION "$REQUIRED_REGION"
+VALUE: OCI_CLI_KEY_CONTENT
+  Commit eaf0a8d (chore(oci): add Always Free agent credential wizard): set_secret OCI_CLI_KEY_CONTENT "$OCI_CLI_KEY_CONTENT"
+VALUE: first**:
+  Commit 2c4b99e (chore(agents): vendor Matt Pocock skills and lockfile): This skill has you show commands, outputs and captured artifacts. **Redact every secret first**: write `<REDACTED>` in its place. Build loops against env vars, so the credential stays in the environment rather than in what you show. Captured artifacts carry auth headers: quote only the lines that carry the signal.
+VALUE: STRIPE_SECRET_KEY
+  Commit 2c4b99e (chore(agents): vendor Matt Pocock skills and lockfile): ask_secret STRIPE_SECRET_KEY "Paste the secret key:"
+  Commit 2c4b99e (chore(agents): vendor Matt Pocock skills and lockfile): set_secret STRIPE_SECRET_KEY "$STRIPE_SECRET_KEY"   # CI needs this one
+VALUE: optimisation:
+  Commit 2c4b99e (chore(agents): vendor Matt Pocock skills and lockfile): **Progressive disclosure** is the move down the ladder (out of the main file and behind a pointer) so the top stays legible. Not primarily a token optimisation: it is how the hierarchy is protected. Branching is the cleanest disclosure test: inline what every branch needs, and push behind a pointer what only some branches reach. When a document has steps, in-file reference that should be disclosed buries them and turns attending to them into a coin-flip: a variance lever, not just a legibility one.
+
+================== [Database_url] (4 unique values) ==================
+VALUE: mysql://dummy
+  Commit e1b4c5d (feat: live telemetry, zero-polling SSE, and PWA shell (v2.1)): "mysql://dummy",
+  Commit e1b4c5d (feat: live telemetry, zero-polling SSE, and PWA shell (v2.1)): "mysql://dummy",
+  Commit e1b4c5d (feat: live telemetry, zero-polling SSE, and PWA shell (v2.1)): app = create_app("mysql://dummy", ingest_port=0, broadcaster=broadcaster)
+VALUE: mysql://…
+  Commit 1f030ef (docs: rewrite README to match the single-process Plant observer): export DATABASE_URL=mysql://…
+VALUE: mysql://wattloftadmin:$(
+  Commit 400aa76 (feat(oci): keep History off the pet VM on Always Free HeatWave): DATABASE_URL="mysql://wattloftadmin:$(
+VALUE: mysql://wattloft:wattloft@127.0.0.1:1/wattloft?connect_timeout=2
+  Commit 50c429f (feat(history): speak MySQL so HeatWave can store Samples): "mysql://wattloft:wattloft@127.0.0.1:1/wattloft?connect_timeout=2"
+
+================== [Logger_serial] (12 unique values) ==================
+VALUE: 1000000001
+  Commit 4398e0c (feat(security): harden repository for public showcase): { "name": "1000000001", "today_energy_kwh": 2.1 },
+  Commit 4398e0c (feat(security): harden repository for public showcase): "name": "1000000001",
+  Commit 4398e0c (feat(security): harden repository for public showcase): "name": "1000000001",
+  Commit 4398e0c (feat(security): harden repository for public showcase): "logger_serial": "1000000001",
+  Commit 4398e0c (feat(security): harden repository for public showcase): name: "1000000001",
+VALUE: 1000000003
+  Commit 4398e0c (feat(security): harden repository for public showcase): { "name": "1000000003", "today_energy_kwh": 1.8 }
+  Commit 4398e0c (feat(security): harden repository for public showcase): "name": "1000000003",
+  Commit 4398e0c (feat(security): harden repository for public showcase): { name: "1000000003", today_energy_kwh: 1.8 },
+  Commit 4398e0c (feat(security): harden repository for public showcase): expect(screen.getByRole("button", { name: "1000000003" })).toBeTruthy();
+  Commit 4398e0c (feat(security): harden repository for public showcase): { name: "1000000003", today_energy_kwh: 1.8 },
+VALUE: 1000000002
+  Commit 4398e0c (feat(security): harden repository for public showcase): name: "1000000002",
+  Commit 4398e0c (feat(security): harden repository for public showcase): name: "1000000002",
+  Commit 4398e0c (feat(security): harden repository for public showcase): const loggerB = "1000000002";
+  Commit 4398e0c (feat(security): harden repository for public showcase): { name: "1000000002", display_name: "West", today_energy_kwh: 1.9 },
+  Commit 4398e0c (feat(security): harden repository for public showcase): name: "1000000002",
+VALUE: 1234567890
+  Commit 4398e0c (feat(security): harden repository for public showcase): payload[21:31] = b"1234567890"
+  Commit 4398e0c (feat(security): harden repository for public showcase): payload[21:31] = b"1234567890"
+VALUE: 2000000000
+  Commit 4398e0c (feat(security): harden repository for public showcase): frame = _sample_v5_frame(2000000000)
+VALUE: 3909309465
+  Commit a286cc9 (feat(solar): reduce array balance variance threshold to 5%): names = {"3909309465": "East", "3913630013": "West"}
+  Commit a286cc9 (feat(solar): reduce array balance variance threshold to 5%): names = {"3909309465": "East", "3913630013": "West"}
+  Commit a286cc9 (feat(solar): reduce array balance variance threshold to 5%): names = {"3909309465": "East", "3913630013": "West"}
+  Commit 3a3b2fd (feat(plant-view): implement UI/UX revamp (Azulejo Moderno)): { name: "3909309465", display_name: "East", today_energy_kwh: 2.0 },
+  Commit 3a3b2fd (feat(plant-view): implement UI/UX revamp (Azulejo Moderno)): name: "3909309465",
+VALUE: 3913630013
+  Commit a286cc9 (feat(solar): reduce array balance variance threshold to 5%): names = {"3909309465": "East", "3913630013": "West"}
+  Commit a286cc9 (feat(solar): reduce array balance variance threshold to 5%): names = {"3909309465": "East", "3913630013": "West"}
+  Commit a286cc9 (feat(solar): reduce array balance variance threshold to 5%): names = {"3909309465": "East", "3913630013": "West"}
+  Commit 35d4fcc (feat(plant-view): refine decimal digits, chart cursor behavior, and history drilldown): const loggerB = "3913630013";
+  Commit 3a3b2fd (feat(plant-view): implement UI/UX revamp (Azulejo Moderno)): { name: "3913630013", display_name: "West", today_energy_kwh: 1.9 },
+VALUE: 0000001267
+  Commit 221bb6e (feat: solar diagnostics and production intelligence (v2.2)): e = 0.016708634 - t * (0.000042037 + 0.0000001267 * t)
+VALUE: 2301296636
+  Commit e1b4c5d (feat: live telemetry, zero-polling SSE, and PWA shell (v2.1)): payload[21:31] = b"2301296636"
+  Commit ccb7c0b (feat(ingest): ACK an admitted Logger data frame onto Plant view): payload[21:31] = b"2301296636"
+VALUE: 1111111111
+  Commit e1b4c5d (feat: live telemetry, zero-polling SSE, and PWA shell (v2.1)): frame = _sample_v5_frame(1111111111)
+  Commit a1872ae (test(ingest): lock Server B honesty at the process seam): _UNKNOWN_SERIAL = 1111111111
+VALUE: 3909310155
+  Commit 0b301ca (docs(plant-view): spec a mobile glance and chart snaps): "name": "3909310155",
+  Commit 5a92df2 (feat(plant-view): plot Overlay and Stack through PlantChart): expect(screen.getByRole("button", { name: "3909310155" })).toBeTruthy();
+  Commit 2bd0a3f (test(plant-view): cover Time Overlay curve-watts chart model): const loggerB = "3909310155";
+  Commit 0b31883 (feat(plant-view): toggle Loggers across Stack grains): { name: "3909310155", today_energy_kwh: 1.8 },
+  Commit 0b31883 (feat(plant-view): toggle Loggers across Stack grains): fireEvent.click(screen.getByRole("button", { name: "3909310155" }));
+VALUE: 9999999999
+  Commit 39d991e (feat(history): add logger display names and history_start to snapshot): loggers=(LoggerEnergy(name="9999999999", today_energy_kwh=1.0),),
+  Commit 39d991e (feat(history): add logger display names and history_start to snapshot): name="9999999999",
+  Commit 39d991e (feat(history): add logger display names and history_start to snapshot): assert series["name"] == "9999999999"
+
+================== [Windows_path] (0 unique values) ==================
+
+================== [Passkey_cred] (2 unique values) ==================
+VALUE: $current
+  Commit 4398e0c (feat(security): harden repository for public showcase): [[ -z "$PASSKEY" ]] && PASSKEY=$(extract_env_key OPERATOR_PASSKEY_CREDENTIAL "$current" || true)
+  Commit 61070de (fix(infra): keep the Operator passkey across Vault writes): PASSKEY=$(extract_env_key OPERATOR_PASSKEY_CREDENTIAL "$current" || true)
+VALUE: $OPERATOR_PASSKEY_CREDENTIAL
+  Commit 61070de (fix(infra): keep the Operator passkey across Vault writes): upsert_env OPERATOR_PASSKEY_CREDENTIAL "$OPERATOR_PASSKEY_CREDENTIAL"
+  Commit 61070de (fix(infra): keep the Operator passkey across Vault writes): write_env OPERATOR_PASSKEY_CREDENTIAL "$OPERATOR_PASSKEY_CREDENTIAL"
