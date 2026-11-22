@@ -25,7 +25,7 @@ env:
 
 jobs:
   test:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-24.04' }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -52,7 +52,7 @@ jobs:
 
   image:
     needs: test
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-24.04' }}
     steps:
       - uses: actions/checkout@v7
       - uses: docker/setup-qemu-action@v4
@@ -86,7 +86,7 @@ jobs:
   trivy-scan:
     name: Container Security (Trivy)
     needs: image
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-24.04' }}
     steps:
       - uses: actions/checkout@v7
       - uses: docker/login-action@v4
@@ -100,7 +100,7 @@ jobs:
           docker pull ${{ env.PLANT_VIEW_IMAGE_NAME }}:${{ github.sha }}
       - name: Scan Wattloft image for CVEs
         run: |
-          mkdir -p trivy-reports
+          rm -rf trivy-reports && mkdir -p trivy-reports
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
             -v "$(pwd)/trivy-reports:/reports" \
             ghcr.io/aquasecurity/trivy:latest image \
@@ -127,11 +127,12 @@ jobs:
         with:
           name: trivy-reports
           path: trivy-reports/
+          retention-days: 3
 
   dast:
     name: Ephemeral DAST (OWASP ZAP)
     needs: image
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-24.04' }}
     steps:
       - uses: actions/checkout@v7
       - uses: docker/login-action@v4
@@ -142,6 +143,7 @@ jobs:
       - name: Start Ephemeral App Container
         run: |
           docker pull ${{ env.PLANT_VIEW_IMAGE_NAME }}:${{ github.sha }}
+          docker rm -f plant-view-dast || true
           docker run -d --name plant-view-dast \
             --network host \
             -e OPERATOR_PASSWORD=ci-dast-test-token \
@@ -161,7 +163,7 @@ jobs:
           done
       - name: Run OWASP ZAP Baseline Scan
         run: |
-          mkdir -p zap-report
+          rm -rf zap-report && mkdir -p zap-report
           chmod 777 zap-report
           docker run --rm --network host \
             -v "$(pwd)/zap-report:/zap/wrk/:rw" \
@@ -179,10 +181,11 @@ jobs:
         with:
           name: zap-dast-report
           path: zap-report/
+          retention-days: 3
 
   deploy:
     needs: [trivy-scan, dast]
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-24.04' }}
     environment:
       name: production
       url: https://wattloft.dedyn.io

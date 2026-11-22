@@ -16,7 +16,7 @@ permissions:
 jobs:
   lint-and-typecheck:
     name: Lint & Typecheck
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-24.04' }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -42,7 +42,7 @@ jobs:
 
   tests:
     name: Unit & Integration Tests
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-24.04' }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -67,7 +67,7 @@ jobs:
 
   sast:
     name: SAST (Semgrep & Bandit)
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-24.04' }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -76,7 +76,7 @@ jobs:
       - name: Python Bandit SAST
         run: |
           pip install bandit
-          mkdir -p sast-reports
+          rm -rf sast-reports && mkdir -p sast-reports
           bandit -r src/ -s B104 -f txt -o sast-reports/bandit.txt
           cat sast-reports/bandit.txt
       - name: Polyglot Semgrep SAST
@@ -89,10 +89,11 @@ jobs:
         with:
           name: sast-reports
           path: sast-reports/
+          retention-days: 3
 
   secret-scanning:
     name: Secret Scanning (Gitleaks)
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-24.04' }}
     permissions:
       contents: read
       pull-requests: read
@@ -106,7 +107,7 @@ jobs:
 
   sca-audit:
     name: Dependency Vulnerability Audit (SCA)
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-24.04' }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
